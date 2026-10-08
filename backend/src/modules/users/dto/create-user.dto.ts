@@ -19,7 +19,7 @@ export class CreateUserDto {
   @ApiProperty({ description: 'Mật khẩu', example: 'MatKhau123' })
   @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
   @IsString()
-  @Length(6, 100, { message: 'Mật khẩu phải từ 6 đến 100 ký tự' })
+  @Length(8, 100, { message: 'Mật khẩu phải từ 8 đến 100 ký tự' })
   password: string;
 
   @ApiProperty({ description: 'Họ và tên', example: 'Nguyễn Văn A' })

@@ -76,7 +76,7 @@ export function ChangePasswordModal() {
           label="Mật khẩu mới"
           rules={[
             { required: true, message: 'Nhập mật khẩu mới' },
-            { min: 6, message: 'Mật khẩu mới phải có ít nhất 6 ký tự' },
+            { min: 8, message: 'Mật khẩu mới phải có ít nhất 8 ký tự' },
           ]}
         >
           <Input.Password autoComplete="new-password" className="shadow-3d-sm" />

@@ -14,16 +14,19 @@ async function bootstrap() {
     }),
   );
 
-  const swaggerConfig = new DocumentBuilder()
-    .setTitle('Quản Lý Nội Bộ API')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  SwaggerModule.setup(
-    'docs',
-    app,
-    SwaggerModule.createDocument(app, swaggerConfig),
-  );
+  // Swagger lộ toàn bộ cấu trúc API: ở production chỉ bật khi đặt ENABLE_DOCS=true
+  if (process.env.NODE_ENV !== 'production' || process.env.ENABLE_DOCS === 'true') {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Quản Lý Nội Bộ API')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    SwaggerModule.setup(
+      'docs',
+      app,
+      SwaggerModule.createDocument(app, swaggerConfig),
+    );
+  }
 
   await app.listen(process.env.PORT ?? 3000);
 }

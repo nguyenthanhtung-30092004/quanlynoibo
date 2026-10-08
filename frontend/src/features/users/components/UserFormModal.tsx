@@ -150,7 +150,7 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
             tooltip={isEdit ? 'Để trống nếu không đổi. Đổi mật khẩu sẽ đăng xuất tài khoản này khỏi các thiết bị.' : undefined}
             rules={[
               { required: !isEdit, message: 'Nhập mật khẩu' },
-              { min: 6, max: 100, message: 'Mật khẩu phải từ 6 đến 100 ký tự' },
+              { min: 8, max: 100, message: 'Mật khẩu phải từ 8 đến 100 ký tự' },
             ]}
           >
             <Input.Password autoComplete="new-password" className="shadow-3d-sm" />
