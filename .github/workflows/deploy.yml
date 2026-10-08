@@ -1,0 +1,118 @@
+name: Test, build and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Push mới tới khi đang deploy thì xếp hàng, không chạy chồng nhau
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io/nguyenthanhtung-30092004
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    defaults:
+      run:
+        working-directory: ${{ matrix.service }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: ${{ matrix.service }}/package-lock.json
+      - run: npm ci
+      - run: npm test
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.service }}
+          push: true
+          tags: ${{ env.REGISTRY }}/quanlynoibo-${{ matrix.service }}:latest
+          labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      SERVER_HOST: ${{ secrets.SERVER_HOST }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Kiểm tra đã cấu hình secrets chưa
+        id: cfg
+        env:
+          KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HOSTKEY: ${{ secrets.SERVER_HOST_KEY }}
+        run: |
+          if [ -n "$SERVER_HOST" ] && [ -n "$SERVER_USER" ] && [ -n "$KEY" ] && [ -n "$HOSTKEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Chưa đủ secrets (SERVER_HOST, SERVER_USER, SERVER_SSH_KEY, SERVER_HOST_KEY), bỏ qua bước deploy."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Chuẩn bị SSH
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          KEY: ${{ secrets.SERVER_SSH_KEY }}
+          HOSTKEY: ${{ secrets.SERVER_HOST_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          printf '%s\n' "$HOSTKEY" > ~/.ssh/known_hosts
+
+      - name: Đồng bộ file cấu hình (compose, nginx, scripts)
+        if: steps.cfg.outputs.ready == 'true'
+        run: |
+          rsync -az -e "ssh -i ~/.ssh/id_deploy" \
+            docker-compose.yml nginx scripts \
+            "$SERVER_USER@$SERVER_HOST:~/quanlynoibo/"
+
+      - name: Kéo image mới và khởi động lại
+        if: steps.cfg.outputs.ready == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_USER: ${{ github.actor }}
+        run: |
+          printf '%s' "$GH_TOKEN" | ssh -i ~/.ssh/id_deploy "$SERVER_USER@$SERVER_HOST" \
+            "docker login ghcr.io -u '$GH_USER' --password-stdin"
+          ssh -i ~/.ssh/id_deploy "$SERVER_USER@$SERVER_HOST" '
+            set -e
+            cd ~/quanlynoibo
+            docker compose pull backend frontend
+            docker compose up -d
+            docker logout ghcr.io
+            docker image prune -f
+            docker compose ps
+          '

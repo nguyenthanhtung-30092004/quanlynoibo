@@ -15,6 +15,7 @@ services:
       retries: 10
 
   backend:
+    image: ghcr.io/nguyenthanhtung-30092004/quanlynoibo-backend:latest
     build: ./backend
     restart: unless-stopped
     env_file: ./backend/.env
@@ -31,6 +32,7 @@ services:
         condition: service_healthy
 
   frontend:
+    image: ghcr.io/nguyenthanhtung-30092004/quanlynoibo-frontend:latest
     build: ./frontend
     restart: unless-stopped
     environment:
