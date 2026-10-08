@@ -1,14 +1,17 @@
-name: Test, build and deploy
+name: Test and build
+
+# Workflow chỉ test và build image rồi đẩy lên GHCR.
+# Server tự kéo bản mới mỗi phút bằng scripts/deploy-pull.sh (xem file đó),
+# nên không cần SSH từ GitHub vào server.
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
-# Push mới tới khi đang deploy thì xếp hàng, không chạy chồng nhau
 concurrency:
-  group: deploy
-  cancel-in-progress: false
+  group: build
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -58,66 +61,3 @@ jobs:
           labels: org.opencontainers.image.source=https://github.com/${{ github.repository }}
           cache-from: type=gha,scope=${{ matrix.service }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    env:
-      SERVER_HOST: ${{ secrets.SERVER_HOST }}
-      SERVER_USER: ${{ secrets.SERVER_USER }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Kiểm tra đã cấu hình secrets chưa
-        id: cfg
-        env:
-          KEY: ${{ secrets.SERVER_SSH_KEY }}
-          HOSTKEY: ${{ secrets.SERVER_HOST_KEY }}
-        run: |
-          missing=""
-          [ -n "$SERVER_HOST" ] || missing="$missing SERVER_HOST"
-          [ -n "$SERVER_USER" ] || missing="$missing SERVER_USER"
-          [ -n "$KEY" ] || missing="$missing SERVER_SSH_KEY"
-          [ -n "$HOSTKEY" ] || missing="$missing SERVER_HOST_KEY"
-          if [ -z "$missing" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::warning::Thiếu hoặc trống các Repository secrets:$missing. Bỏ qua bước deploy."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Chuẩn bị SSH
-        if: steps.cfg.outputs.ready == 'true'
-        env:
-          KEY: ${{ secrets.SERVER_SSH_KEY }}
-          HOSTKEY: ${{ secrets.SERVER_HOST_KEY }}
-        run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$KEY" > ~/.ssh/id_deploy
-          chmod 600 ~/.ssh/id_deploy
-          printf '%s\n' "$HOSTKEY" > ~/.ssh/known_hosts
-
-      - name: Đồng bộ file cấu hình (compose, nginx, scripts)
-        if: steps.cfg.outputs.ready == 'true'
-        run: |
-          rsync -az -e "ssh -i ~/.ssh/id_deploy" \
-            docker-compose.yml nginx scripts \
-            "$SERVER_USER@$SERVER_HOST:~/quanlynoibo/"
-
-      - name: Kéo image mới và khởi động lại
-        if: steps.cfg.outputs.ready == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_USER: ${{ github.actor }}
-        run: |
-          printf '%s' "$GH_TOKEN" | ssh -i ~/.ssh/id_deploy "$SERVER_USER@$SERVER_HOST" \
-            "docker login ghcr.io -u '$GH_USER' --password-stdin"
-          ssh -i ~/.ssh/id_deploy "$SERVER_USER@$SERVER_HOST" '
-            set -e
-            cd ~/quanlynoibo
-            docker compose pull backend frontend
-            docker compose up -d
-            docker logout ghcr.io
-            docker image prune -f
-            docker compose ps
-          '
