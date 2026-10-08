@@ -19,5 +19,5 @@ export default registerAs<AuthConfig>('auth', () => ({
   jwtSecret: required('JWT_SECRET'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
   jwtRefreshSecret: required('JWT_REFRESH_SECRET'),
-  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+  jwtRefreshExpiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '12h',
 }));

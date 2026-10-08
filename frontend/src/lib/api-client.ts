@@ -51,12 +51,15 @@ async function readError(res: Response): Promise<ApiError> {
   return new ApiError(res.status, message);
 }
 
-/** Phiên hết hạn (proxy đã xóa cookie): đưa người dùng về trang đăng nhập (trừ khi đang xem /xvip) */
+/**
+ * Phiên hết hạn: proxy đã thử làm mới bằng refresh token mà không được (hết hạn
+ * hoặc bị thu hồi) và đã xóa cookie, nên đăng xuất và đưa về trang đăng nhập.
+ */
 function handleUnauthorized(path: string) {
   if (
     typeof window !== 'undefined' &&
     path !== 'auth/login' &&
-    !window.location.pathname.startsWith('/xvip')
+    window.location.pathname !== '/login'
   ) {
     window.location.assign('/login');
   }

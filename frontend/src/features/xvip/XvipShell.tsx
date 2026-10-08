@@ -12,6 +12,7 @@ import {
   Handshake,
   List,
   MapPin,
+  SignOut,
   SquaresFour,
   Ticket,
   UserCircle,
@@ -19,6 +20,7 @@ import {
   type Icon,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
+import { useCurrentUser, useLogout } from '@/features/auth/hooks';
 import { ThemeProvider, ThemeToggle } from './theme';
 import { SoundProvider, SoundToggle } from './sound';
 
@@ -38,6 +40,17 @@ const NAV: NavItem[] = [
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear },
 ];
+
+const ROLE_LABEL = { ADMIN: 'Quản trị viên', STAFF: 'Nhân viên' } as const;
+
+/** "Nguyễn Văn A" -> "NA" (chữ đầu của họ và của tên) */
+function initialsOf(fullName: string) {
+  const words = fullName.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  const first = words[0].charAt(0);
+  const last = words.length > 1 ? words[words.length - 1].charAt(0) : '';
+  return (first + last).toLocaleUpperCase('vi');
+}
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
@@ -107,6 +120,8 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export function XvipShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
+  const { data: me } = useCurrentUser();
+  const logout = useLogout();
 
   return (
     <ThemeProvider>
@@ -178,13 +193,29 @@ export function XvipShell({ children }: { children: ReactNode }) {
               {/* User block with 3D avatar */}
               <div className="flex items-center gap-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/80 p-1.5 pr-3 shadow-[inset_0_1px_0_#fff,0_2px_0_#cbd5e1] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_2px_0_#0f172a] border border-slate-200 dark:border-slate-700">
                 <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-blue-500 to-blue-700 text-xs font-black text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.4),0_2px_0_#1d4ed8]">
-                  AD
+                  {me ? initialsOf(me.fullName) : '…'}
                 </span>
                 <div className="hidden leading-tight sm:block text-left">
-                  <span className="block text-xs font-bold text-slate-800 dark:text-white">Quản trị viên</span>
-                  <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">Toàn quyền hệ thống</span>
+                  <span className="block max-w-40 truncate text-xs font-bold text-slate-800 dark:text-white">
+                    {me?.fullName ?? 'Đang tải...'}
+                  </span>
+                  <span className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                    {me ? ROLE_LABEL[me.role] : ''}
+                  </span>
                 </div>
               </div>
+
+              <button
+                type="button"
+                onClick={() => logout.mutate()}
+                disabled={logout.isPending}
+                aria-label="Đăng xuất"
+                title="Đăng xuất"
+                className="btn-3d-mini flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-xs font-bold text-rose-600 disabled:opacity-60 dark:text-rose-400"
+              >
+                <SignOut size={18} weight="bold" aria-hidden />
+                <span className="hidden md:inline">Đăng xuất</span>
+              </button>
             </div>
           </header>
 

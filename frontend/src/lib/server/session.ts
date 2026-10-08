@@ -49,7 +49,7 @@ export function setSessionCookies(response: NextResponse, tokens: Tokens) {
   });
   response.cookies.set(REFRESH_COOKIE, tokens.refreshToken, {
     ...baseOptions,
-    maxAge: maxAgeFor(tokens.refreshToken, 7 * 24 * 3600),
+    maxAge: maxAgeFor(tokens.refreshToken, 12 * 3600),
   });
 }
 
