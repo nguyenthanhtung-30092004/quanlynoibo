@@ -74,10 +74,15 @@ jobs:
           KEY: ${{ secrets.SERVER_SSH_KEY }}
           HOSTKEY: ${{ secrets.SERVER_HOST_KEY }}
         run: |
-          if [ -n "$SERVER_HOST" ] && [ -n "$SERVER_USER" ] && [ -n "$KEY" ] && [ -n "$HOSTKEY" ]; then
+          missing=""
+          [ -n "$SERVER_HOST" ] || missing="$missing SERVER_HOST"
+          [ -n "$SERVER_USER" ] || missing="$missing SERVER_USER"
+          [ -n "$KEY" ] || missing="$missing SERVER_SSH_KEY"
+          [ -n "$HOSTKEY" ] || missing="$missing SERVER_HOST_KEY"
+          if [ -z "$missing" ]; then
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::warning::Chưa đủ secrets (SERVER_HOST, SERVER_USER, SERVER_SSH_KEY, SERVER_HOST_KEY), bỏ qua bước deploy."
+            echo "::warning::Thiếu hoặc trống các Repository secrets:$missing. Bỏ qua bước deploy."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           fi
 
