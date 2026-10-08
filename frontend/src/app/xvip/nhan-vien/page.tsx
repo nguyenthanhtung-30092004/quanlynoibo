@@ -14,6 +14,7 @@ import {
   UsersThree,
 } from '@phosphor-icons/react';
 import type { User, UserRole } from '@/features/auth/types';
+import { useCurrentUser } from '@/features/auth/hooks';
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/features/users/hooks';
 import { Avatar, Card, PageTitle, StatusBadge, TD, TH } from '@/features/xvip/ui';
 import { useSound } from '@/features/xvip/sound';
@@ -52,7 +53,22 @@ const EMPTY_DRAFT: UserDraft = {
   isActive: true,
 };
 
+/** Chỉ Admin được vào; nhân viên gõ thẳng địa chỉ cũng không xem được (API cũng chặn) */
 export default function UsersPage() {
+  const { data: me, isLoading } = useCurrentUser();
+  if (isLoading) return null;
+  if (me?.role !== 'ADMIN') {
+    return (
+      <div className="mx-auto mt-16 max-w-md rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <p className="text-lg font-bold text-slate-800 dark:text-white">Bạn không có quyền xem trang này</p>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">Chỉ quản trị viên được quản lý nhân viên.</p>
+      </div>
+    );
+  }
+  return <UsersPageContent />;
+}
+
+function UsersPageContent() {
   const [page] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'STAFF'>('all');

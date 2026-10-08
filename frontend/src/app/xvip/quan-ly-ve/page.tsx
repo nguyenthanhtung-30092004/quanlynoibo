@@ -535,6 +535,7 @@ export default function TicketManagementPage() {
                       )}
                     </td>
                     <td className={`${TD} text-center`}>
+                      {isAdmin ? (
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
@@ -553,6 +554,9 @@ export default function TicketManagementPage() {
                           <Trash size={16} weight="bold" />
                         </button>
                       </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -17,6 +17,8 @@ import {
   CurrentUser,
   type JwtPayload,
 } from '../auth/decorators/current-user.decorator.js';
+import { Roles } from '../auth/decorators/roles.decorator.js';
+import { UserRole } from '../users/entities/user.entity.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import {
   KpiQueryDto,
@@ -100,7 +102,9 @@ export class OrdersController {
     };
   }
 
+  /** Chỉ Admin được sửa đơn; nhân viên chỉ tạo và xem đơn của mình */
   @Patch(':id')
+  @Roles(UserRole.ADMIN)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderDto,
@@ -113,7 +117,9 @@ export class OrdersController {
     };
   }
 
+  /** Chỉ Admin được xóa đơn */
   @Delete(':id')
+  @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async remove(
     @Param('id', ParseIntPipe) id: number,

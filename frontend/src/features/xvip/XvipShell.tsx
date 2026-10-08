@@ -28,6 +28,8 @@ interface NavItem {
   href: string;
   label: string;
   icon: Icon;
+  /** Chỉ Admin thấy mục này */
+  adminOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -35,7 +37,7 @@ const NAV: NavItem[] = [
   { href: '/xvip/quan-ly-ve', label: 'Quản lý vé / Đơn', icon: Ticket },
   { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake },
   { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },
-  { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle },
+  { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle, adminOnly: true },
   { href: '/xvip/cong-no', label: 'Công nợ', icon: Wallet },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear },
@@ -54,6 +56,8 @@ function initialsOf(fullName: string) {
 
 function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gradient-to-b dark:from-[#091528] dark:via-xv-navy dark:to-[#060e1a] text-slate-800 dark:text-xv-text shadow-[2px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)] border-r border-slate-200 dark:border-[#1a2d4f] transition-colors duration-200">
@@ -74,7 +78,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Nav List with Bright, Crisp Text in Light Mode & Glowing Depth in Dark Mode */}
       <nav aria-label="Menu chính" className="flex-1 overflow-y-auto px-3.5 py-4">
         <ul className="flex flex-col gap-2">
-          {NAV.map(({ href, label, icon: Icon }) => {
+          {NAV.filter((item) => !item.adminOnly || isAdmin).map(({ href, label, icon: Icon }) => {
             const active = href === '/xvip' ? pathname === '/xvip' : pathname.startsWith(href);
             return (
               <li key={label}>
