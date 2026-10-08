@@ -1,0 +1,546 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scrollbar-gutter: stable;
+}
+
+body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 0.875rem;
+  line-height: 1.375rem;
+  color: #1b2430;
+  background-color: #f1f5f9;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(37, 99, 235, 0.05) 0px, transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgba(242, 169, 0, 0.05) 0px, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(203, 213, 225, 0.15) 0px, transparent 70%);
+  background-attachment: fixed;
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+html.dark body {
+  color: #f1f5f9;
+  background-color: #0b1326;
+  background-image: 
+    radial-gradient(ellipse at 15% 10%, rgba(37, 99, 235, 0.12) 0px, transparent 45%),
+    radial-gradient(ellipse at 85% 85%, rgba(242, 169, 0, 0.06) 0px, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, rgba(15, 23, 42, 0.6) 0px, transparent 70%);
+}
+
+/* Số liệu thẳng hàng */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+::selection {
+  background: #bfdbfe;
+  color: #1e3a8a;
+}
+
+html.dark ::selection {
+  background: #1e3a8a;
+  color: #93c5fd;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+html.dark * {
+  scrollbar-color: #334155 transparent;
+}
+
+/* ================================================================
+   HỆ THỐNG PHÍM BẤM 3D XÚC GIÁC (TACTILE 3D PUSH BUTTONS)
+   Tạo cảm giác ấn nảy cơ học siêu thực
+   ================================================================ */
+.btn-3d {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  border-radius: 10px;
+  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  cursor: pointer;
+  line-height: 1.25rem;
+}
+
+/* Nút Xanh XVIP 3D */
+.btn-3d-blue {
+  background: linear-gradient(180deg, #3b82f6 0%, #2563eb 100%);
+  color: #ffffff !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 #1d4ed8,
+    0 6px 14px rgba(37, 99, 235, 0.35);
+  border: 1px solid #2563eb;
+}
+.btn-3d-blue:hover:not(:disabled) {
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 5px 0 #1d4ed8,
+    0 8px 18px rgba(37, 99, 235, 0.45);
+}
+.btn-3d-blue:active:not(:disabled) {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 1px 0 #1d4ed8,
+    0 2px 4px rgba(37, 99, 235, 0.2) !important;
+}
+
+/* Nút Xanh lá Excel 3D */
+.btn-3d-green {
+  background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+  color: #ffffff !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 #15803d,
+    0 6px 14px rgba(22, 163, 74, 0.35);
+  border: 1px solid #16a34a;
+}
+.btn-3d-green:hover:not(:disabled) {
+  background: linear-gradient(180deg, #4ade80 0%, #16a34a 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 5px 0 #15803d,
+    0 8px 18px rgba(22, 163, 74, 0.45);
+}
+.btn-3d-green:active:not(:disabled) {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 1px 0 #15803d,
+    0 2px 4px rgba(22, 163, 74, 0.2) !important;
+}
+
+/* Nút Trắng / Xám Đa Năng 3D */
+.btn-3d-white {
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  color: #1e293b !important;
+  box-shadow: 
+    inset 0 1px 0 #ffffff,
+    0 3px 0 #cbd5e1,
+    0 5px 10px rgba(0, 0, 0, 0.05);
+  border: 1px solid #cbd5e1;
+}
+.btn-3d-white:hover:not(:disabled) {
+  background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 #ffffff,
+    0 4px 0 #94a3b8,
+    0 7px 14px rgba(0, 0, 0, 0.08);
+}
+.btn-3d-white:active:not(:disabled) {
+  transform: translateY(2.5px) !important;
+  box-shadow: 
+    inset 0 2px 3px rgba(0, 0, 0, 0.08),
+    0 0.5px 0 #94a3b8,
+    0 1px 3px rgba(0, 0, 0, 0.04) !important;
+}
+
+/* Nút Đỏ Xóa 3D */
+.btn-3d-red {
+  background: linear-gradient(180deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 #be123c,
+    0 6px 14px rgba(225, 29, 72, 0.35);
+  border: 1px solid #e11d48;
+}
+.btn-3d-red:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fb7185 0%, #e11d48 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 5px 0 #be123c,
+    0 8px 18px rgba(225, 29, 72, 0.45);
+}
+.btn-3d-red:active:not(:disabled) {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.25),
+    0 1px 0 #be123c,
+    0 2px 4px rgba(225, 29, 72, 0.2) !important;
+}
+
+/* Nút Vàng Hổ Phách 3D */
+.btn-3d-amber {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 #b45309,
+    0 6px 14px rgba(217, 119, 6, 0.35);
+  border: 1px solid #d97706;
+}
+.btn-3d-amber:hover:not(:disabled) {
+  background: linear-gradient(180deg, #fbbf24 0%, #d97706 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 5px 0 #b45309,
+    0 8px 18px rgba(217, 119, 6, 0.45);
+}
+.btn-3d-amber:active:not(:disabled) {
+  transform: translateY(3px) !important;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 1px 0 #b45309,
+    0 2px 4px rgba(217, 119, 6, 0.2) !important;
+}
+
+/* Mini 3D Action Button (Icon buttons trong bảng) */
+.btn-3d-mini {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 
+    inset 0 1px 0 #ffffff,
+    0 2px 0 #cbd5e1,
+    0 3px 6px rgba(0, 0, 0, 0.04);
+  color: #475569;
+  transition: all 0.1s ease;
+  cursor: pointer;
+}
+.btn-3d-mini:hover {
+  transform: translateY(-1px);
+  box-shadow: 
+    inset 0 1px 0 #ffffff,
+    0 3px 0 #94a3b8,
+    0 4px 8px rgba(0, 0, 0, 0.08);
+  color: #1e293b;
+}
+.btn-3d-mini:active {
+  transform: translateY(1.5px) !important;
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.1),
+    0 0.5px 0 #94a3b8 !important;
+}
+
+/* Thẻ 3D XVIP Cao Cấp (XVIP 3D Elevated Cards) */
+.card-3d-xvip {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    0 4px 0 #e2e8f0,
+    0 12px 24px -4px rgba(15, 23, 42, 0.08);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.card-3d-xvip:hover {
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    0 6px 0 #cbd5e1,
+    0 18px 30px -4px rgba(15, 23, 42, 0.12);
+}
+
+/* Input dập chìm 3D (3D Inset Inputs) */
+/*
+ * Độ ưu tiên (0,0,1): cao hơn mức reset padding:0 của Tailwind (cùng độ ưu tiên
+ * nhưng nằm sau nên thắng), nhưng thấp hơn các lớp tiện ích như pl-10 chừa chỗ cho icon.
+ */
+:is(input, select, textarea, div):where(.input-3d) {
+  padding: 8px 12px;
+}
+.input-3d {
+  width: 100%;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  font-size: 0.875rem;
+  color: #0f172a;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+  outline: none;
+  transition: all 0.15s ease;
+}
+.input-3d:focus {
+  border-color: #2563eb;
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.04),
+    0 0 0 3px rgba(37, 99, 235, 0.2),
+    0 2px 4px rgba(37, 99, 235, 0.1);
+}
+
+/* 3D Pill Badge */
+.pill-3d {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  box-shadow: 
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    0 2px 0 rgba(0, 0, 0, 0.08),
+    0 3px 6px rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+/* ================================================================
+   GIAO DIỆN CHẾ ĐỘ TỐI (DARK MODE TACTILE OVERRIDES)
+   ================================================================ */
+html.dark .card-3d-xvip {
+  background: #111d35;
+  border: 1px solid #1e2f4f;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 4px 0 #09101f,
+    0 12px 24px -4px rgba(0, 0, 0, 0.45);
+}
+html.dark .card-3d-xvip:hover {
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 6px 0 #09101f,
+    0 18px 30px -4px rgba(0, 0, 0, 0.55);
+}
+
+html.dark .input-3d {
+  background: #0d1629;
+  border: 1px solid #223558;
+  color: #f8fafc;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+html.dark .input-3d:focus {
+  border-color: #3b82f6;
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.2),
+    0 0 0 3px rgba(59, 130, 246, 0.3),
+    0 2px 4px rgba(59, 130, 246, 0.15);
+}
+
+html.dark .btn-3d-white {
+  background: linear-gradient(180deg, #1e293b 0%, #152238 100%);
+  color: #f1f5f9 !important;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 3px 0 #0b1324,
+    0 5px 10px rgba(0, 0, 0, 0.3);
+  border: 1px solid #334155;
+}
+html.dark .btn-3d-white:hover:not(:disabled) {
+  background: #25334d;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 4px 0 #0b1324,
+    0 7px 14px rgba(0, 0, 0, 0.4);
+}
+html.dark .btn-3d-white:active:not(:disabled) {
+  box-shadow: 
+    inset 0 2px 3px rgba(0, 0, 0, 0.4),
+    0 0.5px 0 #0b1324,
+    0 1px 3px rgba(0, 0, 0, 0.2) !important;
+}
+
+html.dark .btn-3d-mini {
+  background: #152238;
+  border: 1px solid #273a61;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 2px 0 #0c1424,
+    0 3px 6px rgba(0, 0, 0, 0.3);
+  color: #cbd5e1;
+}
+html.dark .btn-3d-mini:hover {
+  background: #1c2e4d;
+  border-color: #3b82f6;
+  color: #ffffff;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 3px 0 #0c1424,
+    0 4px 8px rgba(0, 0, 0, 0.4);
+}
+html.dark .btn-3d-mini:active {
+  box-shadow: 
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    0 0.5px 0 #0c1424 !important;
+}
+
+
+/*
+ * Trên điện thoại, trình duyệt tự phóng to trang khi chạm vào ô nhập có chữ
+ * nhỏ hơn 16px. Giữ 16px ở màn hình nhỏ để không bị zoom (màn hình lớn vẫn 14px).
+ */
+@media (max-width: 767px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea,
+  .input-3d,
+  .ant-input,
+  .ant-input-number-input,
+  .ant-select-selection-search-input,
+  .ant-picker-input > input {
+    font-size: 16px !important;
+  }
+}
+
+/* Màn hình nhỏ: ô nhập to, thoáng hơn để dễ chạm bằng ngón tay (chuẩn ~44px) */
+@media (max-width: 767px) {
+  :is(input, select, textarea, div):where(.input-3d) {
+    padding: 12px 14px;
+  }
+  .input-3d,
+  input[type='date'].input-3d,
+  input[type='time'].input-3d,
+  select.input-3d {
+    min-height: 46px;
+    border-radius: 10px;
+  }
+  textarea.input-3d {
+    min-height: 96px;
+  }
+  .ant-input,
+  .ant-input-affix-wrapper,
+  .ant-select-selector,
+  .ant-picker,
+  .ant-input-number {
+    min-height: 46px !important;
+  }
+  .ant-input-number-input {
+    height: 44px !important;
+  }
+  .ant-select-single .ant-select-selector .ant-select-selection-item,
+  .ant-select-single .ant-select-selector .ant-select-selection-placeholder {
+    line-height: 44px !important;
+  }
+}
+
+/*
+ * Ô ngày/giờ dùng giao diện riêng của trình duyệt nên mặc định cao và rộng hơn
+ * các ô khác. Ép cùng chiều cao, cùng bề rộng và bỏ kiểu gốc để mọi ô đều bằng nhau.
+ */
+input.input-3d,
+select.input-3d,
+div.input-3d {
+  height: 40px;
+}
+input[type='date'].input-3d,
+input[type='time'].input-3d {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  line-height: 1.25rem;
+}
+input[type='date'].input-3d::-webkit-date-and-time-value,
+input[type='time'].input-3d::-webkit-date-and-time-value {
+  text-align: left;
+  min-height: 1.25rem;
+}
+input[type='date'].input-3d::-webkit-datetime-edit,
+input[type='time'].input-3d::-webkit-datetime-edit {
+  padding: 0;
+}
+/* Ô lưới không bị ô con (đặc biệt là ô ngày/giờ) nới rộng quá cột của nó */
+form .grid > * {
+  min-width: 0;
+}
+@media (max-width: 767px) {
+  input.input-3d,
+  select.input-3d,
+  div.input-3d {
+    height: 46px;
+  }
+}
+
+/*
+ * Ô chọn (select) dùng kiểu gốc của trình duyệt nên khác chiều cao, cỡ chữ và
+ * lề so với ô nhập. Bỏ kiểu gốc, tự vẽ mũi tên, để mọi ô trong form bằng nhau.
+ */
+.input-3d {
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+select.input-3d {
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+  padding-right: 36px;
+  text-overflow: ellipsis;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 256 256' fill='%2364748b'%3E%3Cpath d='M213.66 101.66l-80 80a8 8 0 0 1-11.32 0l-80-80a8 8 0 0 1 11.32-11.32L128 164.69l74.34-74.35a8 8 0 0 1 11.32 11.32Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+}
+html.dark select.input-3d {
+  background-color: #0d1629;
+}
+
+/*
+ * Ô nhập hiện đại: nền nhạt, viền mảnh, bo tròn, không đổ bóng chìm.
+ * Khi chọn vào thì nền trắng và có vòng sáng xanh mềm.
+ */
+.input-3d {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background-color: #f8fafc;
+  box-shadow: none;
+  color: #0f172a;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+.input-3d::placeholder {
+  color: #94a3b8;
+}
+.input-3d:hover {
+  border-color: #cbd5e1;
+}
+.input-3d:focus,
+.input-3d:focus-within {
+  background-color: #ffffff;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+html.dark .input-3d {
+  background-color: #0d1629;
+  border-color: #223558;
+  box-shadow: none;
+  color: #f8fafc;
+}
+html.dark .input-3d:hover {
+  border-color: #2e4570;
+}
+html.dark .input-3d:focus,
+html.dark .input-3d:focus-within {
+  background-color: #0d1629;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.25);
+}
+
+/* Khung ngày/giờ tự vẽ: cùng chiều cao và lề với các ô nhập khác */
+div.input-3d {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
