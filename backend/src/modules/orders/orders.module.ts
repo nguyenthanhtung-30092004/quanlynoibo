@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Route } from '../routes/entities/route.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Order } from './entities/order.entity.js';
+import { OrdersSchemaGuard } from './orders-schema.guard.js';
 import { OrdersController } from './orders.controller.js';
 import { VmgCallbackController } from './vmg-callback.controller.js';
 import { OrdersService } from './orders.service.js';
@@ -18,6 +19,7 @@ import { ZaloZnsProvider } from './messaging/zalo-zns.provider.js';
   controllers: [OrdersController, VmgCallbackController],
   providers: [
     OrdersService,
+    OrdersSchemaGuard,
     // Gửi tin cho khách: SMS (eSMS) và Zalo (ZNS), cấu hình khóa trong .env
     MessagingService,
     EsmsProvider,
