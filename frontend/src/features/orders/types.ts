@@ -68,6 +68,8 @@ export interface OrderFilters {
   search: string;
   staffId: number | 'all';
   routeId: number | 'all';
+  /** Lọc nhiều tuyến cùng lúc; rỗng = không lọc theo nhiều tuyến */
+  routeIds?: number[];
   /** Tên đối tác; bỏ trống = tất cả */
   partner?: string;
   /** YYYY-MM-DD, theo ngày vào sổ (giờ VN) */

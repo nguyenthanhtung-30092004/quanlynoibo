@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsInt,
   IsOptional,
   IsString,
@@ -33,6 +35,16 @@ export class OrderFilterDto {
   @Type(() => Number)
   @IsInt()
   routeId?: number;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều tuyến cùng lúc, danh sách id cách nhau bằng dấu phẩy (VD: 1,4,7)' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean).map(Number) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  routeIds?: number[];
 
   @ApiPropertyOptional({ description: 'Lọc theo đối tác (tên, không phân biệt hoa thường)' })
   @IsOptional()

@@ -49,6 +49,7 @@ import { formatDateVN } from '@/lib/format';
 
 import { Modal } from '@/features/xvip/Modal';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
+import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
@@ -290,6 +291,7 @@ export default function TicketManagementPage() {
     search: '',
     staffId: ALL,
     routeId: ALL,
+    routeIds: [],
     dateFrom: null,
     dateTo: null,
     page: 1,
@@ -727,30 +729,23 @@ export default function TicketManagementPage() {
             </span>
           </label>
 
-          <label className="block min-w-36 flex-1">
+          <div className="block min-w-36 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tuyến đường
             </span>
-            <select
-              className="input-3d"
-              value={filters.routeId}
-              onChange={(e) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  routeId:
-                    e.target.value === ALL ? ALL : Number(e.target.value),
-                  page: 1,
-                }))
+            <MultiCheckSelect
+              options={activeRoutes.map((r) => ({
+                value: r.id,
+                label: r.name,
+              }))}
+              value={filters.routeIds ?? []}
+              onChange={(routeIds) =>
+                setFilters((prev) => ({ ...prev, routeIds, page: 1 }))
               }
-            >
-              <option value={ALL}>Tất cả tuyến</option>
-              {activeRoutes.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
+              allLabel="Tất cả tuyến"
+              searchPlaceholder="Tìm tuyến..."
+            />
+          </div>
 
           <label className="block min-w-36 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">

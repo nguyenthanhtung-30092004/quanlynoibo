@@ -20,6 +20,7 @@ function filterParams(filters: OrderFilters) {
     search: filters.search.trim() || undefined,
     staffId: filters.staffId === 'all' ? undefined : filters.staffId,
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
+    routeIds: filters.routeIds?.length ? filters.routeIds.join(',') : undefined,
     partner: filters.partner || undefined,
     dateFrom: filters.dateFrom ?? undefined,
     dateTo: filters.dateTo ?? undefined,

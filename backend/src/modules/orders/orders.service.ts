@@ -993,6 +993,9 @@ export class OrdersService {
     if (filter.routeId !== undefined) {
       qb.andWhere('order.routeId = :routeId', { routeId: filter.routeId });
     }
+    if (filter.routeIds?.length) {
+      qb.andWhere('order.routeId IN (:...routeIds)', { routeIds: filter.routeIds });
+    }
     if (filter.dateFrom) {
       qb.andWhere('order.entryDate >= :from', { from: filter.dateFrom });
     }
