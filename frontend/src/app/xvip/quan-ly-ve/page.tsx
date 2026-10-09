@@ -219,6 +219,45 @@ function Section({
   );
 }
 
+/** Nhóm các dòng thông tin trong hộp chi tiết đơn */
+function DetailGroup({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section>
+      <h3 className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-blue-700 dark:text-blue-400">
+        {title}
+      </h3>
+      <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+        {children}
+      </dl>
+    </section>
+  );
+}
+
+function DetailRow({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="flex gap-3 px-3 py-2 text-sm">
+      <dt className="w-32 shrink-0 font-semibold text-slate-500 dark:text-slate-400">
+        {label}
+      </dt>
+      <dd className="min-w-0 flex-1 break-words font-bold text-slate-900 dark:text-white">
+        {value || '—'}
+      </dd>
+    </div>
+  );
+}
+
 interface OrderFormState {
   customerName: string;
   phone: string;
@@ -289,6 +328,7 @@ export default function TicketManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [historyOrderId, setHistoryOrderId] = useState<number | null>(null);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [formErrors, setFormErrors] = useState<{
     customerName?: string;
     phone?: string;
@@ -784,7 +824,9 @@ export default function TicketManagementPage() {
                 ordersList.map((t, i) => (
                   <tr
                     key={t.id}
-                    className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
+                    onClick={() => setDetailOrder(t)}
+                    title="Bấm để xem chi tiết"
+                    className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors ${
                       t.cancelledAt
                         ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60'
                         : ''
@@ -868,7 +910,10 @@ export default function TicketManagementPage() {
                         </span>
                       )}
                     </td>
-                    <td className={`${TD} text-center`}>
+                    <td
+                      className={`${TD} text-center`}
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
@@ -1330,6 +1375,113 @@ export default function TicketManagementPage() {
               </div>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Chi tiết đơn (bấm vào dòng) */}
+      {detailOrder && (
+        <Modal
+          title={`Chi tiết đơn #${detailOrder.id}`}
+          onClose={() => setDetailOrder(null)}
+        >
+          <div className="space-y-4">
+            {detailOrder.cancelledAt && (
+              <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                Đơn đã hủy lúc {formatDateVN(detailOrder.cancelledAt)}
+              </p>
+            )}
+            <DetailGroup title="Khách hàng">
+              <DetailRow
+                label="Tên"
+                value={detailOrder.customerName || 'Khách lẻ'}
+              />
+              <DetailRow label="Số điện thoại" value={detailOrder.phone} />
+              <DetailRow
+                label="Nhân viên tạo"
+                value={detailOrder.staff?.fullName}
+              />
+            </DetailGroup>
+            <DetailGroup title="Chuyến đi">
+              <DetailRow label="Tuyến" value={detailOrder.route?.name} />
+              <DetailRow
+                label="Giờ đi"
+                value={`${detailOrder.departureTime} - ${formatDateVN(detailOrder.departureDate)}`}
+              />
+              <DetailRow label="Nhà xe" value={detailOrder.partner || 'XVIP'} />
+              <DetailRow label="Loại hình" value={detailOrder.vehicleType} />
+              <DetailRow label="Điểm đón" value={detailOrder.pickupPoint} />
+              <DetailRow label="Điểm trả" value={detailOrder.dropoffPoint} />
+              <DetailRow
+                label="Số ghế"
+                value={[
+                  detailOrder.seatCount > 0 && `${detailOrder.seatCount} ghế`,
+                  detailOrder.seatFront > 0 && `đầu ${detailOrder.seatFront}`,
+                  detailOrder.seatMiddle > 0 &&
+                    `giữa ${detailOrder.seatMiddle}`,
+                  detailOrder.seatBack > 0 && `cuối ${detailOrder.seatBack}`,
+                ]
+                  .filter(Boolean)
+                  .join(', ')}
+              />
+            </DetailGroup>
+            <DetailGroup title="Giá tiền">
+              <DetailRow
+                label="Giá nhập"
+                value={`${money(detailOrder.costPrice)}đ`}
+              />
+              <DetailRow
+                label="Giá bán"
+                value={`${money(detailOrder.sellPrice)}đ`}
+              />
+              <DetailRow
+                label="Đã cọc"
+                value={`${money(detailOrder.deposit)}đ`}
+              />
+              <DetailRow
+                label="Nhờ thu"
+                value={`${money(detailOrder.collectOnDelivery)}đ`}
+              />
+              <DetailRow
+                label="Hoa hồng"
+                value={`${money(detailOrder.commission)}đ`}
+              />
+            </DetailGroup>
+            <DetailGroup title="Khác">
+              <DetailRow
+                label="Tin nhắn"
+                value={
+                  detailOrder.smsSent
+                    ? detailOrder.messageChannel === 'ZALO'
+                      ? 'Đã gửi Zalo'
+                      : 'Đã gửi SMS'
+                    : 'Chưa gửi'
+                }
+              />
+              <DetailRow label="Ghi chú" value={detailOrder.note} />
+            </DetailGroup>
+            <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+              {!detailOrder.cancelledAt && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const o = detailOrder;
+                    setDetailOrder(null);
+                    handleOpenEdit(o);
+                  }}
+                  className="btn-3d btn-3d-amber px-4 py-2 text-sm"
+                >
+                  Sửa vé
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setDetailOrder(null)}
+                className="btn-3d btn-3d-white px-4 py-2 text-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 
