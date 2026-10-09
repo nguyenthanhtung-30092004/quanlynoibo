@@ -626,6 +626,9 @@ export class OrdersService {
     panelTitle.fill = solid(NAVY);
     panelTitle.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
     sheet.getRow(panelTop).height = 26;
+    for (let c = 1; c <= 6; c++) {
+      sheet.getCell(panelTop, c).border = { top: headerLine, left: headerLine, right: headerLine, bottom: { style: 'medium', color: { argb: NAVY } } };
+    }
     panel.forEach((item, i) => {
       const r = panelTop + 1 + i;
       sheet.mergeCells(r, 1, r, 4);
@@ -639,6 +642,7 @@ export class OrdersService {
       for (const c of [1, 2, 3, 4, 5, 6]) {
         const cell = sheet.getCell(r, c);
         cell.fill = solid(i % 2 === 0 ? 'FFF1F5FF' : 'FFFFFFFF');
+        cell.border = box;
       }
       l.font = { size: 11, color: { argb: 'FF334155' } };
       l.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
