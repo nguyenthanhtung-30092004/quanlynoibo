@@ -449,8 +449,9 @@ export class OrdersService {
     const GOLD = 'FFFFE9A8';
     const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
     const thin = { style: 'thin', color: { argb: LINE } } as const;
-    // Chỉ kẻ ngang, không kẻ dọc giữa các cột
-    const box: Partial<ExcelJS.Borders> = { top: thin, bottom: thin };
+    // Kẻ đủ bốn phía (ngang và dọc) cho mọi ô của bảng
+    const box: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin };
+    const headerLine = { style: 'thin', color: { argb: 'FF93B4F5' } } as const;
     const GREEN = 'FF16A34A';
 
     const workbook = new ExcelJS.Workbook();
@@ -541,7 +542,7 @@ export class OrdersService {
       cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
       cell.fill = solid(BLUE);
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-      cell.border = { bottom: { style: 'medium', color: { argb: NAVY } } };
+      cell.border = { top: headerLine, left: headerLine, right: headerLine, bottom: { style: 'medium', color: { argb: NAVY } } };
     });
 
     // Bảng luôn kéo dài tối thiểu MIN_ROWS dòng: các dòng trống vẫn có kẻ ngang cho đỡ trắng trơn
@@ -593,7 +594,7 @@ export class OrdersService {
     COLS.forEach((c, i) => {
       const cell = totalRow.getCell(i + 1);
       cell.fill = solid(GOLD);
-      cell.border = { top: { style: 'medium', color: { argb: NAVY } }, bottom: thin };
+      cell.border = { ...box, top: { style: 'medium', color: { argb: NAVY } } };
       cell.font = { bold: true, size: 12, color: { argb: NAVY } };
       if (c.sum && orders.length > 0) {
         const colLetter = sheet.getColumn(i + 1).letter;
@@ -653,7 +654,7 @@ export class OrdersService {
       for (const c of [1, 2, 3, 4, 5, 6]) {
         const cell = sheet.getCell(r, c);
         cell.fill = solid(i % 2 === 0 ? 'FFF1F5FF' : 'FFFFFFFF');
-        cell.border = { bottom: thin };
+        cell.border = box;
       }
       l.font = { size: 11, color: { argb: 'FF334155' } };
       l.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
