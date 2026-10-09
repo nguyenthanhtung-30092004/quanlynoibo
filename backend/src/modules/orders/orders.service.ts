@@ -277,12 +277,20 @@ export class OrdersService {
       commission: sum(list, (o) => o.commission),
     });
 
-    const result: ReturnType<typeof summarize> & {
-      date: string;
-      byStaff?: Array<
-        ReturnType<typeof summarize> & { staffId: number; fullName: string }
-      >;
-    } = { date, ...summarize(orders) };
+    const result: Partial<ReturnType<typeof summarize>> &
+      Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent'> & {
+        date: string;
+        byStaff?: Array<
+          ReturnType<typeof summarize> & { staffId: number; fullName: string }
+        >;
+      } = { date, ...summarize(orders) };
+
+    // Nhân viên không được biết doanh thu / giá nhập: không trả về từ server
+    // (ẩn ở giao diện thôi chưa đủ vì gọi thẳng URL vẫn thấy)
+    if (actor.role !== UserRole.ADMIN) {
+      delete result.revenue;
+      delete result.cost;
+    }
 
     if (actor.role === UserRole.ADMIN) {
       const groups = new Map<number, Order[]>();

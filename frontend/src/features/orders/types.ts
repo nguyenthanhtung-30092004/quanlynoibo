@@ -110,8 +110,9 @@ export interface KpiSummary {
   total: number;
   seats: number;
   smsSent: number;
-  revenue: number;
-  cost: number;
+  /** Chỉ Admin nhận được (server không trả cho nhân viên) */
+  revenue?: number;
+  cost?: number;
   deposit: number;
   collectOnDelivery: number;
   commission: number;

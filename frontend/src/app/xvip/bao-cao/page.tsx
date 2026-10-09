@@ -72,7 +72,7 @@ export default function StaffReportPage() {
         name: s.fullName,
         orders: s.total,
         tickets: s.seats,
-        revenue: s.revenue,
+        revenue: s.revenue ?? 0,
         commission: s.commission,
       }));
     }

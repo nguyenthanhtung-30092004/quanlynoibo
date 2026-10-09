@@ -96,7 +96,7 @@ export function DaySummary({
           />
           <StatCard
             label="Tổng tiền vé"
-            value={formatVND(kpi.revenue)}
+            value={formatVND(kpi.revenue ?? 0)}
             note="Giá bán trong ngày"
             icon={CurrencyCircleDollar}
             color="bg-green-600"
