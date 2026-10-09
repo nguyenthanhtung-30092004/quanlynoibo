@@ -656,7 +656,7 @@ export class OrdersService {
       { header: 'ĐẦU', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatFront || '' },
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
-      { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => this.ticketsOf(o) },
+      { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
       { header: 'GIÁ NHẬP', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.costPrice },
       { header: 'GIÁ BÁN', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.sellPrice },
       { header: 'ĐÃ CỌC', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.deposit },
@@ -784,7 +784,7 @@ export class OrdersService {
       { label: 'Tổng số đơn', value: hasRows ? { formula: `COUNTA(${statusRange})`, result: orders.length } : 0 },
       { label: 'Đơn hợp lệ', value: hasRows ? { formula: `COUNTIF(${statusRange},"Hợp lệ")`, result: activeCount } : 0, color: GREEN },
       { label: 'Đơn đã hủy', value: hasRows ? { formula: `COUNTIF(${statusRange},"ĐÃ HỦY")`, result: cancelledCount } : 0, color: RED },
-      { label: 'Tổng vé (số ghế, vé hợp lệ)', value: hasRows ? { formula: totalCell('SỐ GHẾ'), result: sumOf((o) => this.ticketsOf(o)) } : 0 },
+      { label: 'Tổng vé (số ghế, vé hợp lệ)', value: hasRows ? { formula: totalCell('SỐ GHẾ'), result: sumOf((o) => o.seatCount) } : 0 },
       { label: 'Tổng giá bán (vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: sumOf((o) => o.sellPrice) } : 0, fmt: '#,##0" đ"' },
       { label: 'Tổng hoa hồng (vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: sumOf((o) => o.commission) } : 0, fmt: '#,##0" đ"' },
     ];
