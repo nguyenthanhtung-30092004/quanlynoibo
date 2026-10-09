@@ -431,73 +431,178 @@ export class OrdersService {
       .take(EXPORT_LIMIT)
       .getMany();
 
-    const workbook = new ExcelJS.Workbook();
-    const sheet = workbook.addWorksheet('Nhật ký');
-    sheet.columns = [
-      { header: 'NGÀY VÀO SỔ', key: 'entryDate', width: 14 },
-      { header: 'NV', key: 'staff', width: 22 },
-      { header: 'TÊN KHÁCH', key: 'customerName', width: 24 },
-      { header: 'SỐ ĐIỆN THOẠI', key: 'phone', width: 15 },
-      { header: 'TUYẾN ĐI', key: 'route', width: 30 },
-      { header: 'GIỜ ĐI', key: 'departureTime', width: 9 },
-      { header: 'NGÀY KHỞI HÀNH', key: 'departureDate', width: 15 },
-      { header: 'LOẠI HÌNH', key: 'vehicleType', width: 22 },
-      { header: 'ĐẦU', key: 'front', width: 7 },
-      { header: 'GIỮA', key: 'middle', width: 7 },
-      { header: 'CUỐI', key: 'back', width: 7 },
-      { header: 'SỐ GHẾ', key: 'seatCount', width: 9 },
-      { header: 'GIÁ NHẬP', key: 'costPrice', width: 13 },
-      { header: 'GIÁ BÁN', key: 'sellPrice', width: 13 },
-      { header: 'ĐÃ CỌC', key: 'deposit', width: 13 },
-      { header: 'NHỜ THU', key: 'collectOnDelivery', width: 13 },
-      { header: 'HOA HỒNG', key: 'commission', width: 13 },
-      { header: 'ĐỐI TÁC', key: 'partner', width: 26 },
-      { header: 'ĐIỂM ĐÓN', key: 'pickupPoint', width: 30 },
-      { header: 'ĐIỂM TRẢ', key: 'dropoffPoint', width: 30 },
-      { header: 'GHI CHÚ', key: 'note', width: 36 },
-    ];
-    sheet.getRow(1).font = { bold: true };
-    for (const key of [
-      'costPrice',
-      'sellPrice',
-      'deposit',
-      'collectOnDelivery',
-      'commission',
-    ]) {
-      sheet.getColumn(key).numFmt = '#,##0';
-    }
-    // Ngày hiển thị dạng ngày/tháng/năm (ô vẫn là ngày thật nên lọc và sắp xếp được)
-    for (const key of ['entryDate', 'departureDate']) {
-      const col = sheet.getColumn(key);
-      col.numFmt = 'dd/mm/yyyy';
-      col.alignment = { horizontal: 'left' };
-    }
+    const exporter = await this.userRepository.findOne({
+      where: { id: actor.sub },
+      select: { id: true, fullName: true },
+    });
+    const isCancelled = (o: Order) => !!o.cancelledAt;
+    const activeCount = orders.filter((o) => !isCancelled(o)).length;
+    const cancelledCount = orders.length - activeCount;
 
-    for (const o of orders) {
-      sheet.addRow({
-        entryDate: this.toExcelDate(o.entryDate),
-        staff: o.createdBy?.fullName ?? '',
-        customerName: this.neutralizeFormula(o.customerName ?? ''),
-        phone: o.phone,
-        route: this.neutralizeFormula(o.route?.name ?? ''),
-        departureTime: o.departureTime,
-        departureDate: this.toExcelDate(o.departureDate),
-        vehicleType: this.neutralizeFormula(o.vehicleType ?? ''),
-        front: this.seatsOf(o).seatFront || '',
-        middle: this.seatsOf(o).seatMiddle || '',
-        back: this.seatsOf(o).seatBack || '',
-        seatCount: this.ticketsOf(o),
-        costPrice: o.costPrice,
-        sellPrice: o.sellPrice,
-        deposit: o.deposit,
-        collectOnDelivery: o.collectOnDelivery,
-        commission: o.commission,
-        partner: this.neutralizeFormula(o.partner ?? ''),
-        pickupPoint: this.neutralizeFormula(o.pickupPoint ?? ''),
-        dropoffPoint: this.neutralizeFormula(o.dropoffPoint ?? ''),
-        note: this.neutralizeFormula(o.note ?? ''),
+    // ---- bảng màu
+    const NAVY = 'FF0F2A5C';
+    const BLUE = 'FF2563EB';
+    const BAND = 'FFF1F5FF';
+    const LINE = 'FFCBD5E1';
+    const RED_BG = 'FFFDE2E2';
+    const RED = 'FFB91C1C';
+    const GOLD = 'FFFFE9A8';
+    const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
+    const thin = { style: 'thin', color: { argb: LINE } } as const;
+    const box: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin };
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = exporter?.fullName ?? 'Hệ thống';
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Nhật ký vé', {
+      properties: { tabColor: { argb: BLUE } },
+      views: [{ state: 'frozen', xSplit: 3, ySplit: 4, showGridLines: false }],
+      pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
+    });
+
+    type Col = {
+      header: string;
+      width: number;
+      align?: 'left' | 'center' | 'right';
+      fmt?: string;
+      sum?: boolean;
+      value: (o: Order, index: number) => ExcelJS.CellValue;
+    };
+    const seats = (o: Order) => this.seatsOf(o);
+    const COLS: Col[] = [
+      { header: 'STT', width: 6, align: 'center', value: (_o, i) => i + 1 },
+      { header: 'TRẠNG THÁI', width: 13, align: 'center', value: (o) => (isCancelled(o) ? 'ĐÃ HỦY' : 'Hợp lệ') },
+      { header: 'NGÀY VÀO SỔ', width: 13, align: 'center', fmt: 'dd/mm/yyyy', value: (o) => this.toExcelDate(o.entryDate) },
+      { header: 'NV', width: 20, value: (o) => o.createdBy?.fullName ?? '' },
+      { header: 'TÊN KHÁCH', width: 24, value: (o) => this.neutralizeFormula(o.customerName ?? '') },
+      { header: 'SỐ ĐIỆN THOẠI', width: 15, align: 'center', value: (o) => o.phone },
+      { header: 'TUYẾN ĐI', width: 30, value: (o) => this.neutralizeFormula(o.route?.name ?? '') },
+      { header: 'GIỜ ĐI', width: 9, align: 'center', value: (o) => o.departureTime },
+      { header: 'NGÀY KHỞI HÀNH', width: 15, align: 'center', fmt: 'dd/mm/yyyy', value: (o) => this.toExcelDate(o.departureDate) },
+      { header: 'LOẠI HÌNH', width: 20, value: (o) => this.neutralizeFormula(o.vehicleType ?? '') },
+      { header: 'ĐẦU', width: 7, align: 'center', sum: true, value: (o) => seats(o).seatFront || '' },
+      { header: 'GIỮA', width: 7, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
+      { header: 'CUỐI', width: 7, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
+      { header: 'SỐ GHẾ', width: 9, align: 'center', sum: true, value: (o) => this.ticketsOf(o) },
+      { header: 'GIÁ NHẬP', width: 14, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.costPrice },
+      { header: 'GIÁ BÁN', width: 14, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.sellPrice },
+      { header: 'ĐÃ CỌC', width: 14, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.deposit },
+      { header: 'NHỜ THU', width: 14, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.collectOnDelivery },
+      { header: 'HOA HỒNG', width: 14, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.commission },
+      { header: 'ĐỐI TÁC', width: 24, value: (o) => this.neutralizeFormula(o.partner ?? '') },
+      { header: 'ĐIỂM ĐÓN', width: 28, value: (o) => this.neutralizeFormula(o.pickupPoint ?? '') },
+      { header: 'ĐIỂM TRẢ', width: 28, value: (o) => this.neutralizeFormula(o.dropoffPoint ?? '') },
+      { header: 'GHI CHÚ', width: 34, value: (o) => this.neutralizeFormula(o.note ?? '') },
+    ];
+    const N = COLS.length;
+    COLS.forEach((c, i) => {
+      sheet.getColumn(i + 1).width = c.width;
+    });
+
+    // ---- tiêu đề + dòng thông tin
+    sheet.mergeCells(1, 1, 1, N);
+    const title = sheet.getCell(1, 1);
+    title.value = 'NHẬT KÝ VÉ XE';
+    title.font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
+    title.fill = solid(NAVY);
+    title.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    sheet.getRow(1).height = 38;
+
+    sheet.mergeCells(2, 1, 2, N);
+    const stamp = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      hour: '2-digit',
+      minute: '2-digit',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hourCycle: 'h23',
+    }).format(new Date());
+    const info = sheet.getCell(2, 1);
+    info.value =
+      `Xuất lúc ${stamp}  •  Người xuất: ${exporter?.fullName ?? actor.username}  •  ` +
+      `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
+      (cancelledCount > 0 ? '  (vé đã hủy tô đỏ, gạch ngang và không tính vào dòng TỔNG)' : '');
+    info.font = { size: 11, italic: true, color: { argb: 'FF1E3A8A' } };
+    info.fill = solid('FFE0EAFF');
+    info.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    sheet.getRow(2).height = 22;
+    sheet.getRow(3).height = 6;
+
+    // ---- hàng tiêu đề cột
+    const HEADER_ROW = 4;
+    const headerRow = sheet.getRow(HEADER_ROW);
+    headerRow.height = 32;
+    COLS.forEach((c, i) => {
+      const cell = headerRow.getCell(i + 1);
+      cell.value = c.header;
+      cell.font = { bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+      cell.fill = solid(BLUE);
+      cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      cell.border = { ...box, bottom: { style: 'medium', color: { argb: NAVY } } };
+    });
+
+    // ---- dữ liệu
+    orders.forEach((o, idx) => {
+      const row = sheet.getRow(HEADER_ROW + 1 + idx);
+      row.height = 21;
+      const cancelled = isCancelled(o);
+      COLS.forEach((c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = c.value(o, idx);
+        if (c.fmt) cell.numFmt = c.fmt;
+        cell.border = box;
+        cell.alignment = { horizontal: c.align ?? 'left', vertical: 'middle' };
+        if (cancelled) {
+          cell.fill = solid(RED_BG);
+          cell.font = { color: { argb: 'FF7F1D1D' }, strike: i > 1 };
+        } else if (idx % 2 === 1) {
+          cell.fill = solid(BAND);
+        }
       });
+      // Ô trạng thái nổi bật
+      const status = row.getCell(2);
+      status.font = cancelled
+        ? { bold: true, color: { argb: 'FFFFFFFF' } }
+        : { bold: true, color: { argb: 'FF15803D' } };
+      if (cancelled) status.fill = solid(RED);
+    });
+
+    // ---- dòng tổng (chỉ tính vé hợp lệ)
+    const first = HEADER_ROW + 1;
+    const last = HEADER_ROW + orders.length;
+    const totalRow = sheet.getRow(last + 1);
+    totalRow.height = 26;
+    sheet.mergeCells(last + 1, 1, last + 1, 4);
+    const label = totalRow.getCell(1);
+    label.value = `TỔNG (${activeCount} đơn hợp lệ, không tính vé đã hủy)`;
+    label.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    COLS.forEach((c, i) => {
+      const cell = totalRow.getCell(i + 1);
+      cell.fill = solid(GOLD);
+      cell.border = { ...box, top: { style: 'medium', color: { argb: NAVY } } };
+      cell.font = { bold: true, size: 12, color: { argb: NAVY } };
+      if (c.sum && orders.length > 0) {
+        const colLetter = sheet.getColumn(i + 1).letter;
+        const result = orders
+          .filter((o) => !isCancelled(o))
+          .reduce((acc, o) => {
+            const v = c.value(o, 0);
+            return acc + (typeof v === 'number' ? v : 0);
+          }, 0);
+        cell.value = {
+          formula: `SUMIF($B$${first}:$B$${last},"Hợp lệ",${colLetter}${first}:${colLetter}${last})`,
+          result,
+        };
+        cell.numFmt = c.fmt ?? '#,##0';
+        cell.alignment = { horizontal: c.align ?? 'right', vertical: 'middle' };
+      }
+    });
+
+    if (orders.length > 0) {
+      sheet.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: last, column: N } };
     }
+    sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }

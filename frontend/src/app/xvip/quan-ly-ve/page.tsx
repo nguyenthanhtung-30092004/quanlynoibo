@@ -883,7 +883,8 @@ export default function TicketManagementPage() {
                         value={formState.vehicleType}
                         onChange={(e) => setFormState((p) => ({ ...p, vehicleType: e.target.value }))}
                       >
-                        <option value="">Chọn loại hình</option>
+                        {/* Ô trống ẩn: lúc chưa chọn hiện trống, mở danh sách chỉ thấy các loại hình */}
+                        <option value="" hidden disabled />
                         {/* Vé cũ có loại hình ngoài danh sách vẫn hiển thị đúng khi sửa */}
                         {formState.vehicleType && !VEHICLE_TYPES.includes(formState.vehicleType) && (
                           <option value={formState.vehicleType}>{formState.vehicleType}</option>
