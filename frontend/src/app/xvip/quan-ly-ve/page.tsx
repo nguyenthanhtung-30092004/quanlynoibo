@@ -55,20 +55,24 @@ function NumInput({
   step,
   className,
   required,
+  blankZero,
 }: {
   value: number;
   onChange: (n: number) => void;
+  blankZero?: boolean;
   min?: number;
   max?: number;
   step?: number;
   className?: string;
   required?: boolean;
 }) {
-  const [text, setText] = useState(String(value));
+  const shown = (n: number) => (blankZero && !n ? '' : String(n));
+  const [text, setText] = useState(shown(value));
 
   // Đồng bộ khi giá trị đổi từ bên ngoài (mở vé khác, chọn tuyến có giá mặc định...)
   useEffect(() => {
-    setText((t) => (Number(t || 0) === value ? t : String(value)));
+    setText((t) => (Number(t || 0) === value ? t : shown(value)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value]);
 
   return (
@@ -86,7 +90,7 @@ function NumInput({
         onChange(e.target.value === '' ? 0 : Number(e.target.value));
       }}
       onBlur={() => {
-        if (text === '') {
+        if (text === '' && !blankZero) {
           setText(String(min));
           onChange(min);
         }
@@ -197,7 +201,7 @@ export default function TicketManagementPage() {
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
-  const [autoSend, setAutoSend] = useState<'NONE' | 'SMS' | 'ZALO' | 'BOTH'>('SMS');
+  const [autoSend, setAutoSend] = useState<'NONE' | 'SMS' | 'ZALO'>('SMS');
   const [sendingChannel, setSendingChannel] = useState<MessageChannel | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -215,7 +219,7 @@ export default function TicketManagementPage() {
       routeId: 0,
       partner: '',
       vehicleType: '',
-      seatFront: 1,
+      seatFront: 0,
       seatMiddle: 0,
       seatBack: 0,
       departureTime: '13:00',
@@ -345,8 +349,7 @@ export default function TicketManagementPage() {
         const base = rebookFromId
           ? `Đã đặt lại đơn #${rebookFromId} thành đơn mới thành công!`
           : 'Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!';
-        const channels: MessageChannel[] =
-          autoSend === 'BOTH' ? ['SMS', 'ZALO'] : autoSend === 'NONE' ? [] : [autoSend];
+        const channels: MessageChannel[] = autoSend === 'NONE' ? [] : [autoSend];
         if (channels.length === 0) {
           showToast(base);
         } else {
@@ -821,6 +824,7 @@ export default function TicketManagementPage() {
                         onChange={(n) => setFormState((p) => ({ ...p, [z.key]: n }))}
                         min={0}
                         max={60}
+                        blankZero
                       />
                     </label>
                   ))}
@@ -894,12 +898,11 @@ export default function TicketManagementPage() {
                   <PaperPlaneTilt size={18} weight="fill" className="text-blue-600" />
                   Gửi tin xác nhận cho khách ngay khi lưu vé
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <div className="grid grid-cols-3 gap-2.5">
                   {(
                     [
                       { id: 'SMS', label: 'SMS', hint: 'Tin nhắn thường' },
                       { id: 'ZALO', label: 'Zalo', hint: 'Zalo ZNS' },
-                      { id: 'BOTH', label: 'Cả hai', hint: 'SMS + Zalo' },
                       { id: 'NONE', label: 'Không gửi', hint: 'Gửi sau' },
                     ] as const
                   ).map((o) => {
