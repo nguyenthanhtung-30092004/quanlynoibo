@@ -11,6 +11,7 @@ import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 import { CarriersModule } from './modules/carriers/carriers.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PartnersModule } from './modules/partners/partners.module.js';
+import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { RoutesModule } from './modules/routes/routes.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
@@ -39,6 +40,7 @@ import { UsersModule } from './modules/users/users.module.js';
     CarriersModule,
     PartnersModule,
     RoutesModule,
+    RealtimeModule,
   ],
   controllers: [AppController],
   providers: [

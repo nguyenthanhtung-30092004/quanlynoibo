@@ -15,7 +15,8 @@ export const dynamic = 'force-dynamic';
 const BLOCKED_PATHS = /^auth\/(login|register|refresh|logout)(\/|$)/;
 
 const FORWARDED_REQUEST_HEADERS = ['content-type', 'accept'];
-const FORWARDED_RESPONSE_HEADERS = ['content-type', 'content-disposition'];
+// cache-control / x-accel-buffering giữ nguyên để luồng sự kiện realtime không bị nén hay gom đệm
+const FORWARDED_RESPONSE_HEADERS = ['content-type', 'content-disposition', 'cache-control', 'x-accel-buffering'];
 
 type RouteContext = { params: { path: string[] } };
 
@@ -52,6 +53,8 @@ async function handler(req: NextRequest, { params }: RouteContext) {
       body,
       cache: 'no-store',
       redirect: 'manual',
+      // Trình duyệt ngắt (đóng tab, F5) thì ngắt luôn kết nối tới backend, nhất là với luồng realtime
+      signal: req.signal,
     });
   };
 

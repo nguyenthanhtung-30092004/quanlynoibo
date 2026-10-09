@@ -58,6 +58,20 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
+    # Luồng cập nhật trực tiếp (SSE): không gom đệm, giữ kết nối lâu
+    location = /api/realtime/stream {
+        proxy_pass http://frontend:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_read_timeout 1h;
+    }
+
     location / {
         limit_req zone=general burst=60 nodelay;
         proxy_pass http://frontend:3000;

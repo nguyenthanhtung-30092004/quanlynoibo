@@ -20,6 +20,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
+import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
 import { DateFilterProvider, DateRangeFilter } from './date-filter';
 
@@ -124,6 +125,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
   const { data: me } = useCurrentUser();
   const logout = useLogout();
+  const live = useRealtimeConnected();
   const isAdmin = me?.role === 'ADMIN';
 
   return (
@@ -181,8 +183,13 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Bottom Status Tag & Mobile Theme Indicator */}
       <div className="p-3 border-t border-slate-200/80 dark:border-[#14284B]/60 text-center">
         <div className="inline-flex items-center gap-2 rounded-lg bg-slate-100 dark:bg-black/30 px-3 py-1.5 text-xs font-semibold text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-white/5 shadow-sm">
-          <span className="size-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]" />
-          <span>Hệ thống trực tuyến</span>
+          <span
+            className={cn(
+              'size-2 rounded-full',
+              live ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]' : 'bg-amber-500 animate-pulse',
+            )}
+          />
+          <span>{live ? 'Đang cập nhật trực tiếp' : 'Đang kết nối lại...'}</span>
         </div>
         <button
           type="button"
@@ -202,6 +209,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <ThemeProvider>
+      <RealtimeProvider>
       <DateFilterProvider>
         <div className="flex min-h-dvh bg-slate-100/70 dark:bg-[#0b1326] text-slate-800 dark:text-slate-100 transition-colors duration-200">
           {/* Sidebar Desktop */}
@@ -271,6 +279,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
         </div>
       </div>
     </DateFilterProvider>
+      </RealtimeProvider>
   </ThemeProvider>
 );
 }
