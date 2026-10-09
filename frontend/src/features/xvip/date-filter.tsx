@@ -6,10 +6,25 @@ import { formatDateVN } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { DateInput, PICKER_POPOVER_ATTR } from './PickerInput';
 
-/** Khoảng ngày khởi hành dùng chung cho các trang (hiện áp dụng cho Tổng quan) */
+/** Khoảng ngày dùng chung cho các trang: tính theo ngày xe khởi hành hoặc ngày tạo vé */
 export interface DateRange {
   from: string;
   to: string;
+}
+
+/** Khoảng ngày được hiểu là ngày xe khởi hành hay ngày tạo vé */
+export type DateBasis = 'departure' | 'created';
+
+export const BASIS_LABEL: Record<DateBasis, string> = {
+  departure: 'Ngày đi',
+  created: 'Ngày tạo vé',
+};
+
+/** Tham số ngày gửi lên API (đơn và KPI dùng chung tên) theo cơ sở đang chọn */
+export function rangeParams(range: DateRange, basis: DateBasis) {
+  return basis === 'departure'
+    ? { departureFrom: range.from, departureTo: range.to }
+    : { dateFrom: range.from, dateTo: range.to };
 }
 
 type PresetKey = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom';
@@ -18,6 +33,8 @@ interface DateFilterValue {
   range: DateRange;
   preset: PresetKey;
   label: string;
+  basis: DateBasis;
+  setBasis: (basis: DateBasis) => void;
   setPreset: (key: Exclude<PresetKey, 'custom'>) => void;
   setCustom: (range: DateRange) => void;
 }
@@ -60,6 +77,7 @@ const PRESETS: Array<{ key: Exclude<PresetKey, 'custom'>; label: string }> = [
 export function DateFilterProvider({ children }: { children: ReactNode }) {
   const [preset, setPresetKey] = useState<PresetKey>('today');
   const [range, setRange] = useState<DateRange>(() => presetRange('today'));
+  const [basis, setBasis] = useState<DateBasis>('departure');
 
   const value = useMemo<DateFilterValue>(() => {
     const text =
@@ -71,6 +89,8 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
       range,
       preset,
       label: named ? `${named} (${text})` : text,
+      basis,
+      setBasis,
       setPreset: (key) => {
         setPresetKey(key);
         setRange(presetRange(key));
@@ -80,7 +100,7 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
         setRange(r);
       },
     };
-  }, [range, preset]);
+  }, [range, preset, basis]);
 
   return <DateFilterContext.Provider value={value}>{children}</DateFilterContext.Provider>;
 }
@@ -93,7 +113,7 @@ export function useDateFilter(): DateFilterValue {
 
 /** Nút lọc theo ngày đi đặt ở Header: chọn nhanh hoặc tự chọn khoảng ngày */
 export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
-  const { range, preset, label, setPreset, setCustom } = useDateFilter();
+  const { range, preset, label, basis, setBasis, setPreset, setCustom } = useDateFilter();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(range.from);
   const [to, setTo] = useState(range.to);
@@ -132,11 +152,11 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        title="Lọc theo ngày đi"
+        title={`Lọc theo ${BASIS_LABEL[basis].toLowerCase()}`}
         className={`flex items-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-[inset_0_1px_0_#fff,0_2px_0_#cbd5e1] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_2px_0_#0f172a] border border-slate-200 dark:border-slate-700 active:translate-y-0.5 ${mobile ? 'w-full py-2' : ''}`}
       >
         <CalendarBlank size={16} weight="bold" className="text-blue-600 dark:text-blue-400" aria-hidden />
-        <span className="font-semibold text-slate-500 dark:text-slate-400">Ngày đi:</span>
+        <span className="font-semibold text-slate-500 dark:text-slate-400">{BASIS_LABEL[basis]}:</span>
         <span className={mobile ? 'truncate' : undefined}>{label}</span>
         <CaretDown size={12} aria-hidden className={mobile ? 'ml-auto shrink-0' : undefined} />
       </button>
@@ -144,10 +164,11 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
       {open && (
         <div
           role="dialog"
-          aria-label="Lọc theo ngày đi"
+          aria-label="Lọc theo ngày"
           className={`absolute top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${mobile ? 'inset-x-0' : 'right-0 w-72'}`}
         >
-          <ul className="space-y-0.5">
+          <BasisSwitch basis={basis} onChange={setBasis} />
+          <ul className="mt-2 space-y-0.5">
             {PRESETS.map((p) => (
               <li key={p.key}>
                 <button
@@ -199,6 +220,30 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Chọn lọc theo ngày xe khởi hành hay ngày tạo vé */
+export function BasisSwitch({ basis, onChange }: { basis: DateBasis; onChange: (b: DateBasis) => void }) {
+  return (
+    <div role="radiogroup" aria-label="Lọc theo" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+      {(Object.keys(BASIS_LABEL) as DateBasis[]).map((key) => (
+        <button
+          key={key}
+          type="button"
+          role="radio"
+          aria-checked={basis === key}
+          onClick={() => onChange(key)}
+          className={`rounded-lg px-2 py-1.5 text-xs font-bold ${
+            basis === key
+              ? 'bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-blue-300'
+              : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200'
+          }`}
+        >
+          {BASIS_LABEL[key]}
+        </button>
+      ))}
     </div>
   );
 }

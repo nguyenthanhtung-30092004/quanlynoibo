@@ -17,7 +17,7 @@ import { useRoutes } from '@/features/routes/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { useDateFilter } from '@/features/xvip/date-filter';
+import { rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 import { formatDateVN } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -37,20 +37,17 @@ export default function OverviewPage() {
 }
 
 function OverviewContent() {
-  // Lọc theo ngày đi, chọn ở nút ngày trên header
-  const { range } = useDateFilter();
-  const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
-    departureFrom: range.from,
-    departureTo: range.to,
-  });
+  // Lọc theo ngày đi hoặc ngày tạo vé, chọn ở nút ngày trên header
+  const { range, basis } = useDateFilter();
+  const dates = rangeParams(range, basis);
+  const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, dates);
   const { data: ordersData, isLoading: ordersLoading } = useOrders({
     search: '',
     staffId: 'all',
     routeId: 'all',
     dateFrom: null,
     dateTo: null,
-    departureFrom: range.from,
-    departureTo: range.to,
+    ...dates,
     page: 1,
   });
   const { data: partnerData } = usePartners();

@@ -34,6 +34,12 @@ export class OrderFilterDto {
   @IsInt()
   routeId?: number;
 
+  @ApiPropertyOptional({ description: 'Lọc theo đối tác (tên, không phân biệt hoa thường)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  partner?: string;
+
   @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD)' })
   @IsOptional()
   @Matches(DATE_RE, { message: 'dateFrom phải có dạng YYYY-MM-DD' })
@@ -77,6 +83,34 @@ export class KpiQueryDto {
   @IsOptional()
   @Matches(DATE_RE, { message: 'date phải có dạng YYYY-MM-DD' })
   date?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc theo nhân viên (chỉ có tác dụng với Admin)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  staffId?: number;
+
+  @ApiPropertyOptional({ description: 'Lọc theo tuyến đi' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  routeId?: number;
+
+  @ApiPropertyOptional({ description: 'Lọc theo đối tác (tên, không phân biệt hoa thường)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  partner?: string;
+
+  @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD); nếu có thì thay cho `date`' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'dateFrom phải có dạng YYYY-MM-DD' })
+  dateFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Đến hết ngày vào sổ (YYYY-MM-DD)' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'dateTo phải có dạng YYYY-MM-DD' })
+  dateTo?: string;
 
   @ApiPropertyOptional({ description: 'Từ ngày khởi hành (YYYY-MM-DD); nếu có thì thay cho `date`' })
   @IsOptional()

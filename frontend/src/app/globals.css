@@ -560,3 +560,10 @@ div.input-3d {
 @media (prefers-reduced-motion: reduce) {
   .xv-toast, .xv-toast-bar { animation: none; }
 }
+
+@media print {
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

@@ -95,8 +95,15 @@ export function useSendSms() {
 
 export function useKpi(date?: string, range?: KpiRange) {
   return useQuery({
-    queryKey: [...KPI_KEY, date, range?.departureFrom, range?.departureTo],
+    queryKey: [...KPI_KEY, date, range],
     queryFn: () => ordersApi.kpi(date, range),
+  });
+}
+
+export function useDebts(range?: KpiRange) {
+  return useQuery({
+    queryKey: [...KPI_KEY, 'debts', range],
+    queryFn: () => ordersApi.debts(range),
   });
 }
 

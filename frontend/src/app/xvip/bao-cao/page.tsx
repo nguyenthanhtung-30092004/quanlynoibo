@@ -12,41 +12,44 @@ import {
   Ticket,
   Trophy,
 } from '@phosphor-icons/react';
-import { useKpi, useOrders } from '@/features/orders/hooks';
+import { useKpi } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
+import type { OrderFilters } from '@/features/orders/types';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useUsers } from '@/features/users/hooks';
+import { useActiveRoutes } from '@/features/routes/hooks';
+import { usePartners } from '@/features/partners/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
-import { DateInput } from '@/features/xvip/PickerInput';
+import { BASIS_LABEL, BasisSwitch, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
 export default function StaffReportPage() {
-  const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [staffFilter, setStaffFilter] = useState('all');
+  const [routeFilter, setRouteFilter] = useState('all');
+  const [partnerFilter, setPartnerFilter] = useState('all');
 
-  const { data: kpiData, isLoading: kpiLoading } = useKpi(selectedDate);
-  const { data: ordersData, isLoading: ordersLoading } = useOrders({
-    search: '',
-    staffId: 'all',
-    routeId: 'all',
-    dateFrom: null,
-    dateTo: null,
-    page: 1,
-  });
+  // Khoảng ngày lấy từ nút ngày trên header; ở đây chỉ chọn lọc theo ngày đi hay ngày tạo vé
+  const { range, basis, setBasis, label: rangeLabel } = useDateFilter();
+  const dates = rangeParams(range, basis);
+
   const { data: me } = useCurrentUser();
   const isAdmin = me?.role === 'ADMIN';
+  const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
+    ...dates,
+    staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : undefined,
+    routeId: routeFilter === 'all' ? undefined : Number(routeFilter),
+    partner: partnerFilter === 'all' ? undefined : partnerFilter,
+  });
   // API người dùng chỉ dành cho Admin
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
+  const { data: routeList = [] } = useActiveRoutes();
+  const { data: partnerList = [] } = usePartners();
   const showToast = useToast();
 
-  const staffList = useMemo(() => {
-    return usersData?.data ?? [];
-  }, [usersData]);
+  const staffList = useMemo(() => usersData?.data ?? [], [usersData]);
 
-  // Danh sách nhân viên và thành tích thực tế
-  const staffPerformance = useMemo(() => {
-    const orders = ordersData?.data ?? [];
-
+  // Thành tích từng nhân viên theo đúng bộ lọc đang chọn (server đã lọc)
+  const filteredStaff = useMemo(() => {
     // Nhân viên chỉ thấy số liệu của chính mình (server cũng đã lọc theo người đăng nhập)
     if (!isAdmin) {
       if (!me) return [];
@@ -61,37 +64,28 @@ export default function StaffReportPage() {
         },
       ];
     }
+    return (kpiData?.byStaff ?? []).map((s) => ({
+      id: s.staffId,
+      name: s.fullName,
+      orders: s.total,
+      tickets: s.seats,
+      revenue: s.revenue ?? 0,
+      commission: s.commission,
+    }));
+  }, [kpiData, isAdmin, me]);
 
-    if (kpiData?.byStaff && kpiData.byStaff.length > 0) {
-      return kpiData.byStaff.map((s) => ({
-        id: s.staffId,
-        name: s.fullName,
-        orders: s.total,
-        tickets: s.seats,
-        revenue: s.revenue ?? 0,
-        commission: s.commission,
-      }));
+  // Mô tả bộ lọc đang chọn, in ở đầu bản in
+  const filterSummary = useMemo(() => {
+    const parts = [`${BASIS_LABEL[basis]}: ${rangeLabel}`];
+    if (isAdmin && staffFilter !== 'all') {
+      parts.push(`Nhân viên: ${staffList.find((s) => String(s.id) === staffFilter)?.fullName ?? ''}`);
     }
-
-    return staffList.map((u) => {
-      const matchOrders = orders.filter((o) => o.staff?.id === u.id && !o.cancelledAt);
-      const rev = matchOrders.reduce((sum, o) => sum + (o.sellPrice || 0), 0);
-      const comm = matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
-      return {
-        id: u.id,
-        name: u.fullName,
-        orders: matchOrders.length,
-        tickets: matchOrders.reduce((sum, o) => sum + (o.tickets || 0), 0),
-        revenue: rev,
-        commission: comm,
-      };
-    });
-  }, [kpiData, ordersData, staffList, isAdmin, me]);
-
-  const filteredStaff = useMemo(() => {
-    if (staffFilter === 'all') return staffPerformance;
-    return staffPerformance.filter((s) => String(s.id) === staffFilter);
-  }, [staffPerformance, staffFilter]);
+    if (routeFilter !== 'all') {
+      parts.push(`Tuyến: ${routeList.find((r) => String(r.id) === routeFilter)?.name ?? ''}`);
+    }
+    if (partnerFilter !== 'all') parts.push(`Đối tác: ${partnerFilter}`);
+    return parts.join(' · ');
+  }, [basis, rangeLabel, isAdmin, staffFilter, staffList, routeFilter, routeList, partnerFilter]);
 
   const totalOrders = useMemo(
     () => filteredStaff.reduce((acc, s) => acc + s.orders, 0),
@@ -117,23 +111,27 @@ export default function StaffReportPage() {
 
   const topPerformer = sortedStaff[0];
 
+  // Xuất Excel đúng theo bộ lọc đang chọn (chỉ Admin; server cũng chặn nhân viên)
   const handleExportExcel = async () => {
     try {
-      const { blob, filename } = await ordersApi.exportExcel({
+      const filters: OrderFilters = {
         search: '',
-        staffId: staffFilter === 'all' ? 'all' : Number(staffFilter),
-        routeId: 'all',
-        dateFrom: selectedDate,
-        dateTo: selectedDate,
+        staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
+        routeId: routeFilter === 'all' ? 'all' : Number(routeFilter),
+        partner: partnerFilter === 'all' ? undefined : partnerFilter,
+        dateFrom: null,
+        dateTo: null,
+        ...dates,
         page: 1,
-      });
+      };
+      const { blob, filename } = await ordersApi.exportExcel(filters);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      showToast('Đã xuất báo cáo nhân sự ra file Excel thành công!');
+      showToast('Đã xuất báo cáo ra file Excel thành công!');
     } catch {
       showToast('Lỗi khi xuất file Excel từ máy chủ.');
     }
@@ -143,14 +141,16 @@ export default function StaffReportPage() {
     <>
       <PageTitle
         actions={
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleExportExcel}
-              className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
-            >
-              <FileXls size={18} weight="bold" /> Xuất Excel
-            </button>
+          <div className="flex flex-wrap items-center gap-2.5 print:hidden">
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
+              >
+                <FileXls size={18} weight="bold" /> Xuất Excel
+              </button>
+            )}
             <button
               type="button"
               onClick={() => window.print()}
@@ -165,32 +165,67 @@ export default function StaffReportPage() {
       </PageTitle>
 
 
+      {/* Chỉ hiện khi in: ghi rõ nội dung đã lọc */}
+      <p className="mb-4 hidden text-sm font-semibold text-slate-700 print:block">
+        Bộ lọc: {filterSummary}
+      </p>
+
       {/* 3D Filter Bar */}
-      <Card>
+      <Card className="print:hidden">
         <div className="flex flex-wrap items-end gap-3.5">
-          <label className="block min-w-44">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Ngày báo cáo</span>
-            <DateInput value={selectedDate} onChange={setSelectedDate} />
-          </label>
+          <div className="block min-w-56">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Lọc theo</span>
+            <BasisSwitch basis={basis} onChange={setBasis} />
+          </div>
+
+          <div className="block min-w-48">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Khoảng ngày</span>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
+              {rangeLabel}
+            </div>
+          </div>
 
           {isAdmin && (
-          <label className="block min-w-48 flex-1">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Nhân viên</span>
-            <select
-              className="input-3d"
-              value={staffFilter}
-              onChange={(e) => setStaffFilter(e.target.value)}
-            >
-              <option value="all">Tất cả nhân viên</option>
-              {staffList.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.fullName} ({s.username})
+            <label className="block min-w-44 flex-1">
+              <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Nhân viên</span>
+              <select className="input-3d" value={staffFilter} onChange={(e) => setStaffFilter(e.target.value)}>
+                <option value="all">Tất cả nhân viên</option>
+                {staffList.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.fullName} ({s.username})
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
+          <label className="block min-w-44 flex-1">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Tuyến đường</span>
+            <select className="input-3d" value={routeFilter} onChange={(e) => setRouteFilter(e.target.value)}>
+              <option value="all">Tất cả tuyến</option>
+              {routeList.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
                 </option>
               ))}
             </select>
           </label>
-          )}
+
+          <label className="block min-w-44 flex-1">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Đối tác</span>
+            <select className="input-3d" value={partnerFilter} onChange={(e) => setPartnerFilter(e.target.value)}>
+              <option value="all">Tất cả đối tác</option>
+              {partnerList.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Đổi khoảng ngày ở nút ngày trên thanh menu. Xuất Excel và in báo cáo theo đúng bộ lọc này.
+        </p>
       </Card>
 
       {/* 3D KPI Metrics Cards */}
@@ -333,7 +368,7 @@ export default function StaffReportPage() {
               </tr>
             </thead>
             <tbody>
-              {kpiLoading || ordersLoading ? (
+              {kpiLoading ? (
                 <tr>
                   <td colSpan={isAdmin ? 7 : 5} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
@@ -342,7 +377,7 @@ export default function StaffReportPage() {
               ) : sortedStaff.length === 0 ? (
                 <tr>
                   <td colSpan={isAdmin ? 7 : 5} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
-                    Chưa có dữ liệu nhân viên nào cho ngày đã chọn.
+                    Không có dữ liệu nào khớp bộ lọc đã chọn.
                   </td>
                 </tr>
               ) : (

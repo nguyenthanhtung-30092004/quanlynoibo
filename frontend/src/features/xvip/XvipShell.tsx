@@ -205,7 +205,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
       <DateFilterProvider>
         <div className="flex min-h-dvh bg-slate-100/70 dark:bg-[#0b1326] text-slate-800 dark:text-slate-100 transition-colors duration-200">
           {/* Sidebar Desktop */}
-          <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 lg:block z-30">
+          <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 lg:block z-30 print:!hidden">
             <Sidebar />
           </aside>
 
@@ -226,7 +226,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
 
           <div className="flex min-w-0 flex-1 flex-col">
             {/* Header with 3D Depth & Theme/Sound Toggles */}
-            <header className="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2.5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-colors duration-200">
+            <header className="sticky top-0 z-20 print:hidden flex flex-wrap items-center gap-x-3 gap-y-2.5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md px-4 py-3 sm:px-6 shadow-[0_2px_8px_rgba(0,0,0,0.04)] dark:shadow-[0_2px_8px_rgba(0,0,0,0.3)] transition-colors duration-200">
               <button
                 type="button"
                 onClick={() => setOpen(true)}

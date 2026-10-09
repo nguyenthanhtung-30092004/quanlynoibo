@@ -355,23 +355,40 @@ export class OrdersService {
     await this.orderRepository.update({ messageRefId: referentId }, { messageStatus: mapped });
   }
 
-  /** KPI theo ngày vào sổ (mặc định) hoặc theo ngày khởi hành. Admin thấy thêm bảng theo từng nhân viên */
-  async kpi(query: KpiQueryDto, actor: JwtPayload) {
+  /** Đơn còn hiệu lực khớp bộ lọc KPI (ngày vào sổ / ngày khởi hành, nhân viên, tuyến, đối tác) */
+  private async kpiOrders(query: KpiQueryDto, actor: JwtPayload) {
     const date = query.date ?? getBusinessDate();
     const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.createdBy', 'staff')
       .addSelect(['staff.id', 'staff.fullName']);
-    if (query.departureFrom || query.departureTo) {
-      // Lọc theo ngày khởi hành (một ngày hoặc một khoảng)
+    const byDeparture = !!(query.departureFrom || query.departureTo);
+    const byEntryRange = !!(query.dateFrom || query.dateTo);
+    if (byDeparture || byEntryRange) {
+      // Lọc theo ngày khởi hành và/hoặc ngày vào sổ (một ngày hoặc một khoảng)
       if (query.departureFrom) {
         qb.andWhere('order.departureDate >= :depFrom', { depFrom: query.departureFrom });
       }
       if (query.departureTo) {
         qb.andWhere('order.departureDate <= :depTo', { depTo: query.departureTo });
       }
+      if (query.dateFrom) {
+        qb.andWhere('order.entryDate >= :from', { from: query.dateFrom });
+      }
+      if (query.dateTo) {
+        qb.andWhere('order.entryDate <= :to', { to: query.dateTo });
+      }
     } else {
       qb.andWhere('order.entryDate = :date', { date });
+    }
+    if (actor.role === UserRole.ADMIN && query.staffId !== undefined) {
+      qb.andWhere('order.createdById = :staffId', { staffId: query.staffId });
+    }
+    if (query.routeId !== undefined) {
+      qb.andWhere('order.routeId = :routeId', { routeId: query.routeId });
+    }
+    if (query.partner?.trim()) {
+      qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: query.partner.trim() });
     }
     if (actor.role !== UserRole.ADMIN) {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
@@ -379,6 +396,12 @@ export class OrdersService {
     // Vé đã hủy không tính vào doanh thu
     qb.andWhere('order.cancelledAt IS NULL');
     const orders = await qb.getMany();
+    return { date, orders };
+  }
+
+  /** KPI theo ngày vào sổ (mặc định) hoặc theo ngày khởi hành. Admin thấy thêm bảng theo từng nhân viên */
+  async kpi(query: KpiQueryDto, actor: JwtPayload) {
+    const { date, orders } = await this.kpiOrders(query, actor);
 
     const sum = (list: Order[], pick: (o: Order) => number) =>
       list.reduce((total, o) => total + pick(o), 0);
@@ -422,6 +445,104 @@ export class OrdersService {
         .sort((a, b) => b.total - a.total);
     }
     return result;
+  }
+
+  /** Công nợ theo đối tác trong khoảng lọc: số đơn, vé, thu hộ, hoa hồng giữ, giá nhập phải trả. Vé hủy không tính */
+  async debts(query: KpiQueryDto, actor: JwtPayload) {
+    const { orders } = await this.kpiOrders(query, actor);
+    const groups = new Map<
+      string,
+      { partner: string; orders: number; tickets: number; revenue: number; commission: number; cost: number }
+    >();
+    for (const o of orders) {
+      const name = o.partner?.trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      const g = groups.get(key) ?? { partner: name, orders: 0, tickets: 0, revenue: 0, commission: 0, cost: 0 };
+      g.orders += 1;
+      g.tickets += this.ticketsOf(o);
+      g.revenue += o.sellPrice;
+      g.commission += o.commission;
+      // Giá nhập chưa nhập thì lấy giá bán trừ hoa hồng
+      g.cost += o.costPrice || o.sellPrice - o.commission || 0;
+      groups.set(key, g);
+    }
+    return [...groups.values()].sort((a, b) => b.cost - a.cost);
+  }
+
+  /** Xuất bảng công nợ đối tác (đúng bộ lọc) ra Excel */
+  async exportDebts(query: KpiQueryDto, actor: JwtPayload) {
+    const rows = await this.debts(query, actor);
+    const workbook = new ExcelJS.Workbook();
+    workbook.created = new Date();
+    const sheet = workbook.addWorksheet('Công nợ đối tác', {
+      views: [{ state: 'frozen', ySplit: 3, showGridLines: false }],
+    });
+    const cols = [
+      { header: 'STT', width: 8, align: 'center' as const },
+      { header: 'ĐỐI TÁC', width: 30, align: 'left' as const },
+      { header: 'SỐ ĐƠN', width: 12, align: 'center' as const, fmt: '#,##0' },
+      { header: 'SỐ VÉ', width: 12, align: 'center' as const, fmt: '#,##0' },
+      { header: 'TỔNG THU HỘ', width: 18, align: 'right' as const, fmt: '#,##0' },
+      { header: 'HOA HỒNG GIỮ', width: 18, align: 'right' as const, fmt: '#,##0' },
+      { header: 'PHẢI TRẢ NHÀ XE', width: 20, align: 'right' as const, fmt: '#,##0' },
+    ];
+    cols.forEach((c, i) => {
+      sheet.getColumn(i + 1).width = c.width;
+    });
+    sheet.mergeCells(1, 1, 1, cols.length);
+    const title = sheet.getCell(1, 1);
+    title.value = 'CÔNG NỢ ĐỐI TÁC';
+    title.font = { size: 18, bold: true, color: { argb: 'FFFFFFFF' } };
+    title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F2A5C' } };
+    title.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(1).height = 32;
+
+    sheet.mergeCells(2, 1, 2, cols.length);
+    const range = (from?: string, to?: string) => (from || to ? `${from ?? '…'} → ${to ?? '…'}` : null);
+    const scope =
+      range(query.departureFrom, query.departureTo)?.replace(/^/, 'Ngày khởi hành: ') ??
+      range(query.dateFrom, query.dateTo)?.replace(/^/, 'Ngày tạo vé: ') ??
+      `Ngày tạo vé: ${query.date ?? getBusinessDate()}`;
+    sheet.getCell(2, 1).value = `${scope}${query.partner ? `  •  Đối tác: ${query.partner}` : ''}  •  Không tính vé đã hủy`;
+    sheet.getCell(2, 1).alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    sheet.getRow(2).height = 22;
+
+    const head = sheet.getRow(3);
+    cols.forEach((c, i) => {
+      const cell = head.getCell(i + 1);
+      cell.value = c.header;
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2563EB' } };
+      cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    });
+    head.height = 28;
+
+    const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } } as const;
+    rows.forEach((r, idx) => {
+      const row = sheet.getRow(4 + idx);
+      const values = [idx + 1, this.neutralizeFormula(r.partner), r.orders, r.tickets, r.revenue, r.commission, r.cost];
+      values.forEach((v, i) => {
+        const cell = row.getCell(i + 1);
+        cell.value = v;
+        if (cols[i].fmt) cell.numFmt = cols[i].fmt;
+        cell.alignment = { horizontal: cols[i].align, vertical: 'middle' };
+        cell.border = { top: thin, left: thin, bottom: thin, right: thin };
+      });
+    });
+
+    const totalRow = sheet.getRow(4 + rows.length);
+    const sumBy = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + pick(r), 0);
+    const totals = [null, 'TỔNG', sumBy((r) => r.orders), sumBy((r) => r.tickets), sumBy((r) => r.revenue), sumBy((r) => r.commission), sumBy((r) => r.cost)];
+    totals.forEach((v, i) => {
+      const cell = totalRow.getCell(i + 1);
+      cell.value = v;
+      if (cols[i].fmt) cell.numFmt = cols[i].fmt;
+      cell.font = { bold: true, color: { argb: 'FF0F2A5C' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE9A8' } };
+      cell.alignment = { horizontal: cols[i].align, vertical: 'middle' };
+    });
+    return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   /** Xuất danh sách (đã lọc) ra file Excel, cột theo sổ "Nhật ký" */
@@ -719,6 +840,9 @@ export class OrdersService {
     }
     if (filter.departureTo) {
       qb.andWhere('order.departureDate <= :depTo', { depTo: filter.departureTo });
+    }
+    if (filter.partner?.trim()) {
+      qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: filter.partner.trim() });
     }
     if (filter.search?.trim()) {
       qb.andWhere(

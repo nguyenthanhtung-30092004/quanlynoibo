@@ -8,6 +8,7 @@ import type {
   Order,
   OrderFilters,
   OrderHistoryEntry,
+  PartnerDebt,
   UpdateOrderInput,
 } from './types';
 
@@ -17,6 +18,7 @@ function filterParams(filters: OrderFilters) {
     search: filters.search.trim() || undefined,
     staffId: filters.staffId === 'all' ? undefined : filters.staffId,
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
+    partner: filters.partner || undefined,
     dateFrom: filters.dateFrom ?? undefined,
     dateTo: filters.dateTo ?? undefined,
     departureFrom: filters.departureFrom ?? undefined,
@@ -76,6 +78,11 @@ export const ordersApi = {
 
   kpi: (date?: string, range?: KpiRange) =>
     api<ApiResponse<Kpi>>('orders/kpi', { query: { date, ...range } }).then((res) => res.data),
+
+  debts: (range?: KpiRange) =>
+    api<ApiResponse<PartnerDebt[]>>('orders/debts', { query: { ...range } }).then((res) => res.data),
+
+  exportDebts: (range?: KpiRange) => apiDownload('orders/debts/export', { ...range }),
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),

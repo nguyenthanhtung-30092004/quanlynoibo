@@ -68,6 +68,8 @@ export interface OrderFilters {
   search: string;
   staffId: number | 'all';
   routeId: number | 'all';
+  /** Tên đối tác; bỏ trống = tất cả */
+  partner?: string;
   /** YYYY-MM-DD, theo ngày vào sổ (giờ VN) */
   dateFrom: string | null;
   dateTo: string | null;
@@ -103,9 +105,15 @@ export interface CreateOrderInput {
 
 export type UpdateOrderInput = Partial<Omit<CreateOrderInput, 'staffId'>>;
 
+/** Bộ lọc KPI: theo ngày khởi hành hoặc ngày vào sổ, cộng thêm nhân viên / tuyến / đối tác */
 export interface KpiRange {
-  departureFrom: string;
-  departureTo: string;
+  departureFrom?: string;
+  departureTo?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  staffId?: number;
+  routeId?: number;
+  partner?: string;
 }
 
 export interface KpiSummary {
@@ -145,4 +153,15 @@ export interface OrderHistoryEntry {
   summary: string | null;
   changes: OrderChange[] | null;
   createdAt: string;
+}
+
+/** Công nợ gộp theo đối tác trong khoảng lọc */
+export interface PartnerDebt {
+  partner: string;
+  orders: number;
+  tickets: number;
+  revenue: number;
+  commission: number;
+  /** Giá nhập: số tiền phải trả nhà xe */
+  cost: number;
 }

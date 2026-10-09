@@ -10,10 +10,12 @@ import {
   Bus,
 } from '@phosphor-icons/react';
 import { usePartners } from '@/features/partners/hooks';
-import { useOrders } from '@/features/orders/hooks';
+import { useDebts } from '@/features/orders/hooks';
+import { ordersApi } from '@/features/orders/api';
 import { money } from '@/features/xvip/data';
 import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
 import { Modal } from '@/features/xvip/Modal';
 interface SettlementModalData {
@@ -29,28 +31,24 @@ export default function DebtPage() {
   const [settledMap, setSettledMap] = useState<Record<string, number>>({});
 
   const { data: partnerData, isLoading: carriersLoading } = usePartners();
-  const { data: ordersData, isLoading: ordersLoading } = useOrders({
-    search: '',
-    staffId: 'all',
-    routeId: 'all',
-    dateFrom: null,
-    dateTo: null,
-    page: 1,
-  });
+  // Công nợ tính trên server theo khoảng ngày ở header (không bị giới hạn 20 đơn như danh sách)
+  const { range, basis } = useDateFilter();
+  const dates = rangeParams(range, basis);
+  const { data: debtData, isLoading: ordersLoading } = useDebts(dates);
 
   const showToast = useToast();
 
   const carriers = useMemo(() => partnerData ?? [], [partnerData]);
-  const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
 
   // Tính toán công nợ thực tế cho từng đối tác từ danh sách đơn hàng
   const debtList = useMemo(() => {
+    const byName = new Map((debtData ?? []).map((d) => [d.partner.toLowerCase(), d]));
     return carriers.map((c) => {
-      const matchOrders = orders.filter((o) => o.partner?.toLowerCase() === c.name.toLowerCase());
-      const totalTickets = matchOrders.length;
-      const totalCollected = matchOrders.reduce((sum, o) => sum + (o.sellPrice || 0), 0);
-      const totalCommission = matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
-      const carrierCost = matchOrders.reduce((sum, o) => sum + (o.costPrice || (o.sellPrice - o.commission) || 0), 0);
+      const d = byName.get(c.name.toLowerCase());
+      const totalTickets = d?.tickets ?? 0;
+      const totalCollected = d?.revenue ?? 0;
+      const totalCommission = d?.commission ?? 0;
+      const carrierCost = d?.cost ?? 0;
       const paid = settledMap[c.name] ?? 0;
       const owed = Math.max(0, carrierCost - paid);
 
@@ -66,7 +64,7 @@ export default function DebtPage() {
         accountName: c.name.toUpperCase(),
       };
     });
-  }, [carriers, orders, settledMap]);
+  }, [carriers, debtData, settledMap]);
 
   const filteredDebts = useMemo(() => {
     if (carrierFilter === 'all') return debtList;
@@ -85,6 +83,23 @@ export default function DebtPage() {
     () => filteredDebts.reduce((acc, d) => acc + d.commission, 0),
     [filteredDebts]
   );
+
+  // Xuất Excel theo đúng khoảng ngày và đối tác đang lọc
+  const handleExport = async () => {
+    try {
+      const partner = carriers.find((c) => String(c.id) === carrierFilter)?.name;
+      const { blob, filename } = await ordersApi.exportDebts({ ...dates, partner });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Đã xuất bảng công nợ ra file Excel.');
+    } catch {
+      showToast('Lỗi khi xuất bảng công nợ từ máy chủ.');
+    }
+  };
 
   const handleOpenSettlement = (carrierId: number, carrierName: string, owed: number) => {
     setSettlementTarget({ carrierId, carrierName, owed });
@@ -115,9 +130,7 @@ export default function DebtPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
-              onClick={() => {
-                showToast('Đang kết xuất bảng công nợ nhà xe ra Excel...');
-              }}
+              onClick={handleExport}
               className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
             >
               <FileXls size={18} weight="bold" /> Xuất bảng công nợ

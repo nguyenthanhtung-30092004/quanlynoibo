@@ -31,6 +31,7 @@ import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModa
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
+import { BASIS_LABEL, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 const ALL = 'all';
 
 /** Loại hình cho sẵn để chọn */
@@ -214,7 +215,7 @@ interface OrderFormState {
 }
 
 export default function TicketManagementPage() {
-  const [filters, setFilters] = useState<OrderFilters>({
+  const [localFilters, setFilters] = useState<OrderFilters>({
     search: '',
     staffId: ALL,
     routeId: ALL,
@@ -222,6 +223,23 @@ export default function TicketManagementPage() {
     dateTo: null,
     page: 1,
   });
+
+  // Khoảng ngày lấy từ bộ lọc ở header (theo ngày đi hoặc ngày tạo vé)
+  const { range, basis, label: rangeLabel } = useDateFilter();
+  const filters = useMemo<OrderFilters>(
+    () => ({
+      ...localFilters,
+      dateFrom: null,
+      dateTo: null,
+      departureFrom: null,
+      departureTo: null,
+      ...rangeParams(range, basis),
+    }),
+    [localFilters, range, basis],
+  );
+  useEffect(() => {
+    setFilters((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
+  }, [range, basis]);
 
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
   const { data: activeRoutes = [] } = useActiveRoutes();
@@ -523,13 +541,15 @@ export default function TicketManagementPage() {
       <PageTitle
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
-              onClick={handleExportExcel}
-            >
-              <FileXls size={18} weight="bold" /> Xuất Excel
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
+                onClick={handleExportExcel}
+              >
+                <FileXls size={18} weight="bold" /> Xuất Excel
+              </button>
+            )}
             <button
               type="button"
               onClick={handleOpenCreate}
@@ -582,6 +602,28 @@ export default function TicketManagementPage() {
             </select>
           </label>
 
+          <label className="block min-w-36 flex-1">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Đối tác</span>
+            <select
+              className="input-3d"
+              value={filters.partner ?? ALL}
+              onChange={(e) =>
+                setFilters((prev) => ({
+                  ...prev,
+                  partner: e.target.value === ALL ? undefined : e.target.value,
+                  page: 1,
+                }))
+              }
+            >
+              <option value={ALL}>Tất cả đối tác</option>
+              {partnerList.map((p) => (
+                <option key={p.id} value={p.name}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {activeStaff.length > 0 && (
             <label className="block min-w-36 flex-1">
               <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Nhân viên</span>
@@ -606,6 +648,9 @@ export default function TicketManagementPage() {
             </label>
           )}
         </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Đang lọc theo {BASIS_LABEL[basis].toLowerCase()}: {rangeLabel}. Đổi ở nút ngày trên thanh menu.
+        </p>
       </Card>
 
       {/* Bảng danh sách 3D */}

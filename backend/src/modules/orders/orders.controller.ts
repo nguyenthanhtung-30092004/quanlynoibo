@@ -78,7 +78,30 @@ export class OrdersController {
     };
   }
 
+  /** Công nợ theo đối tác (chỉ Admin) */
+  @Get('debts')
+  @Roles(UserRole.ADMIN)
+  async debts(@Query() query: KpiQueryDto, @CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy công nợ đối tác thành công',
+      data: await this.ordersService.debts(query, user),
+    };
+  }
+
+  @Get('debts/export')
+  @Roles(UserRole.ADMIN)
+  async exportDebts(@Query() query: KpiQueryDto, @CurrentUser() user: JwtPayload) {
+    const buffer = await this.ordersService.exportDebts(query, user);
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="cong-no-${getBusinessDate()}.xlsx"`,
+    });
+  }
+
+  /** Chỉ Admin được xuất Excel */
   @Get('export')
+  @Roles(UserRole.ADMIN)
   async export(
     @Query() query: OrderFilterDto,
     @CurrentUser() user: JwtPayload,
