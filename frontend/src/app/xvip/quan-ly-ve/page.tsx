@@ -852,18 +852,18 @@ export default function TicketManagementPage() {
                       </Field>
                     </div>
 
-                    <Field label="Ngày khởi hành" required>
-                      <DateInput
-                        value={formState.departureDate}
-                        onChange={(v) => setFormState((p) => ({ ...p, departureDate: v }))}
-                        required
-                      />
-                    </Field>
-
                     <Field label="Giờ đi" required>
                       <TimeInput
                         value={formState.departureTime}
                         onChange={(v) => setFormState((p) => ({ ...p, departureTime: v }))}
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Ngày khởi hành" required>
+                      <DateInput
+                        value={formState.departureDate}
+                        onChange={(v) => setFormState((p) => ({ ...p, departureDate: v }))}
                         required
                       />
                     </Field>
@@ -975,12 +975,12 @@ export default function TicketManagementPage() {
 
                 <Section step={4} title="Giá tiền (VNĐ)">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <Field label="Giá bán" required>
-                      <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
-                    </Field>
-
                     <Field label="Giá nhập">
                       <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />
+                    </Field>
+
+                    <Field label="Giá bán" required>
+                      <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
                     </Field>
 
                     <Field label="Đã cọc">
