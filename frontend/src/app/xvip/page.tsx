@@ -9,6 +9,7 @@ import {
   UsersThree,
   PaperPlaneTilt,
 } from '@phosphor-icons/react';
+import { useCurrentUser } from '@/features/auth/hooks';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { useRoutes } from '@/features/routes/hooks';
@@ -39,7 +40,10 @@ export default function OverviewPage() {
   });
   const { data: partnerData } = usePartners();
   const { data: routesData } = useRoutes();
-  const { data: usersData } = useUsers({ page: 1, search: '' });
+  const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
+  // API người dùng chỉ dành cho Admin; nhân viên không xem doanh thu
+  const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
 
   const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
   const carriers = useMemo(() => partnerData ?? [], [partnerData]);
@@ -161,7 +165,7 @@ export default function OverviewPage() {
 
       {/* 5 Thẻ chỉ số 3D kết nối API thật */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {STATS.map(({ label, value, note, color, borderBottom, icon: StatIcon }) => (
+        {STATS.filter((st) => isAdmin || st.label !== 'Tổng tiền vé').map(({ label, value, note, color, borderBottom, icon: StatIcon }) => (
           <div
             key={label}
             style={{
@@ -209,7 +213,7 @@ export default function OverviewPage() {
                     />
                   </span>
                   <span className="tnum text-right font-bold text-slate-900 dark:text-white">
-                    {money(c.revenue)}đ
+                    {isAdmin ? `${money(c.revenue)}đ` : `${c.tickets} vé`}
                   </span>
                 </li>
               ))}

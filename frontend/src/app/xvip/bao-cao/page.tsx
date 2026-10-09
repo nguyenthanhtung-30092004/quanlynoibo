@@ -242,6 +242,7 @@ export default function StaffReportPage() {
           </div>
         </div>
 
+        {isAdmin && (
         <div
           style={{
             boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #15803d, 0 12px 24px -4px rgba(15,23,42,0.18)',
@@ -259,6 +260,7 @@ export default function StaffReportPage() {
             <div className="text-[11px] font-medium text-white/90">Giá trị vé khách thanh toán</div>
           </div>
         </div>
+        )}
 
         <div
           style={{
@@ -336,21 +338,21 @@ export default function StaffReportPage() {
                 <th className={TH}>Nhân viên</th>
                 <th className={`${TH} text-right`}>Số đơn</th>
                 <th className={`${TH} text-right`}>Số vé bán ra</th>
-                <th className={`${TH} text-right`}>Tổng doanh thu vé</th>
+                {isAdmin && <th className={`${TH} text-right`}>Tổng doanh thu vé</th>}
                 <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
-                <th className={`${TH} text-right`}>Giá trị TB / vé</th>
+                {isAdmin && <th className={`${TH} text-right`}>Giá trị TB / vé</th>}
               </tr>
             </thead>
             <tbody>
               {kpiLoading || ordersLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={isAdmin ? 7 : 5} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : sortedStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={isAdmin ? 7 : 5} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có dữ liệu nhân viên nào cho ngày đã chọn.
                   </td>
                 </tr>
@@ -390,15 +392,19 @@ export default function StaffReportPage() {
                       <td className={`${TD} text-right font-black text-blue-700 dark:text-blue-400 tnum`}>
                         {staff.tickets.toLocaleString('vi-VN')} vé
                       </td>
-                      <td className={`${TD} text-right font-bold text-slate-900 dark:text-white tnum`}>
-                        {money(staff.revenue)}đ
-                      </td>
+                      {isAdmin && (
+                        <td className={`${TD} text-right font-bold text-slate-900 dark:text-white tnum`}>
+                          {money(staff.revenue)}đ
+                        </td>
+                      )}
                       <td className={`${TD} text-right font-black text-emerald-600 dark:text-emerald-400 tnum`}>
                         {money(staff.commission)}đ
                       </td>
-                      <td className={`${TD} text-right font-semibold text-slate-600 dark:text-slate-300 tnum`}>
-                        {money(avgPrice)}đ
-                      </td>
+                      {isAdmin && (
+                        <td className={`${TD} text-right font-semibold text-slate-600 dark:text-slate-300 tnum`}>
+                          {money(avgPrice)}đ
+                        </td>
+                      )}
                     </tr>
                   );
                 })
