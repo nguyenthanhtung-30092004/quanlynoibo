@@ -501,6 +501,11 @@ export class OrdersService {
     COLS.forEach((c, i) => {
       sheet.getColumn(i + 1).width = c.width;
     });
+    // Viền mặc định theo cột: mọi ô trống của trang tính (kể cả phía dưới và bên phải) đều có kẻ ô
+    const SHEET_COLS = N + 12;
+    for (let i = 1; i <= SHEET_COLS; i++) {
+      sheet.getColumn(i).border = box;
+    }
 
     // ---- tiêu đề + dòng thông tin
     sheet.mergeCells(1, 1, 1, N);
@@ -545,19 +550,6 @@ export class OrdersService {
       cell.border = { top: headerLine, left: headerLine, right: headerLine, bottom: { style: 'medium', color: { argb: NAVY } } };
     });
 
-    // Bảng luôn kéo dài tối thiểu MIN_ROWS dòng: các dòng trống vẫn có kẻ ngang cho đỡ trắng trơn
-    const MIN_ROWS = 25;
-    const rowCount = Math.max(orders.length, MIN_ROWS);
-    for (let idx = orders.length; idx < rowCount; idx++) {
-      const row = sheet.getRow(HEADER_ROW + 1 + idx);
-      row.height = 21;
-      COLS.forEach((_c, i) => {
-        const cell = row.getCell(i + 1);
-        cell.border = box;
-        if (idx % 2 === 1) cell.fill = solid(BAND);
-      });
-    }
-
     // ---- dữ liệu
     orders.forEach((o, idx) => {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
@@ -584,7 +576,7 @@ export class OrdersService {
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)
     const first = HEADER_ROW + 1;
-    const last = HEADER_ROW + rowCount;
+    const last = HEADER_ROW + orders.length;
     const totalRow = sheet.getRow(last + 1);
     totalRow.height = 26;
     sheet.mergeCells(last + 1, 1, last + 1, 4);
@@ -633,7 +625,7 @@ export class OrdersService {
       { label: 'Tổng giá bán (vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: sumOf((o) => o.sellPrice) } : 0, fmt: '#,##0" đ"' },
       { label: 'Tổng hoa hồng (vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: sumOf((o) => o.commission) } : 0, fmt: '#,##0" đ"' },
     ];
-    const panelTop = last + 4;
+    const panelTop = last + 3;
     sheet.mergeCells(panelTop, 1, panelTop, 6);
     const panelTitle = sheet.getCell(panelTop, 1);
     panelTitle.value = 'TỔNG KẾT';
@@ -661,6 +653,19 @@ export class OrdersService {
       v.font = { bold: true, size: 13, color: { argb: item.color ?? NAVY } };
       v.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
     });
+
+    // Các dòng trống bên dưới khối tổng kết: kẻ ô và tô xen kẽ cho đỡ trơ
+    const FILLER_ROWS = 30;
+    const fillerStart = panelTop + panel.length + 2;
+    for (let k = 0; k < FILLER_ROWS; k++) {
+      const row = sheet.getRow(fillerStart + k);
+      row.height = 21;
+      for (let c = 1; c <= N; c++) {
+        const cell = row.getCell(c);
+        cell.border = box;
+        if (k % 2 === 1) cell.fill = solid(BAND);
+      }
+    }
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
