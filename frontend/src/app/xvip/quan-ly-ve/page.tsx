@@ -149,7 +149,9 @@ interface OrderFormState {
   routeId: number;
   partner: string;
   vehicleType: string;
-  seatZone: SeatZone | '';
+  seatFront: number;
+  seatMiddle: number;
+  seatBack: number;
   departureTime: string;
   departureDate: string;
   sellPrice: number;
@@ -157,7 +159,6 @@ interface OrderFormState {
   deposit: number;
   collectOnDelivery: number;
   commission: number;
-  seatCount: number;
   pickupPoint: string;
   dropoffPoint: string;
   note: string;
@@ -214,7 +215,9 @@ export default function TicketManagementPage() {
       routeId: 0,
       partner: '',
       vehicleType: '',
-      seatZone: '',
+      seatFront: 1,
+      seatMiddle: 0,
+      seatBack: 0,
       departureTime: '13:00',
       departureDate: todayStr,
       sellPrice: 0,
@@ -222,7 +225,6 @@ export default function TicketManagementPage() {
       deposit: 0,
       collectOnDelivery: 0,
       commission: 0,
-      seatCount: 1,
       pickupPoint: '',
       dropoffPoint: '',
       note: '',
@@ -249,7 +251,9 @@ export default function TicketManagementPage() {
       routeId: o.route?.id ?? 0,
       partner: o.partner ?? '',
       vehicleType: o.vehicleType ?? '',
-      seatZone: o.seatZone ?? '',
+      seatFront: o.seatFront,
+      seatMiddle: o.seatMiddle,
+      seatBack: o.seatBack,
       departureTime: o.departureTime,
       departureDate: todayStr,
       sellPrice: o.sellPrice,
@@ -257,7 +261,6 @@ export default function TicketManagementPage() {
       deposit: o.deposit,
       collectOnDelivery: o.collectOnDelivery,
       commission: o.commission,
-      seatCount: o.seatCount,
       pickupPoint: o.pickupPoint ?? '',
       dropoffPoint: o.dropoffPoint ?? '',
       note: o.note ?? '',
@@ -275,7 +278,9 @@ export default function TicketManagementPage() {
       routeId: o.route?.id ?? 0,
       partner: o.partner ?? '',
       vehicleType: o.vehicleType ?? '',
-      seatZone: o.seatZone ?? '',
+      seatFront: o.seatFront,
+      seatMiddle: o.seatMiddle,
+      seatBack: o.seatBack,
       departureTime: o.departureTime,
       departureDate: o.departureDate,
       sellPrice: o.sellPrice,
@@ -283,7 +288,6 @@ export default function TicketManagementPage() {
       deposit: o.deposit,
       collectOnDelivery: o.collectOnDelivery,
       commission: o.commission,
-      seatCount: o.seatCount,
       pickupPoint: o.pickupPoint ?? '',
       dropoffPoint: o.dropoffPoint ?? '',
       note: o.note ?? '',
@@ -298,6 +302,10 @@ export default function TicketManagementPage() {
       showToast('Vui lòng chọn tuyến đường.');
       return;
     }
+    if ((Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0) < 1) {
+      showToast('Vui lòng nhập ít nhất 1 ghế (đầu, giữa hoặc cuối).');
+      return;
+    }
     if (!formState.phone.trim()) {
       showToast('Vui lòng nhập số điện thoại khách hàng.');
       return;
@@ -309,7 +317,6 @@ export default function TicketManagementPage() {
       routeId: Number(formState.routeId),
       partner: formState.partner.trim() || undefined,
       vehicleType: formState.vehicleType.trim() || undefined,
-      seatZone: formState.seatZone || undefined,
       departureTime: formState.departureTime,
       departureDate: formState.departureDate,
       sellPrice: Number(formState.sellPrice),
@@ -317,7 +324,9 @@ export default function TicketManagementPage() {
       deposit: Number(formState.deposit),
       collectOnDelivery: Number(formState.collectOnDelivery),
       commission: Number(formState.commission),
-      seatCount: Number(formState.seatCount) || 1,
+      seatFront: Number(formState.seatFront) || 0,
+      seatMiddle: Number(formState.seatMiddle) || 0,
+      seatBack: Number(formState.seatBack) || 0,
       pickupPoint: formState.pickupPoint.trim() || undefined,
       dropoffPoint: formState.dropoffPoint.trim() || undefined,
       note: formState.note.trim() || undefined,
@@ -784,24 +793,39 @@ export default function TicketManagementPage() {
                 </select>
               </Field>
 
-              <Field label="Vị trí ghế (Đầu / Giữa / Cuối)">
-                <select
-                  className="input-3d"
-                  value={formState.seatZone}
-                  onChange={(e) => setFormState((p) => ({ ...p, seatZone: e.target.value as SeatZone | '' }))}
-                >
-                  <option value="">Không chọn</option>
-                  {Object.values(SeatZone).map((z) => (
-                    <option key={z} value={z}>
-                      {SEAT_ZONE_LABELS[z]}
-                    </option>
+              <div className="sm:col-span-2">
+                <div className="mb-1.5 flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    Số ghế theo vị trí <span className="text-red-500">*</span>
+                  </span>
+                  <span className="rounded-lg bg-blue-600 px-2.5 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_0_#1e3a8a]">
+                    Tổng: {(Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0)} vé
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  {(
+                    [
+                      { key: 'seatFront', label: 'Ghế đầu' },
+                      { key: 'seatMiddle', label: 'Ghế giữa' },
+                      { key: 'seatBack', label: 'Ghế cuối' },
+                    ] as const
+                  ).map((z) => (
+                    <label
+                      key={z.key}
+                      className="block rounded-xl border border-slate-200 bg-slate-50 p-2.5 shadow-[0_3px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-800/60 dark:shadow-[0_3px_0_#0b1220]"
+                    >
+                      <span className="mb-1 block text-center text-xs font-bold text-slate-600 dark:text-slate-300">{z.label}</span>
+                      <NumInput
+                        className="input-3d text-center"
+                        value={formState[z.key]}
+                        onChange={(n) => setFormState((p) => ({ ...p, [z.key]: n }))}
+                        min={0}
+                        max={60}
+                      />
+                    </label>
                   ))}
-                </select>
-              </Field>
-
-              <Field label="Số ghế" required>
-                <NumInput className="input-3d" value={formState.seatCount} onChange={(n) => setFormState((p) => ({ ...p, seatCount: n }))} min={1} max={60} />
-              </Field>
+                </div>
+              </div>
 
               <Field label="Giá nhập (VNĐ)">
                 <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />

@@ -69,7 +69,31 @@ export class CreateOrderDto {
   @IsEnum(SeatZone, { message: 'Vị trí ghế phải là FRONT, MIDDLE hoặc BACK' })
   seatZone?: SeatZone;
 
-  @ApiPropertyOptional({ description: 'Số ghế', default: 1, example: 2 })
+  @ApiPropertyOptional({ description: 'Số ghế đầu', example: 3 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Số ghế đầu phải là số nguyên' })
+  @Min(0, { message: 'Số ghế đầu không được âm' })
+  @Max(60, { message: 'Số ghế đầu quá lớn' })
+  seatFront?: number;
+
+  @ApiPropertyOptional({ description: 'Số ghế giữa', example: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Số ghế giữa phải là số nguyên' })
+  @Min(0, { message: 'Số ghế giữa không được âm' })
+  @Max(60, { message: 'Số ghế giữa quá lớn' })
+  seatMiddle?: number;
+
+  @ApiPropertyOptional({ description: 'Số ghế cuối', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Số ghế cuối phải là số nguyên' })
+  @Min(0, { message: 'Số ghế cuối không được âm' })
+  @Max(60, { message: 'Số ghế cuối quá lớn' })
+  seatBack?: number;
+
+  @ApiPropertyOptional({ description: 'Tổng số ghế (bỏ qua nếu gửi đầu/giữa/cuối)', default: 1, example: 2 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Số ghế phải là số nguyên' })

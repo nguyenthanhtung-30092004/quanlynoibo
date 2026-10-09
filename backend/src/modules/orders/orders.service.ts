@@ -83,8 +83,8 @@ export class OrdersService {
         departureTime: dto.departureTime,
         departureDate: dto.departureDate,
         vehicleType: dto.vehicleType || null,
-        seatZone: dto.seatZone ?? null,
-        seatCount: dto.seatCount ?? 1,
+        seatZone: null,
+        ...this.resolveSeats(dto),
         costPrice,
         sellPrice,
         deposit: dto.deposit ?? 0,
@@ -141,8 +141,7 @@ export class OrdersService {
         dto.vehicleType !== undefined
           ? dto.vehicleType || null
           : order.vehicleType,
-      seatZone: dto.seatZone ?? order.seatZone,
-      seatCount: dto.seatCount ?? order.seatCount,
+      ...this.resolveSeats(dto, order),
       costPrice: dto.costPrice ?? order.costPrice,
       sellPrice: dto.sellPrice ?? order.sellPrice,
       deposit: dto.deposit ?? order.deposit,
@@ -355,9 +354,9 @@ export class OrdersService {
         departureTime: o.departureTime,
         departureDate: this.toExcelDate(o.departureDate),
         vehicleType: this.neutralizeFormula(o.vehicleType ?? ''),
-        front: o.seatZone === SeatZone.FRONT ? 'x' : '',
-        middle: o.seatZone === SeatZone.MIDDLE ? 'x' : '',
-        back: o.seatZone === SeatZone.BACK ? 'x' : '',
+        front: this.seatsOf(o).seatFront || '',
+        middle: this.seatsOf(o).seatMiddle || '',
+        back: this.seatsOf(o).seatBack || '',
         seatCount: o.seatCount,
         costPrice: o.costPrice,
         sellPrice: o.sellPrice,
@@ -466,6 +465,7 @@ export class OrdersService {
       departureDate: order.departureDate,
       vehicleType: order.vehicleType,
       seatZone: order.seatZone,
+      ...this.seatsOf(order),
       seatCount: order.seatCount,
       costPrice: order.costPrice,
       sellPrice: order.sellPrice,
@@ -488,6 +488,49 @@ export class OrdersService {
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };
+  }
+
+  /**
+   * Tách ghế đầu/giữa/cuối. Đơn cũ chưa tách (cả ba bằng 0) thì quy toàn bộ số ghế
+   * về vị trí đã chọn trước đây để hiển thị không bị mất.
+   */
+  private seatsOf(order: Order) {
+    const { seatFront, seatMiddle, seatBack, seatCount, seatZone } = order;
+    if (seatFront + seatMiddle + seatBack > 0) {
+      return { seatFront, seatMiddle, seatBack };
+    }
+    return {
+      seatFront: seatZone === SeatZone.FRONT ? seatCount : 0,
+      seatMiddle: seatZone === SeatZone.MIDDLE ? seatCount : 0,
+      seatBack: seatZone === SeatZone.BACK ? seatCount : 0,
+    };
+  }
+
+  /** Tổng ghế luôn bằng đầu + giữa + cuối nếu client gửi phần tách */
+  private resolveSeats(
+    dto: { seatFront?: number; seatMiddle?: number; seatBack?: number; seatCount?: number },
+    current?: Order,
+  ) {
+    const split =
+      dto.seatFront !== undefined || dto.seatMiddle !== undefined || dto.seatBack !== undefined;
+    if (!split) {
+      if (current) {
+        return { seatFront: current.seatFront, seatMiddle: current.seatMiddle, seatBack: current.seatBack, seatCount: dto.seatCount ?? current.seatCount };
+      }
+      return { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: dto.seatCount ?? 1 };
+    }
+    const base = current ? this.seatsOf(current) : { seatFront: 0, seatMiddle: 0, seatBack: 0 };
+    const seatFront = dto.seatFront ?? base.seatFront;
+    const seatMiddle = dto.seatMiddle ?? base.seatMiddle;
+    const seatBack = dto.seatBack ?? base.seatBack;
+    const seatCount = seatFront + seatMiddle + seatBack;
+    if (seatCount < 1) {
+      throw new BadRequestException('Đơn phải có ít nhất 1 ghế (đầu, giữa hoặc cuối).');
+    }
+    if (seatCount > 60) {
+      throw new BadRequestException('Tổng số ghế quá lớn.');
+    }
+    return { seatFront, seatMiddle, seatBack, seatCount };
   }
 
   private escapeLike(value: string): string {

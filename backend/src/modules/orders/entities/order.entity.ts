@@ -73,7 +73,19 @@ export class Order {
   @Column({ name: 'seatZone', type: 'enum', enum: SeatZone, nullable: true })
   seatZone: SeatZone | null;
 
-  /** SỐ GHẾ */
+  /** Số ghế đầu */
+  @Column({ name: 'seatFront', type: 'int', default: 0 })
+  seatFront: number;
+
+  /** Số ghế giữa */
+  @Column({ name: 'seatMiddle', type: 'int', default: 0 })
+  seatMiddle: number;
+
+  /** Số ghế cuối */
+  @Column({ name: 'seatBack', type: 'int', default: 0 })
+  seatBack: number;
+
+  /** TỔNG SỐ GHẾ = đầu + giữa + cuối (số vé của đơn) */
   @Column({ name: 'seatCount', type: 'int', default: 1 })
   seatCount: number;
 

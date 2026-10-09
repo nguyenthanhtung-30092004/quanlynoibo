@@ -36,6 +36,10 @@ export interface Order {
   departureDate: string;
   vehicleType: string | null;
   seatZone: SeatZone | null;
+  seatFront: number;
+  seatMiddle: number;
+  seatBack: number;
+  /** Tổng ghế = đầu + giữa + cuối (số vé của đơn) */
   seatCount: number;
   costPrice: number;
   sellPrice: number;
@@ -79,6 +83,9 @@ export interface CreateOrderInput {
   departureDate: string;
   vehicleType?: string;
   seatZone?: SeatZone;
+  seatFront?: number;
+  seatMiddle?: number;
+  seatBack?: number;
   seatCount?: number;
   costPrice?: number;
   sellPrice?: number;
