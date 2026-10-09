@@ -29,7 +29,7 @@ export function RouteCombobox({
   routes,
   value,
   onChange,
-  placeholder = 'Gõ để tìm tuyến đường…',
+  placeholder = '',
 }: {
   routes: RouteOption[];
   /** id tuyến đang chọn, 0 nếu chưa chọn */

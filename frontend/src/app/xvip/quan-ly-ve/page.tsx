@@ -125,7 +125,6 @@ function MoneyInput({
       type="text"
       inputMode="numeric"
       required={required}
-      placeholder="0"
       value={text}
       onChange={(e) => {
         const n = Number(e.target.value.replace(/\D/g, '').slice(0, 10) || 0);
@@ -136,13 +135,28 @@ function MoneyInput({
   );
 }
 
-function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+function Field({
+  label,
+  required,
+  error,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  children: ReactNode;
+}) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
         {label} {required && <span className="text-red-500">*</span>}
       </span>
       {children}
+      {error && (
+        <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
+          {error}
+        </span>
+      )}
     </label>
   );
 }
@@ -198,6 +212,7 @@ export default function TicketManagementPage() {
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string }>({});
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
@@ -242,6 +257,7 @@ export default function TicketManagementPage() {
     setEditingId(null);
     setRebookFromId(null);
     setFormState(defaultFormState);
+    setFormErrors({});
     setIsOpenModal(true);
   };
 
@@ -270,6 +286,7 @@ export default function TicketManagementPage() {
       note: o.note ?? '',
       staffId: isAdmin ? o.staff?.id : undefined,
     });
+    setFormErrors({});
     setIsOpenModal(true);
   };
 
@@ -297,6 +314,7 @@ export default function TicketManagementPage() {
       note: o.note ?? '',
       staffId: o.staff?.id,
     });
+    setFormErrors({});
     setIsOpenModal(true);
   };
 
@@ -310,10 +328,13 @@ export default function TicketManagementPage() {
       showToast('Vui lòng nhập ít nhất 1 ghế (đầu, giữa hoặc cuối).');
       return;
     }
-    if (!formState.phone.trim()) {
-      showToast('Vui lòng nhập số điện thoại khách hàng.');
-      return;
-    }
+    const errors: { customerName?: string; phone?: string } = {};
+    if (!formState.customerName.trim()) errors.customerName = 'Vui lòng nhập tên khách hàng.';
+    const phoneClean = formState.phone.replace(/\s+/g, '');
+    if (!phoneClean) errors.phone = 'Vui lòng nhập số điện thoại.';
+    else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean)) errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
+    setFormErrors(errors);
+    if (errors.customerName || errors.phone) return;
 
     const payload: CreateOrderInput = {
       customerName: formState.customerName.trim() || undefined,
@@ -734,7 +755,6 @@ export default function TicketManagementPage() {
                   options={partnerList.map((c) => c.name)}
                   value={formState.partner}
                   onChange={(v) => setFormState((p) => ({ ...p, partner: v }))}
-                  placeholder="Gõ để tìm đối tác…"
                   maxLength={100}
                 />
               </Field>
@@ -755,25 +775,30 @@ export default function TicketManagementPage() {
                 />
               </Field>
 
-              <Field label="Tên khách hàng">
+              <Field label="Tên khách hàng" required error={formErrors.customerName}>
                 <input
-                  className="input-3d"
+                  className={`input-3d ${formErrors.customerName ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
                   value={formState.customerName}
-                  onChange={(e) => setFormState((p) => ({ ...p, customerName: e.target.value }))}
-                  placeholder="Nguyễn Văn An"
+                  onChange={(e) => {
+                    setFormState((p) => ({ ...p, customerName: e.target.value }));
+                    setFormErrors((er) => ({ ...er, customerName: undefined }));
+                  }}
                   maxLength={100}
+                  aria-invalid={!!formErrors.customerName}
                   autoFocus
                 />
               </Field>
 
-              <Field label="Số điện thoại" required>
+              <Field label="Số điện thoại" required error={formErrors.phone}>
                 <input
-                  className="input-3d font-mono font-bold"
+                  className={`input-3d font-mono font-bold ${formErrors.phone ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
                   inputMode="tel"
                   value={formState.phone}
-                  onChange={(e) => setFormState((p) => ({ ...p, phone: e.target.value }))}
-                  placeholder="0983456789"
-                  required
+                  onChange={(e) => {
+                    setFormState((p) => ({ ...p, phone: e.target.value }));
+                    setFormErrors((er) => ({ ...er, phone: undefined }));
+                  }}
+                  aria-invalid={!!formErrors.phone}
                 />
               </Field>
 
@@ -879,7 +904,6 @@ export default function TicketManagementPage() {
                   className="input-3d"
                   value={formState.pickupPoint}
                   onChange={(e) => setFormState((p) => ({ ...p, pickupPoint: e.target.value }))}
-                  placeholder="VD: Sảnh Keangnam, Phạm Hùng"
                   maxLength={255}
                 />
               </Field>
@@ -888,7 +912,6 @@ export default function TicketManagementPage() {
                   className="input-3d"
                   value={formState.dropoffPoint}
                   onChange={(e) => setFormState((p) => ({ ...p, dropoffPoint: e.target.value }))}
-                  placeholder="VD: Bến xe Cẩm Phả"
                   maxLength={255}
                 />
               </Field>
@@ -937,7 +960,6 @@ export default function TicketManagementPage() {
                 className="input-3d"
                 value={formState.note}
                 onChange={(e) => setFormState((p) => ({ ...p, note: e.target.value }))}
-                placeholder="VD: Khách có 2 vali lớn, đến sớm 15 phút..."
                 maxLength={1000}
               />
             </Field>

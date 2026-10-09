@@ -229,7 +229,7 @@ function Calendar({
 }
 
 export function DateInput({
-  placeholder = 'dd/mm/yyyy',
+  placeholder = '',
   value,
   onChange,
   min,
@@ -322,7 +322,7 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
   );
 }
 
-export function TimeInput({ placeholder = '--:--', value, onChange }: BaseProps) {
+export function TimeInput({ placeholder = '', value, onChange }: BaseProps) {
   return (
     <PickerShell
       value={value}
