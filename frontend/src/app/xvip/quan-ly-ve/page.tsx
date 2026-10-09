@@ -622,7 +622,7 @@ export default function TicketManagementPage() {
                     </td>
                     <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
                       {t.departureTime}
-                      <span className="block text-[11px] font-normal text-slate-400 dark:text-slate-500">{formatDateVN(t.departureDate)}</span>
+                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">{formatDateVN(t.departureDate)}</span>
                     </td>
                     <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
                       {t.partner || 'XVIP'}
