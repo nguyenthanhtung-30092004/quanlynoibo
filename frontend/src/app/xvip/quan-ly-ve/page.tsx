@@ -270,6 +270,7 @@ export default function TicketManagementPage() {
     setRebookFromId(null);
     setFormState(defaultFormState);
     setFormErrors({});
+    setAutoSend({ SMS: false, ZALO: false });
     setIsOpenModal(true);
   };
 
@@ -300,6 +301,7 @@ export default function TicketManagementPage() {
       staffId: isAdmin ? o.staff?.id : undefined,
     });
     setFormErrors({});
+    setAutoSend({ SMS: false, ZALO: false });
     setIsOpenModal(true);
   };
 
@@ -329,7 +331,21 @@ export default function TicketManagementPage() {
       staffId: o.staff?.id,
     });
     setFormErrors({});
+    setAutoSend({ SMS: false, ZALO: false });
     setIsOpenModal(true);
+  };
+
+  /** Gửi tin theo các kênh đã tích; trả về câu kết quả để nối vào thông báo (rỗng nếu không tích kênh nào) */
+  const sendSelectedChannels = async (orderId: number) => {
+    const channels = (['SMS', 'ZALO'] as const).filter((ch) => autoSend[ch]);
+    if (channels.length === 0) return '';
+    const results = await Promise.allSettled(channels.map((ch) => ordersApi.sendMessage(orderId, ch)));
+    const parts = results.map((r, i) => {
+      const label = channels[i] === 'ZALO' ? 'Zalo' : 'SMS';
+      if (r.status === 'rejected') return `${label}: lỗi`;
+      return r.value.dryRun ? `${label}: chạy thử` : `${label}: đã gửi`;
+    });
+    return ` Gửi tin cho khách — ${parts.join(', ')}.`;
   };
 
   const handleSave = async (e: FormEvent) => {
@@ -375,7 +391,8 @@ export default function TicketManagementPage() {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, input: payload });
-        showToast('Đã cập nhật vé thành công trên hệ thống!');
+        const sent = await sendSelectedChannels(editingId);
+        showToast(`Đã cập nhật vé thành công trên hệ thống!${sent}`);
       } else {
         const created = await createMutation.mutateAsync({
           ...payload,
@@ -385,21 +402,7 @@ export default function TicketManagementPage() {
         const base = rebookFromId
           ? `Đã đặt lại đơn #${rebookFromId} thành đơn mới thành công!`
           : 'Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!';
-        const channels = (['SMS', 'ZALO'] as const).filter((ch) => autoSend[ch]);
-        if (channels.length === 0) {
-          showToast(base);
-        } else {
-          // Vé đã lưu; gửi tin lỗi thì báo riêng, vẫn có thể bấm gửi lại ở danh sách
-          const results = await Promise.allSettled(
-            channels.map((ch) => ordersApi.sendMessage(created.id, ch)),
-          );
-          const parts = results.map((r, i) => {
-            const label = channels[i] === 'ZALO' ? 'Zalo' : 'SMS';
-            if (r.status === 'rejected') return `${label}: lỗi`;
-            return r.value.dryRun ? `${label}: chạy thử` : `${label}: đã gửi`;
-          });
-          showToast(`${base} Gửi tin cho khách — ${parts.join(', ')}.`);
-        }
+        showToast(`${base}${await sendSelectedChannels(created.id)}`);
       }
       refetch();
       setIsOpenModal(false);
@@ -639,11 +642,11 @@ export default function TicketManagementPage() {
                         <div className="flex items-center gap-1.5">
                           <CheckCircle size={17} weight="fill" className="text-emerald-600" />
                           <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                            Đã gửi{t.messageChannel ? ` ${t.messageChannel === 'ZALO' ? 'Zalo' : 'SMS'}` : ''}
+                            {t.messageChannel === 'ZALO' ? 'Đã gửi Zalo' : 'Đã gửi SMS'}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs text-slate-400">Chưa gửi</span>
+                        <span className="text-xs font-semibold text-slate-400">Chưa gửi</span>
                       )}
                     </td>
                     <td className={`${TD} text-center`}>
@@ -933,31 +936,27 @@ export default function TicketManagementPage() {
             </Field>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
-              {!editingId ? (
-                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                    Gửi tin cho khách khi lưu:
-                  </span>
-                  {(
-                    [
-                      { id: 'SMS', label: 'SMS' },
-                      { id: 'ZALO', label: 'Zalo' },
-                    ] as const
-                  ).map((o) => (
-                    <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                      <input
-                        type="checkbox"
-                        className="size-4 cursor-pointer rounded accent-blue-600"
-                        checked={autoSend[o.id]}
-                        onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
-                      />
-                      {o.label}
-                    </label>
-                  ))}
-                </div>
-              ) : (
-                <span />
-              )}
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  {editingId ? 'Gửi lại tin cho khách khi cập nhật:' : 'Gửi tin cho khách khi lưu:'}
+                </span>
+                {(
+                  [
+                    { id: 'SMS', label: 'SMS' },
+                    { id: 'ZALO', label: 'Zalo' },
+                  ] as const
+                ).map((o) => (
+                  <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="size-4 cursor-pointer rounded accent-blue-600"
+                      checked={autoSend[o.id]}
+                      onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
+                    />
+                    {o.label}
+                  </label>
+                ))}
+              </div>
               <div className="flex gap-2.5">
                 <button
                   type="button"
