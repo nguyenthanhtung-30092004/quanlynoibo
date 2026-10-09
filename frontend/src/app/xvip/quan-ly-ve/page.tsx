@@ -217,7 +217,7 @@ export default function TicketManagementPage() {
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
-  const [autoSend, setAutoSend] = useState<'NONE' | 'SMS' | 'ZALO'>('SMS');
+  const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: true, ZALO: false });
   const [sendingChannel, setSendingChannel] = useState<MessageChannel | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -375,7 +375,7 @@ export default function TicketManagementPage() {
         const base = rebookFromId
           ? `Đã đặt lại đơn #${rebookFromId} thành đơn mới thành công!`
           : 'Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!';
-        const channels: MessageChannel[] = autoSend === 'NONE' ? [] : [autoSend];
+        const channels = (['SMS', 'ZALO'] as const).filter((ch) => autoSend[ch]);
         if (channels.length === 0) {
           showToast(base);
         } else {
@@ -930,40 +930,26 @@ export default function TicketManagementPage() {
             </div>
 
             {!editingId && (
-              <div className="rounded-2xl border border-blue-200 bg-gradient-to-b from-blue-50 to-white p-4 shadow-[0_4px_0_#bfdbfe] dark:border-slate-700 dark:from-slate-800 dark:to-slate-900 dark:shadow-[0_4px_0_#0b1220]">
-                <div className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
-                  <PaperPlaneTilt size={18} weight="fill" className="text-blue-600" />
-                  Gửi tin xác nhận cho khách ngay khi lưu vé
-                </div>
-                <div className="grid grid-cols-3 gap-2.5">
-                  {(
-                    [
-                      { id: 'SMS', label: 'SMS', hint: 'Tin nhắn thường' },
-                      { id: 'ZALO', label: 'Zalo', hint: 'Zalo ZNS' },
-                      { id: 'NONE', label: 'Không gửi', hint: 'Gửi sau' },
-                    ] as const
-                  ).map((o) => {
-                    const active = autoSend === o.id;
-                    return (
-                      <button
-                        key={o.id}
-                        type="button"
-                        onClick={() => setAutoSend(o.id)}
-                        aria-pressed={active}
-                        className={`rounded-xl border px-3 py-2.5 text-left transition-all active:translate-y-0.5 ${
-                          active
-                            ? 'border-blue-700 bg-gradient-to-b from-blue-500 to-blue-700 text-white shadow-[0_3px_0_#1e3a8a]'
-                            : 'border-slate-200 bg-white text-slate-700 shadow-[0_3px_0_#cbd5e1] hover:border-blue-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:shadow-[0_3px_0_#0b1220]'
-                        }`}
-                      >
-                        <span className="block text-sm font-extrabold">{o.label}</span>
-                        <span className={`block text-[11px] font-medium ${active ? 'text-white/80' : 'text-slate-400'}`}>
-                          {o.hint}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Gửi tin cho khách khi lưu:
+                </span>
+                {(
+                  [
+                    { id: 'SMS', label: 'SMS' },
+                    { id: 'ZALO', label: 'Zalo' },
+                  ] as const
+                ).map((o) => (
+                  <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                    <input
+                      type="checkbox"
+                      className="size-4 cursor-pointer rounded accent-blue-600"
+                      checked={autoSend[o.id]}
+                      onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
+                    />
+                    {o.label}
+                  </label>
+                ))}
               </div>
             )}
 
