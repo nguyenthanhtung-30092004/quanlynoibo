@@ -20,7 +20,7 @@ import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { useActiveStaff } from '@/features/users/hooks';
 import { useCurrentUser } from '@/features/auth/hooks';
-import { SEAT_ZONE_LABELS, SeatZone, type CreateOrderInput, type MessageChannel, type Order, type OrderFilters } from '@/features/orders/types';
+import { type CreateOrderInput, type MessageChannel, type Order, type OrderFilters } from '@/features/orders/types';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { formatDateVN } from '@/lib/format';
