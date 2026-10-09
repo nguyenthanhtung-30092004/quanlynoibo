@@ -347,11 +347,11 @@ export default function TicketManagementPage() {
 
   /** Nội dung đơn dạng chữ, điền tới đâu hiện tới đó, để xem và sao chép gửi đi nơi khác */
   const previewLines = (() => {
-    const join = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' - ');
+    const join = (parts: (string | false | undefined)[], sep = ' - ') => parts.filter(Boolean).join(sep);
     const f = formState;
     const seats = Number(f.seatCount) || 0;
     return [
-      join([f.departureTime, f.departureDate && formatDateVN(f.departureDate)]),
+      join([f.departureTime, f.departureDate && formatDateVN(f.departureDate)], ' ngày '),
       join([f.customerName.trim(), f.phone.trim()]),
       f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
       f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
