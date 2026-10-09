@@ -92,6 +92,23 @@ export function normalizeKey(text: string): string {
     .replace(/[^a-z0-9]/g, '');
 }
 
+/**
+ * Viết hoa chữ cái đầu mỗi từ theo quy chuẩn hệ thống: "nguyễn văn mạnh" và
+ * "NGUYỄN VĂN MẠNH" đều thành "Nguyễn Văn Mạnh". Từ có chữ số (3A, 280/12) giữ nguyên.
+ */
+export function titleCase(text: string): string {
+  return text
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .map((word) => {
+      if (/\d/.test(word)) return word;
+      const lower = word.toLocaleLowerCase('vi');
+      return lower.charAt(0).toLocaleUpperCase('vi') + lower.slice(1);
+    })
+    .join(' ');
+}
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 function isRealDate(y: number, m: number, d: number): boolean {
@@ -304,12 +321,12 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
       rowNumber: r,
       entryDate: entry.value,
       staffName: text('staff') || undefined,
-      customerName: text('customer') || undefined,
+      customerName: titleCase(text('customer')) || undefined,
       phone,
       routeName,
       departureTime: time.value,
       departureDate: dateCell.value,
-      vehicleType: text('vehicle') || undefined,
+      vehicleType: titleCase(text('vehicle')) || undefined,
       seatFront,
       seatMiddle,
       seatBack,
@@ -319,9 +336,9 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
       deposit: money('deposit', 'đã cọc'),
       collectOnDelivery: money('cod', 'nhờ thu'),
       commission: money('commission', 'lãi/hoa hồng'),
-      partner: text('partner') || undefined,
-      pickupPoint: text('pickup') || undefined,
-      dropoffPoint: text('dropoff') || undefined,
+      partner: titleCase(text('partner')) || undefined,
+      pickupPoint: titleCase(text('pickup')) || undefined,
+      dropoffPoint: titleCase(text('dropoff')) || undefined,
       note: text('note') || undefined,
       cancelled: normalizeKey(text('status')).includes('dahuy'),
       errors,

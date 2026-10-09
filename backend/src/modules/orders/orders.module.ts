@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { Partner } from '../partners/entities/partner.entity.js';
 import { Route } from '../routes/entities/route.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Order } from './entities/order.entity.js';
@@ -16,7 +17,7 @@ import { VmgProvider } from './messaging/vmg.provider.js';
 import { ZaloZnsProvider } from './messaging/zalo-zns.provider.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, OrderHistory, User, Route])],
+  imports: [TypeOrmModule.forFeature([Order, OrderHistory, User, Route, Partner])],
   controllers: [OrdersController, VmgCallbackController],
   providers: [
     OrdersService,

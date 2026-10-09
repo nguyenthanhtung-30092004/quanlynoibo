@@ -11,6 +11,7 @@ import ExcelJS from 'exceljs';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator.js';
+import { Partner } from '../partners/entities/partner.entity.js';
 import { Route } from '../routes/entities/route.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
@@ -88,6 +89,8 @@ export class OrdersService {
     private readonly userRepository: Repository<User>,
     @InjectRepository(Route)
     private readonly routeRepository: Repository<Route>,
+    @InjectRepository(Partner)
+    private readonly partnerRepository: Repository<Partner>,
     private readonly messaging: MessagingService,
   ) {}
 
@@ -167,10 +170,13 @@ export class OrdersService {
       throw new BadRequestException(err instanceof Error ? err.message : 'File không hợp lệ.');
     }
 
-    const [routes, users] = await Promise.all([
+    const [routes, users, partners] = await Promise.all([
       this.routeRepository.find({ where: { isActive: true } }),
       this.userRepository.find({ where: { isActive: true } }),
+      this.partnerRepository.find(),
     ]);
+    // Đối tác đã có trong hệ thống thì dùng đúng tên chuẩn của nó
+    const partnerByName = new Map(partners.map((p) => [normalizeKey(p.name), p.name]));
     const routeByName = new Map(routes.map((r) => [normalizeKey(r.name), r.id]));
     const userByName = new Map<string, number>();
     for (const u of users) {
@@ -205,7 +211,7 @@ export class OrdersService {
         deposit: row.deposit,
         collectOnDelivery: row.collectOnDelivery,
         commission: row.commission,
-        partner: row.partner,
+        partner: (row.partner && partnerByName.get(normalizeKey(row.partner))) || row.partner,
         pickupPoint: row.pickupPoint,
         dropoffPoint: row.dropoffPoint,
         note: row.note,
