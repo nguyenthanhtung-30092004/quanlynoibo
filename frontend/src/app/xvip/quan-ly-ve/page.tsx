@@ -457,9 +457,9 @@ export default function TicketManagementPage() {
     const f = formState;
     const seats = Number(f.seatCount) || 0;
     const zones = [
-      Number(f.seatFront) > 0 && `đầu ${Number(f.seatFront)}`,
-      Number(f.seatMiddle) > 0 && `giữa ${Number(f.seatMiddle)}`,
-      Number(f.seatBack) > 0 && `cuối ${Number(f.seatBack)}`,
+      Number(f.seatFront) > 0 && `${Number(f.seatFront)} ghế đầu`,
+      Number(f.seatMiddle) > 0 && `${Number(f.seatMiddle)} ghế giữa`,
+      Number(f.seatBack) > 0 && `${Number(f.seatBack)} ghế cuối`,
     ].filter(Boolean);
     return [
       join(
@@ -470,7 +470,7 @@ export default function TicketManagementPage() {
       f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
       f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
       seats > 0 && `${seats} ghế`,
-      zones.length > 0 && `Ghế ${zones.join(', ')}`,
+      zones.length > 0 && zones.join(' + '),
     ].filter((line): line is string => !!line);
   })();
 
