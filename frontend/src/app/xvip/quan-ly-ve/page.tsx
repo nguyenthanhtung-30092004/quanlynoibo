@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import {
   CheckCircle,
   FileXls,
@@ -14,13 +20,24 @@ import {
   XCircle,
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
-import { useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder, useCancelOrder } from '@/features/orders/hooks';
+import {
+  useOrders,
+  useCreateOrder,
+  useUpdateOrder,
+  useDeleteOrder,
+  useCancelOrder,
+} from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { useActiveStaff } from '@/features/users/hooks';
 import { useCurrentUser } from '@/features/auth/hooks';
-import { type CreateOrderInput, type MessageChannel, type Order, type OrderFilters } from '@/features/orders/types';
+import {
+  type CreateOrderInput,
+  type MessageChannel,
+  type Order,
+  type OrderFilters,
+} from '@/features/orders/types';
 import { useToast } from '@/features/xvip/toast';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
@@ -31,7 +48,11 @@ import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModa
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
-import { BASIS_LABEL, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
+import {
+  BASIS_LABEL,
+  rangeParams,
+  useDateFilter,
+} from '@/features/xvip/date-filter';
 const ALL = 'all';
 
 /** Loại hình cho sẵn để chọn */
@@ -119,7 +140,9 @@ function MoneyInput({
 
   // Đồng bộ khi giá trị đổi từ bên ngoài (mở vé khác, chọn tuyến có giá mặc định...)
   useEffect(() => {
-    setText((t) => (Number(t.replace(/\D/g, '') || 0) === value ? t : fmt(value)));
+    setText((t) =>
+      Number(t.replace(/\D/g, '') || 0) === value ? t : fmt(value),
+    );
   }, [value]);
 
   return (
@@ -156,7 +179,10 @@ function Field({
       </span>
       {children}
       {error && (
-        <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
+        <span
+          role="alert"
+          className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400"
+        >
           {error}
         </span>
       )}
@@ -177,7 +203,9 @@ function Section({
   children: ReactNode;
 }) {
   return (
-    <section className={`rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40 ${className}`}>
+    <section
+      className={`rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40 ${className}`}
+    >
       <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
         {step !== undefined && (
           <span className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white shadow-[0_2px_0_#1e3a8a]">
@@ -261,9 +289,16 @@ export default function TicketManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [historyOrderId, setHistoryOrderId] = useState<number | null>(null);
-  const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string; seats?: string }>({});
+  const [formErrors, setFormErrors] = useState<{
+    customerName?: string;
+    phone?: string;
+    seats?: string;
+  }>({});
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
-  const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: false, ZALO: false });
+  const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({
+    SMS: false,
+    ZALO: false,
+  });
 
   const showToast = useToast();
 
@@ -368,7 +403,8 @@ export default function TicketManagementPage() {
 
   /** Nội dung đơn dạng chữ, điền tới đâu hiện tới đó, để xem và sao chép gửi đi nơi khác */
   const previewLines = (() => {
-    const join = (parts: (string | false | undefined)[], sep = ' - ') => parts.filter(Boolean).join(sep);
+    const join = (parts: (string | false | undefined)[], sep = ' - ') =>
+      parts.filter(Boolean).join(sep);
     const f = formState;
     const seats = Number(f.seatCount) || 0;
     const zones = [
@@ -377,7 +413,10 @@ export default function TicketManagementPage() {
       Number(f.seatBack) > 0 && `cuối ${Number(f.seatBack)}`,
     ].filter(Boolean);
     return [
-      join([f.departureTime, f.departureDate && formatDateVN(f.departureDate)], ' ngày '),
+      join(
+        [f.departureTime, f.departureDate && formatDateVN(f.departureDate)],
+        ' ngày ',
+      ),
       join([f.customerName.trim(), f.phone.trim()]),
       f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
       f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
@@ -405,7 +444,10 @@ export default function TicketManagementPage() {
       const ok = document.execCommand('copy');
       document.body.removeChild(ta);
       if (!ok) {
-        showToast('Không sao chép được, hãy bôi đen và copy thủ công.', 'error');
+        showToast(
+          'Không sao chép được, hãy bôi đen và copy thủ công.',
+          'error',
+        );
         return;
       }
     }
@@ -416,7 +458,9 @@ export default function TicketManagementPage() {
   const sendSelectedChannels = async (orderId: number) => {
     const channels = (['SMS', 'ZALO'] as const).filter((ch) => autoSend[ch]);
     if (channels.length === 0) return '';
-    const results = await Promise.allSettled(channels.map((ch) => ordersApi.sendMessage(orderId, ch)));
+    const results = await Promise.allSettled(
+      channels.map((ch) => ordersApi.sendMessage(orderId, ch)),
+    );
     const parts = results.map((r, i) => {
       const label = channels[i] === 'ZALO' ? 'Zalo' : 'SMS';
       if (r.status === 'rejected') return `${label}: lỗi`;
@@ -431,19 +475,31 @@ export default function TicketManagementPage() {
       showToast('Vui lòng chọn tuyến đường.');
       return;
     }
-    const errors: { customerName?: string; phone?: string; seats?: string } = {};
-    if (!formState.customerName.trim()) errors.customerName = 'Vui lòng nhập tên khách hàng.';
+    const errors: { customerName?: string; phone?: string; seats?: string } =
+      {};
+    if (!formState.customerName.trim())
+      errors.customerName = 'Vui lòng nhập tên khách hàng.';
     const phoneClean = formState.phone.replace(/\s+/g, '');
     if (!phoneClean) errors.phone = 'Vui lòng nhập số điện thoại.';
-    else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean)) errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
+    else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean))
+      errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
     const total = Number(formState.seatCount) || 0;
-    const split = (Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0);
+    const split =
+      (Number(formState.seatFront) || 0) +
+      (Number(formState.seatMiddle) || 0) +
+      (Number(formState.seatBack) || 0);
     // Số ghế và đầu/giữa/cuối độc lập: nhà xe nào chỉ cần một trong hai, chỉ cần có ít nhất một
-    if (total + split < 1) errors.seats = 'Vui lòng nhập số ghế, hoặc ghế đầu/giữa/cuối.';
+    if (total + split < 1)
+      errors.seats = 'Vui lòng nhập số ghế, hoặc ghế đầu/giữa/cuối.';
     setFormErrors(errors);
     if (errors.customerName || errors.phone || errors.seats) {
       // Hộp thoại che mất vùng trang bên dưới nên báo bằng toast nổi phía trên
-      showToast([errors.customerName, errors.phone, errors.seats].filter(Boolean)[0] as string, 'error');
+      showToast(
+        [errors.customerName, errors.phone, errors.seats].filter(
+          Boolean,
+        )[0] as string,
+        'error',
+      );
       return;
     }
 
@@ -497,7 +553,9 @@ export default function TicketManagementPage() {
     if (!cancelTarget) return;
     try {
       await cancelMutation.mutateAsync(cancelTarget.id);
-      showToast(`Đã hủy vé #${cancelTarget.id}. Vé không còn tính vào doanh thu.`);
+      showToast(
+        `Đã hủy vé #${cancelTarget.id}. Vé không còn tính vào doanh thu.`,
+      );
       refetch();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Có lỗi khi hủy vé.';
@@ -563,32 +621,46 @@ export default function TicketManagementPage() {
         Quản lý vé &amp; Đơn đặt xe
       </PageTitle>
 
-
       {/* Bộ lọc 3D dập chìm */}
       <Card>
         <div className="flex flex-wrap items-end gap-3.5">
           <label className="block min-w-64 flex-[2]">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Tìm kiếm nhanh</span>
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Tìm kiếm nhanh
+            </span>
             <span className="relative block">
-              <MagnifyingGlass size={17} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden />
+              <MagnifyingGlass
+                size={17}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                aria-hidden
+              />
               <input
                 className="input-3d pl-9"
                 value={filters.search}
-                onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value, page: 1 }))}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    search: e.target.value,
+                    page: 1,
+                  }))
+                }
                 placeholder="Tên khách hàng, số điện thoại, điểm đón..."
               />
             </span>
           </label>
 
           <label className="block min-w-36 flex-1">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Tuyến đường</span>
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Tuyến đường
+            </span>
             <select
               className="input-3d"
               value={filters.routeId}
               onChange={(e) =>
                 setFilters((prev) => ({
                   ...prev,
-                  routeId: e.target.value === ALL ? ALL : Number(e.target.value),
+                  routeId:
+                    e.target.value === ALL ? ALL : Number(e.target.value),
                   page: 1,
                 }))
               }
@@ -603,7 +675,9 @@ export default function TicketManagementPage() {
           </label>
 
           <label className="block min-w-36 flex-1">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Đối tác</span>
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Đối tác
+            </span>
             <select
               className="input-3d"
               value={filters.partner ?? ALL}
@@ -626,14 +700,17 @@ export default function TicketManagementPage() {
 
           {activeStaff.length > 0 && (
             <label className="block min-w-36 flex-1">
-              <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Nhân viên</span>
+              <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Nhân viên
+              </span>
               <select
                 className="input-3d"
                 value={filters.staffId}
                 onChange={(e) =>
                   setFilters((prev) => ({
                     ...prev,
-                    staffId: e.target.value === ALL ? ALL : Number(e.target.value),
+                    staffId:
+                      e.target.value === ALL ? ALL : Number(e.target.value),
                     page: 1,
                   }))
                 }
@@ -649,7 +726,8 @@ export default function TicketManagementPage() {
           )}
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Đang lọc theo {BASIS_LABEL[basis].toLowerCase()}: {rangeLabel}. Đổi ở nút ngày trên thanh menu.
+          Đang lọc theo {BASIS_LABEL[basis].toLowerCase()}: {rangeLabel}. Đổi ở
+          nút ngày trên thanh menu.
         </p>
       </Card>
 
@@ -676,13 +754,19 @@ export default function TicketManagementPage() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td
+                    colSpan={12}
+                    className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
+                  >
                     Đang tải danh sách vé từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : ordersList.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td
+                    colSpan={12}
+                    className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
+                  >
                     <div className="flex flex-col items-center justify-center gap-3">
                       <TicketIcon size={36} className="text-slate-400" />
                       <span>Chưa có đơn vé nào trong hệ thống.</span>
@@ -701,11 +785,19 @@ export default function TicketManagementPage() {
                   <tr
                     key={t.id}
                     className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
-                      t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
+                      t.cancelledAt
+                        ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60'
+                        : ''
                     }`}
                   >
-                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{i + 1}</td>
-                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
+                    <td
+                      className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}
+                    >
+                      {i + 1}
+                    </td>
+                    <td
+                      className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}
+                    >
                       #{t.id}
                       {t.cancelledAt && (
                         <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
@@ -713,41 +805,67 @@ export default function TicketManagementPage() {
                         </span>
                       )}
                     </td>
-                    <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
+                    <td
+                      className={`${TD} font-bold text-blue-700 dark:text-blue-400`}
+                    >
                       {t.departureTime}
-                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">{formatDateVN(t.departureDate)}</span>
+                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">
+                        {formatDateVN(t.departureDate)}
+                      </span>
                     </td>
-                    <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
+                    <td
+                      className={`${TD} font-bold text-slate-800 dark:text-slate-200`}
+                    >
                       {t.partner || 'XVIP'}
                     </td>
-                    <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
+                    <td
+                      className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}
+                    >
                       {t.route?.name || 'Tuyến liên tỉnh'}
                     </td>
-                    <td className={`${TD} font-bold text-slate-900 dark:text-white`}>
+                    <td
+                      className={`${TD} font-bold text-slate-900 dark:text-white`}
+                    >
                       {t.customerName || 'Khách lẻ'}
                     </td>
-                    <td className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}>
+                    <td
+                      className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}
+                    >
                       {t.phone}
                     </td>
-                    <td className={`${TD} ${NUM} text-slate-900 dark:text-white`}>
+                    <td
+                      className={`${TD} ${NUM} text-slate-900 dark:text-white`}
+                    >
                       {money(t.sellPrice)}đ
                     </td>
-                    <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
+                    <td
+                      className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}
+                    >
                       {money(t.commission)}đ
                     </td>
-                    <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
+                    <td
+                      className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}
+                    >
                       {t.staff?.fullName || 'NV'}
                     </td>
                     <td className={TD}>
                       {t.smsSent ? (
                         <div className="flex items-center gap-1.5">
-                          <CheckCircle size={17} weight="fill" className="text-emerald-600" />
+                          <CheckCircle
+                            size={17}
+                            weight="fill"
+                            className="text-emerald-600"
+                          />
                           <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
-                            {t.messageChannel === 'ZALO' ? 'Đã gửi Zalo' : 'Đã gửi SMS'}
+                            {t.messageChannel === 'ZALO'
+                              ? 'Đã gửi Zalo'
+                              : 'Đã gửi SMS'}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs font-semibold text-slate-400">Chưa gửi</span>
+                        <span className="text-xs font-semibold text-slate-400">
+                          Chưa gửi
+                        </span>
                       )}
                     </td>
                     <td className={`${TD} text-center`}>
@@ -766,7 +884,8 @@ export default function TicketManagementPage() {
                           title="Xem lịch sử thay đổi của đơn"
                           className="btn-3d btn-3d-white px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                         >
-                          <ClockCounterClockwise size={13} weight="bold" /> Lịch sử
+                          <ClockCounterClockwise size={13} weight="bold" /> Lịch
+                          sử
                         </button>
                         {!t.cancelledAt && (
                           <>
@@ -789,14 +908,14 @@ export default function TicketManagementPage() {
                           </>
                         )}
                         {isAdmin && (
-                        <button
-                          type="button"
-                          onClick={() => setDeleteTarget(t)}
-                          title="Xóa vé"
-                          className="btn-3d-mini text-rose-600 hover:text-rose-700"
-                        >
-                          <Trash size={16} weight="bold" />
-                        </button>
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget(t)}
+                            title="Xóa vé"
+                            className="btn-3d-mini text-rose-600 hover:text-rose-700"
+                          >
+                            <Trash size={16} weight="bold" />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -827,13 +946,23 @@ export default function TicketManagementPage() {
               <div className="flex flex-col gap-4">
                 <Section step={1} title="Khách hàng">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                    <Field label="Tên khách hàng" required error={formErrors.customerName}>
+                    <Field
+                      label="Tên khách hàng"
+                      required
+                      error={formErrors.customerName}
+                    >
                       <input
                         className={`input-3d ${formErrors.customerName ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
                         value={formState.customerName}
                         onChange={(e) => {
-                          setFormState((p) => ({ ...p, customerName: e.target.value }));
-                          setFormErrors((er) => ({ ...er, customerName: undefined }));
+                          setFormState((p) => ({
+                            ...p,
+                            customerName: e.target.value,
+                          }));
+                          setFormErrors((er) => ({
+                            ...er,
+                            customerName: undefined,
+                          }));
                         }}
                         maxLength={100}
                         aria-invalid={!!formErrors.customerName}
@@ -841,13 +970,20 @@ export default function TicketManagementPage() {
                       />
                     </Field>
 
-                    <Field label="Số điện thoại" required error={formErrors.phone}>
+                    <Field
+                      label="Số điện thoại"
+                      required
+                      error={formErrors.phone}
+                    >
                       <input
                         className={`input-3d font-mono font-bold ${formErrors.phone ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
                         inputMode="tel"
                         value={formState.phone}
                         onChange={(e) => {
-                          setFormState((p) => ({ ...p, phone: e.target.value }));
+                          setFormState((p) => ({
+                            ...p,
+                            phone: e.target.value,
+                          }));
                           setFormErrors((er) => ({ ...er, phone: undefined }));
                         }}
                         aria-invalid={!!formErrors.phone}
@@ -861,7 +997,12 @@ export default function TicketManagementPage() {
                             className="input-3d"
                             value={formState.staffId ?? ''}
                             onChange={(e) =>
-                              setFormState((p) => ({ ...p, staffId: e.target.value ? Number(e.target.value) : undefined }))
+                              setFormState((p) => ({
+                                ...p,
+                                staffId: e.target.value
+                                  ? Number(e.target.value)
+                                  : undefined,
+                              }))
                             }
                           >
                             <option value="">Mặc định: tôi</option>
@@ -885,12 +1026,16 @@ export default function TicketManagementPage() {
                           routes={activeRoutes}
                           value={formState.routeId}
                           onChange={(rId) => {
-                            const selRoute = activeRoutes.find((r) => r.id === rId);
+                            const selRoute = activeRoutes.find(
+                              (r) => r.id === rId,
+                            );
                             setFormState((p) => ({
                               ...p,
                               routeId: rId,
                               // Chỉ gợi ý giá bán theo giá mặc định của tuyến, vẫn sửa được
-                              sellPrice: selRoute?.defaultPrice ? selRoute.defaultPrice : p.sellPrice,
+                              sellPrice: selRoute?.defaultPrice
+                                ? selRoute.defaultPrice
+                                : p.sellPrice,
                             }));
                           }}
                         />
@@ -900,7 +1045,9 @@ export default function TicketManagementPage() {
                     <Field label="Giờ đi" required>
                       <TimeInput
                         value={formState.departureTime}
-                        onChange={(v) => setFormState((p) => ({ ...p, departureTime: v }))}
+                        onChange={(v) =>
+                          setFormState((p) => ({ ...p, departureTime: v }))
+                        }
                         required
                       />
                     </Field>
@@ -908,7 +1055,9 @@ export default function TicketManagementPage() {
                     <Field label="Ngày khởi hành" required>
                       <DateInput
                         value={formState.departureDate}
-                        onChange={(v) => setFormState((p) => ({ ...p, departureDate: v }))}
+                        onChange={(v) =>
+                          setFormState((p) => ({ ...p, departureDate: v }))
+                        }
                         required
                       />
                     </Field>
@@ -917,7 +1066,9 @@ export default function TicketManagementPage() {
                       <SuggestInput
                         options={partnerList.map((c) => c.name)}
                         value={formState.partner}
-                        onChange={(v) => setFormState((p) => ({ ...p, partner: v }))}
+                        onChange={(v) =>
+                          setFormState((p) => ({ ...p, partner: v }))
+                        }
                         maxLength={100}
                       />
                     </Field>
@@ -926,14 +1077,22 @@ export default function TicketManagementPage() {
                       <select
                         className="input-3d"
                         value={formState.vehicleType}
-                        onChange={(e) => setFormState((p) => ({ ...p, vehicleType: e.target.value }))}
+                        onChange={(e) =>
+                          setFormState((p) => ({
+                            ...p,
+                            vehicleType: e.target.value,
+                          }))
+                        }
                       >
                         {/* Ô trống ẩn: lúc chưa chọn hiện trống, mở danh sách chỉ thấy các loại hình */}
                         <option value="" hidden disabled />
                         {/* Vé cũ có loại hình ngoài danh sách vẫn hiển thị đúng khi sửa */}
-                        {formState.vehicleType && !VEHICLE_TYPES.includes(formState.vehicleType) && (
-                          <option value={formState.vehicleType}>{formState.vehicleType}</option>
-                        )}
+                        {formState.vehicleType &&
+                          !VEHICLE_TYPES.includes(formState.vehicleType) && (
+                            <option value={formState.vehicleType}>
+                              {formState.vehicleType}
+                            </option>
+                          )}
                         {VEHICLE_TYPES.map((v) => (
                           <option key={v} value={v}>
                             {v}
@@ -946,7 +1105,12 @@ export default function TicketManagementPage() {
                       <input
                         className="input-3d"
                         value={formState.pickupPoint}
-                        onChange={(e) => setFormState((p) => ({ ...p, pickupPoint: e.target.value }))}
+                        onChange={(e) =>
+                          setFormState((p) => ({
+                            ...p,
+                            pickupPoint: e.target.value,
+                          }))
+                        }
                         maxLength={255}
                       />
                     </Field>
@@ -955,18 +1119,28 @@ export default function TicketManagementPage() {
                       <input
                         className="input-3d"
                         value={formState.dropoffPoint}
-                        onChange={(e) => setFormState((p) => ({ ...p, dropoffPoint: e.target.value }))}
+                        onChange={(e) =>
+                          setFormState((p) => ({
+                            ...p,
+                            dropoffPoint: e.target.value,
+                          }))
+                        }
                         maxLength={255}
                       />
                     </Field>
                   </div>
                 </Section>
 
-                <Section title="Ghi chú" className="flex min-h-[7rem] flex-1 flex-col">
+                <Section
+                  title="Ghi chú"
+                  className="flex min-h-[7rem] flex-1 flex-col"
+                >
                   <textarea
                     className="input-3d min-h-[5rem] flex-1 resize-none p-3"
                     value={formState.note}
-                    onChange={(e) => setFormState((p) => ({ ...p, note: e.target.value }))}
+                    onChange={(e) =>
+                      setFormState((p) => ({ ...p, note: e.target.value }))
+                    }
                     maxLength={1000}
                   />
                 </Section>
@@ -1000,7 +1174,10 @@ export default function TicketManagementPage() {
                           value={formState[z.key]}
                           onChange={(n) => {
                             setFormState((p) => ({ ...p, [z.key]: n }));
-                            setFormErrors((er) => ({ ...er, seats: undefined }));
+                            setFormErrors((er) => ({
+                              ...er,
+                              seats: undefined,
+                            }));
                           }}
                           min={0}
                           max={60}
@@ -1010,10 +1187,14 @@ export default function TicketManagementPage() {
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Số ghế và đầu/giữa/cuối độc lập: điền một trong hai tùy nhà xe (hoặc cả hai).
+                    Số ghế và đầu/giữa/cuối độc lập: điền một trong hai tùy nhà
+                    xe (hoặc cả hai).
                   </p>
                   {formErrors.seats && (
-                    <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
+                    <span
+                      role="alert"
+                      className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400"
+                    >
                       {formErrors.seats}
                     </span>
                   )}
@@ -1022,23 +1203,54 @@ export default function TicketManagementPage() {
                 <Section step={4} title="Giá tiền (VNĐ)">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                     <Field label="Giá nhập">
-                      <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />
+                      <MoneyInput
+                        className="input-3d"
+                        value={formState.costPrice}
+                        onChange={(n) =>
+                          setFormState((p) => ({ ...p, costPrice: n }))
+                        }
+                      />
                     </Field>
 
                     <Field label="Giá bán" required>
-                      <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
+                      <MoneyInput
+                        className="input-3d font-bold text-blue-900 dark:text-blue-400"
+                        value={formState.sellPrice}
+                        onChange={(n) =>
+                          setFormState((p) => ({ ...p, sellPrice: n }))
+                        }
+                        required
+                      />
                     </Field>
 
                     <Field label="Đã cọc">
-                      <MoneyInput className="input-3d" value={formState.deposit} onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))} />
+                      <MoneyInput
+                        className="input-3d"
+                        value={formState.deposit}
+                        onChange={(n) =>
+                          setFormState((p) => ({ ...p, deposit: n }))
+                        }
+                      />
                     </Field>
 
                     <Field label="Nhờ thu">
-                      <MoneyInput className="input-3d" value={formState.collectOnDelivery} onChange={(n) => setFormState((p) => ({ ...p, collectOnDelivery: n }))} />
+                      <MoneyInput
+                        className="input-3d"
+                        value={formState.collectOnDelivery}
+                        onChange={(n) =>
+                          setFormState((p) => ({ ...p, collectOnDelivery: n }))
+                        }
+                      />
                     </Field>
 
                     <Field label="Hoa hồng">
-                      <MoneyInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} />
+                      <MoneyInput
+                        className="input-3d font-bold text-red-600 dark:text-red-400"
+                        value={formState.commission}
+                        onChange={(n) =>
+                          setFormState((p) => ({ ...p, commission: n }))
+                        }
+                      />
                     </Field>
                   </div>
                 </Section>
@@ -1046,7 +1258,9 @@ export default function TicketManagementPage() {
                 <Section step={5} title="Nội dung đơn (để sao chép)">
                   <div className="relative rounded-xl border border-dashed border-blue-300 bg-white p-3.5 pr-24 shadow-inner dark:border-blue-800 dark:bg-slate-900">
                     {previewLines.length === 0 ? (
-                      <p className="text-sm text-slate-400">Điền thông tin bên trái, nội dung sẽ hiện ở đây.</p>
+                      <p className="text-sm text-slate-400">
+                        Điền thông tin bên trái, nội dung sẽ hiện ở đây.
+                      </p>
                     ) : (
                       <div className="space-y-1 font-mono text-sm font-semibold leading-relaxed text-slate-900 dark:text-slate-100">
                         {previewLines.map((line, i) => (
@@ -1071,20 +1285,25 @@ export default function TicketManagementPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
                 <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  {editingId ? 'Gửi lại tin cho khách khi cập nhật:' : 'Gửi tin cho khách khi lưu:'}
+                  {editingId ? 'Gửi lại tin nhắn:' : 'Gửi tin nhắn:'}
                 </span>
                 {(
                   [
                     { id: 'SMS', label: 'SMS' },
-                    { id: 'ZALO', label: 'Zalo' },
+                    { id: 'ZALO', label: 'Zalo oa' },
                   ] as const
                 ).map((o) => (
-                  <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                  <label
+                    key={o.id}
+                    className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200"
+                  >
                     <input
                       type="checkbox"
                       className="size-4 cursor-pointer rounded accent-blue-600"
                       checked={autoSend[o.id]}
-                      onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
+                      onChange={(e) =>
+                        setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))
+                      }
                     />
                     {o.label}
                   </label>
@@ -1102,7 +1321,11 @@ export default function TicketManagementPage() {
                   type="submit"
                   className="btn-3d btn-3d-blue px-5 py-2 text-sm"
                 >
-                  {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé'}
+                  {editingId
+                    ? 'Cập nhật vé'
+                    : rebookFromId
+                      ? 'Đặt đơn mới'
+                      : 'Lưu vé'}
                 </button>
               </div>
             </div>
@@ -1111,7 +1334,10 @@ export default function TicketManagementPage() {
       )}
 
       {historyOrderId !== null && (
-        <OrderHistoryModal orderId={historyOrderId} onClose={() => setHistoryOrderId(null)} />
+        <OrderHistoryModal
+          orderId={historyOrderId}
+          onClose={() => setHistoryOrderId(null)}
+        />
       )}
 
       {/* Modal Hủy vé */}
@@ -1119,8 +1345,16 @@ export default function TicketManagementPage() {
         <Modal title="Hủy vé" onClose={() => setCancelTarget(null)}>
           <div className="space-y-4">
             <p className="text-sm text-slate-700 dark:text-slate-300">
-              Khách <strong className="text-slate-900 dark:text-white">{cancelTarget.customerName || cancelTarget.phone}</strong> không đặt nữa? Vé{' '}
-              <strong className="text-slate-900 dark:text-white">#{cancelTarget.id}</strong> sẽ được đánh dấu <strong>Đã hủy</strong>, vẫn lưu lại trong danh sách nhưng không tính vào doanh thu và không sửa được nữa.
+              Khách{' '}
+              <strong className="text-slate-900 dark:text-white">
+                {cancelTarget.customerName || cancelTarget.phone}
+              </strong>{' '}
+              không đặt nữa? Vé{' '}
+              <strong className="text-slate-900 dark:text-white">
+                #{cancelTarget.id}
+              </strong>{' '}
+              sẽ được đánh dấu <strong>Đã hủy</strong>, vẫn lưu lại trong danh
+              sách nhưng không tính vào doanh thu và không sửa được nữa.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
@@ -1148,8 +1382,15 @@ export default function TicketManagementPage() {
         <Modal title="Xác nhận xóa vé" onClose={() => setDeleteTarget(null)}>
           <div className="space-y-4">
             <p className="text-sm text-slate-700 dark:text-slate-300">
-              Bạn có chắc chắn muốn xóa đơn vé <strong className="text-slate-900 dark:text-white">#{deleteTarget.id}</strong> của khách hàng{' '}
-              <strong className="text-slate-900 dark:text-white">{deleteTarget.customerName || deleteTarget.phone}</strong> không?
+              Bạn có chắc chắn muốn xóa đơn vé{' '}
+              <strong className="text-slate-900 dark:text-white">
+                #{deleteTarget.id}
+              </strong>{' '}
+              của khách hàng{' '}
+              <strong className="text-slate-900 dark:text-white">
+                {deleteTarget.customerName || deleteTarget.phone}
+              </strong>{' '}
+              không?
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
