@@ -103,12 +103,17 @@ export class OrdersService {
     const page = query.page ?? 1;
     const limit = query.limit ?? 20;
 
-    const [items, total] = await this.buildListQuery(query, actor)
-      .orderBy('order.createdAt', 'DESC')
-      .addOrderBy('order.id', 'DESC')
-      .skip((page - 1) * limit)
-      .take(limit)
-      .getManyAndCount();
+    // Các join đều là nhiều-một nên dùng offset/limit (không bị TypeORM chèn thêm
+    // truy vấn DISTINCT id như skip/take), đếm tổng chạy song song với lấy trang
+    const [items, total] = await Promise.all([
+      this.buildListQuery(query, actor)
+        .orderBy('order.createdAt', 'DESC')
+        .addOrderBy('order.id', 'DESC')
+        .offset((page - 1) * limit)
+        .limit(limit)
+        .getMany(),
+      this.buildListQuery(query, actor).getCount(),
+    ]);
 
     return { items: items.map((o) => this.toView(o)), total, page, limit };
   }

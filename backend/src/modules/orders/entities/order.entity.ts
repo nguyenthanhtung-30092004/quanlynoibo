@@ -20,6 +20,7 @@ export enum SeatZone {
 }
 
 /** Một dòng trong sổ "Nhật ký" */
+@Index(['createdById', 'createdAt'])
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('increment')

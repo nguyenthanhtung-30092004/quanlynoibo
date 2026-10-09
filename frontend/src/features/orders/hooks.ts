@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from './api';
 import type {
   CreateOrderInput,
@@ -14,6 +14,8 @@ export function useOrders(filters: OrderFilters) {
   return useQuery({
     queryKey: [...ORDERS_KEY, filters],
     queryFn: ({ signal }) => ordersApi.list(filters, signal),
+    // Đổi trang/bộ lọc thì giữ danh sách cũ trên màn hình cho tới khi có dữ liệu mới
+    placeholderData: keepPreviousData,
   });
 }
 
