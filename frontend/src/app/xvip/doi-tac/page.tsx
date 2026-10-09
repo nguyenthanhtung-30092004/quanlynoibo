@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { CheckCircle, Handshake, MagnifyingGlass, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
+import { Handshake, MagnifyingGlass, PencilSimple, Plus, Trash } from '@phosphor-icons/react';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useCreatePartner, useDeletePartner, usePartners, useUpdatePartner } from '@/features/partners/hooks';
 import type { Partner } from '@/features/partners/types';
 import { Modal } from '@/features/xvip/Modal';
+import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
 interface Draft {
@@ -39,12 +40,8 @@ export default function PartnersPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [draft, setDraft] = useState<Draft>(EMPTY);
   const [deleteTarget, setDeleteTarget] = useState<Partner | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToast(msg);
-    setTimeout(() => setToast(null), 3500);
-  };
+  const showToast = useToast();
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -120,12 +117,6 @@ export default function PartnersPage() {
         Quản lý đối tác
       </PageTitle>
 
-      {toast && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-[0_4px_0_#a7f3d0] dark:bg-emerald-950/40 dark:text-emerald-300 dark:shadow-[0_4px_0_#064e3b]">
-          <CheckCircle size={20} weight="fill" className="shrink-0 text-emerald-600" />
-          <span>{toast}</span>
-        </div>
-      )}
 
       <Card>
         <div className="flex flex-wrap items-center gap-3.5">

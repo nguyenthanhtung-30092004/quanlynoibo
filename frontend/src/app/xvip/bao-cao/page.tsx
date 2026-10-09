@@ -1,8 +1,8 @@
 'use client';
 
+import { useToast } from '@/features/xvip/toast';
 import { useMemo, useState } from 'react';
 import {
-  CheckCircle,
   ClipboardText,
   CurrencyCircleDollar,
   FileXls,
@@ -23,7 +23,6 @@ import { DateInput } from '@/features/xvip/PickerInput';
 export default function StaffReportPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [staffFilter, setStaffFilter] = useState('all');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { data: kpiData, isLoading: kpiLoading } = useKpi(selectedDate);
   const { data: ordersData, isLoading: ordersLoading } = useOrders({
@@ -38,10 +37,7 @@ export default function StaffReportPage() {
   const isAdmin = me?.role === 'ADMIN';
   // API người dùng chỉ dành cho Admin
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const showToast = useToast();
 
   const staffList = useMemo(() => {
     return usersData?.data ?? [];
@@ -168,13 +164,6 @@ export default function StaffReportPage() {
         Báo cáo hiệu suất &amp; Doanh số nhân viên
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm font-bold text-emerald-800 dark:text-emerald-300 shadow-[0_4px_0_#a7f3d0] dark:shadow-[0_4px_0_#064e3b] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* 3D Filter Bar */}
       <Card>

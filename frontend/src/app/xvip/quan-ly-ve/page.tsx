@@ -19,6 +19,7 @@ import { usePartners } from '@/features/partners/hooks';
 import { useActiveStaff } from '@/features/users/hooks';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { type CreateOrderInput, type MessageChannel, type Order, type OrderFilters } from '@/features/orders/types';
+import { useToast } from '@/features/xvip/toast';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { formatDateVN } from '@/lib/format';
@@ -229,12 +230,8 @@ export default function TicketManagementPage() {
   const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string; seats?: string }>({});
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
   const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: false, ZALO: false });
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const showToast = useToast();
 
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
 
@@ -364,7 +361,11 @@ export default function TicketManagementPage() {
     if (total < 1) errors.seats = 'Vui lòng nhập số ghế.';
     else if (split > 0 && split !== total) errors.seats = `Đầu + giữa + cuối đang là ${split}, phải bằng số ghế (${total}).`;
     setFormErrors(errors);
-    if (errors.customerName || errors.phone || errors.seats) return;
+    if (errors.customerName || errors.phone || errors.seats) {
+      // Hộp thoại che mất vùng trang bên dưới nên báo bằng toast nổi phía trên
+      showToast([errors.customerName, errors.phone, errors.seats].filter(Boolean)[0] as string, 'error');
+      return;
+    }
 
     const payload: CreateOrderInput = {
       customerName: formState.customerName.trim() || undefined,
@@ -480,13 +481,6 @@ export default function TicketManagementPage() {
         Quản lý vé &amp; Đơn đặt xe
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm font-bold text-emerald-800 dark:text-emerald-300 shadow-[0_4px_0_#a7f3d0] dark:shadow-[0_4px_0_#064e3b] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* Bộ lọc 3D dập chìm */}
       <Card>

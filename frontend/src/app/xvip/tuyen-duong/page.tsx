@@ -20,6 +20,7 @@ import { useCurrentUser } from '@/features/auth/hooks';
 import { useRoutes, useCreateRoute, useUpdateRoute, useDeleteRoute } from '@/features/routes/hooks';
 import type { Route } from '@/features/routes/types';
 import { money } from '@/features/xvip/data';
+import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, StatusBadge, TD, TH } from '@/features/xvip/ui';
 
 import { Modal } from '@/features/xvip/Modal';
@@ -68,12 +69,8 @@ export default function RoutesPage() {
   const [draft, setDraft] = useState<RouteDraft>(EMPTY_DRAFT);
   const [detailRoute, setDetailRoute] = useState<RouteExt | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RouteExt | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const showToast = useToast();
 
   const routesList: RouteExt[] = useMemo(() => {
     if (!apiData?.data || !Array.isArray(apiData.data)) return [];
@@ -207,13 +204,6 @@ export default function RoutesPage() {
         Tuyến đường vận hành
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm font-bold text-emerald-800 dark:text-emerald-300 shadow-[0_4px_0_#a7f3d0] dark:shadow-[0_4px_0_#064e3b] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* 3D KPI Metrics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

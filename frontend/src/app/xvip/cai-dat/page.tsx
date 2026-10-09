@@ -3,12 +3,12 @@
 import { useState, type FormEvent } from 'react';
 import {
   ChatCircleText,
-  CheckCircle,
   Database,
   FloppyDisk,
   ShieldCheck,
   Sparkle,
 } from '@phosphor-icons/react';
+import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle } from '@/features/xvip/ui';
 
 export default function SettingsPage() {
@@ -29,12 +29,8 @@ export default function SettingsPage() {
   const [confirmPassword, setConfirmPassword] = useState('');
 
   // Notification / Toast
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
+  const showToast = useToast();
 
   const samplePreview = smsTemplate
     .replace('{tenKhach}', 'Nguyễn Văn An')
@@ -103,13 +99,6 @@ export default function SettingsPage() {
         Cài đặt hệ thống
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-5 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-[0_4px_0_#a7f3d0] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* 1. Cấu hình thông tin công ty */}

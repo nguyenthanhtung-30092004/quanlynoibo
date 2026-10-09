@@ -544,3 +544,19 @@ div.input-3d {
   align-items: center;
   white-space: nowrap;
 }
+
+/* Thông báo nổi (toast) 3D */
+@keyframes xv-toast-in {
+  0% { opacity: 0; transform: translate3d(40px, -8px, 0) scale(0.92); }
+  60% { opacity: 1; transform: translate3d(-4px, 0, 0) scale(1.02); }
+  100% { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes xv-toast-bar {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
+}
+.xv-toast { animation: xv-toast-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.xv-toast-bar { animation-name: xv-toast-bar; animation-timing-function: linear; animation-fill-mode: forwards; }
+@media (prefers-reduced-motion: reduce) {
+  .xv-toast, .xv-toast-bar { animation: none; }
+}

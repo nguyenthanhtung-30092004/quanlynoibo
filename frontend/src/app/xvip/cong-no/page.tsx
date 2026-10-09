@@ -2,7 +2,6 @@
 
 import { useMemo, useState } from 'react';
 import {
-  CheckCircle,
   CurrencyCircleDollar,
   FileXls,
   HandCoins,
@@ -13,6 +12,7 @@ import {
 import { usePartners } from '@/features/partners/hooks';
 import { useOrders } from '@/features/orders/hooks';
 import { money } from '@/features/xvip/data';
+import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
 import { Modal } from '@/features/xvip/Modal';
@@ -26,7 +26,6 @@ export default function DebtPage() {
   const [carrierFilter, setCarrierFilter] = useState('all');
   const [settlementTarget, setSettlementTarget] = useState<SettlementModalData | null>(null);
   const [settlementAmount, setSettlementAmount] = useState('');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [settledMap, setSettledMap] = useState<Record<string, number>>({});
 
   const { data: partnerData, isLoading: carriersLoading } = usePartners();
@@ -39,10 +38,7 @@ export default function DebtPage() {
     page: 1,
   });
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const showToast = useToast();
 
   const carriers = useMemo(() => partnerData ?? [], [partnerData]);
   const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
@@ -132,13 +128,6 @@ export default function DebtPage() {
         Đối soát &amp; Công nợ nhà xe
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm font-bold text-emerald-800 dark:text-emerald-300 shadow-[0_4px_0_#a7f3d0] dark:shadow-[0_4px_0_#064e3b] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* 3D Filter Bar */}
       <Card>

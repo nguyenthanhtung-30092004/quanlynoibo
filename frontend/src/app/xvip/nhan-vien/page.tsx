@@ -1,8 +1,8 @@
 'use client';
 
+import { useToast } from '@/features/xvip/toast';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  CheckCircle,
   FileXls,
   MagnifyingGlass,
   PencilSimple,
@@ -74,12 +74,8 @@ function UsersPageContent() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [draft, setDraft] = useState<UserDraft>(EMPTY_DRAFT);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3500);
-  };
+  const showToast = useToast();
 
   const usersList: User[] = useMemo(() => {
     if (apiData && Array.isArray(apiData.data)) {
@@ -194,13 +190,6 @@ function UsersPageContent() {
         Nhân viên &amp; Phân quyền
       </PageTitle>
 
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="mb-4 flex items-center gap-2.5 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-[0_4px_0_#a7f3d0] animate-in fade-in">
-          <CheckCircle size={20} weight="fill" className="text-emerald-600" />
-          <span>{toastMessage}</span>
-        </div>
-      )}
 
       {/* 3D KPI Metrics Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
