@@ -13,6 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
+import { useCurrentUser } from '@/features/auth/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
@@ -32,7 +33,10 @@ export default function StaffReportPage() {
     dateTo: null,
     page: 1,
   });
-  const { data: usersData } = useUsers({ page: 1, search: '' });
+  const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
+  // API người dùng chỉ dành cho Admin
+  const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -45,6 +49,20 @@ export default function StaffReportPage() {
   // Danh sách nhân viên và thành tích thực tế
   const staffPerformance = useMemo(() => {
     const orders = ordersData?.data ?? [];
+
+    // Nhân viên chỉ thấy số liệu của chính mình (server cũng đã lọc theo người đăng nhập)
+    if (!isAdmin) {
+      if (!me) return [];
+      return [
+        {
+          id: me.id,
+          name: me.fullName,
+          tickets: kpiData?.total ?? 0,
+          revenue: kpiData?.revenue ?? 0,
+          commission: kpiData?.commission ?? 0,
+        },
+      ];
+    }
 
     if (kpiData?.byStaff && kpiData.byStaff.length > 0) {
       return kpiData.byStaff.map((s) => ({
@@ -68,7 +86,7 @@ export default function StaffReportPage() {
         commission: comm,
       };
     });
-  }, [kpiData, ordersData, staffList]);
+  }, [kpiData, ordersData, staffList, isAdmin, me]);
 
   const filteredStaff = useMemo(() => {
     if (staffFilter === 'all') return staffPerformance;
@@ -158,6 +176,7 @@ export default function StaffReportPage() {
             <DateInput value={selectedDate} onChange={setSelectedDate} />
           </label>
 
+          {isAdmin && (
           <label className="block min-w-48 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Nhân viên</span>
             <select
@@ -173,6 +192,7 @@ export default function StaffReportPage() {
               ))}
             </select>
           </label>
+          )}
         </div>
       </Card>
 

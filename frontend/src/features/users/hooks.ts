@@ -31,8 +31,9 @@ export function useActiveStaff(enabled: boolean) {
   });
 }
 
-export function useUsers(params: { page: number; search: string }) {
+export function useUsers(params: { page: number; search: string }, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: userKeys.list(params),
     queryFn: () => usersApi.list(params),
     placeholderData: keepPreviousData,

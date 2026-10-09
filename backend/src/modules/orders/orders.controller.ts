@@ -102,9 +102,8 @@ export class OrdersController {
     };
   }
 
-  /** Chỉ Admin được sửa đơn; nhân viên chỉ tạo và xem đơn của mình */
+  /** Admin sửa mọi đơn; nhân viên chỉ sửa được đơn của mình (service trả 404 với đơn người khác) */
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderDto,

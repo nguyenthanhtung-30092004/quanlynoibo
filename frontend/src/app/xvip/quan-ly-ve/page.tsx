@@ -605,8 +605,6 @@ export default function TicketManagementPage() {
                         >
                           <Repeat size={13} weight="bold" /> Đặt lại
                         </button>
-                        {isAdmin && (
-                          <>
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(t)}
@@ -615,6 +613,7 @@ export default function TicketManagementPage() {
                         >
                           <PencilSimple size={16} weight="bold" />
                         </button>
+                        {isAdmin && (
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(t)}
@@ -623,7 +622,6 @@ export default function TicketManagementPage() {
                         >
                           <Trash size={16} weight="bold" />
                         </button>
-                          </>
                         )}
                       </div>
                     </td>
