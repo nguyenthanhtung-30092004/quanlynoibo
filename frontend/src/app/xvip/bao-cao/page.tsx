@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import {
   CheckCircle,
+  ClipboardText,
   CurrencyCircleDollar,
   FileXls,
   Medal,
@@ -57,7 +58,8 @@ export default function StaffReportPage() {
         {
           id: me.id,
           name: me.fullName,
-          tickets: kpiData?.total ?? 0,
+          orders: kpiData?.total ?? 0,
+          tickets: kpiData?.seats ?? 0,
           revenue: kpiData?.revenue ?? 0,
           commission: kpiData?.commission ?? 0,
         },
@@ -68,20 +70,22 @@ export default function StaffReportPage() {
       return kpiData.byStaff.map((s) => ({
         id: s.staffId,
         name: s.fullName,
-        tickets: s.total,
+        orders: s.total,
+        tickets: s.seats,
         revenue: s.revenue,
         commission: s.commission,
       }));
     }
 
     return staffList.map((u) => {
-      const matchOrders = orders.filter((o) => o.staff?.id === u.id);
+      const matchOrders = orders.filter((o) => o.staff?.id === u.id && !o.cancelledAt);
       const rev = matchOrders.reduce((sum, o) => sum + (o.sellPrice || 0), 0);
       const comm = matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0);
       return {
         id: u.id,
         name: u.fullName,
-        tickets: matchOrders.length,
+        orders: matchOrders.length,
+        tickets: matchOrders.reduce((sum, o) => sum + (o.seatCount || 1), 0),
         revenue: rev,
         commission: comm,
       };
@@ -93,6 +97,10 @@ export default function StaffReportPage() {
     return staffPerformance.filter((s) => String(s.id) === staffFilter);
   }, [staffPerformance, staffFilter]);
 
+  const totalOrders = useMemo(
+    () => filteredStaff.reduce((acc, s) => acc + s.orders, 0),
+    [filteredStaff]
+  );
   const totalTickets = useMemo(
     () => filteredStaff.reduce((acc, s) => acc + s.tickets, 0),
     [filteredStaff]
@@ -197,7 +205,25 @@ export default function StaffReportPage() {
       </Card>
 
       {/* 3D KPI Metrics Cards */}
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div
+          style={{
+            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #6b21a8, 0 12px 24px -4px rgba(15,23,42,0.18)',
+          }}
+          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-purple-600 to-purple-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+        >
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <ClipboardText size={26} weight="fill" />
+          </span>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Tổng số đơn</div>
+            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+              {totalOrders.toLocaleString('vi-VN')} đơn
+            </div>
+            <div className="text-[11px] font-medium text-white/90">Mỗi đơn có thể gồm nhiều vé</div>
+          </div>
+        </div>
+
         <div
           style={{
             boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #1d4ed8, 0 12px 24px -4px rgba(15,23,42,0.18)',
@@ -212,7 +238,7 @@ export default function StaffReportPage() {
             <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
               {totalTickets.toLocaleString('vi-VN')} vé
             </div>
-            <div className="text-[11px] font-medium text-white/90">Dữ liệu đơn hàng thực tế</div>
+            <div className="text-[11px] font-medium text-white/90">Tính theo số ghế của từng đơn</div>
           </div>
         </div>
 
@@ -265,7 +291,7 @@ export default function StaffReportPage() {
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">{sortedStaff[1].name}</span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Á quân bán vé</span>
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">Số lượng: <strong>{sortedStaff[1].tickets} vé</strong></div>
+                  <div className="text-xs text-slate-500">Số lượng: <strong>{sortedStaff[1].orders} đơn · {sortedStaff[1].tickets} vé</strong></div>
                   <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">{money(sortedStaff[1].commission)}đ</div>
                 </div>
               </div>
@@ -278,7 +304,7 @@ export default function StaffReportPage() {
               <span className="mt-2 font-black text-slate-900 dark:text-white text-lg">{topPerformer.name}</span>
               <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">Quán quân doanh số</span>
               <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-amber-300 dark:border-amber-700 shadow-inner">
-                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">Đạt: <strong>{topPerformer.tickets} vé</strong></div>
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">Đạt: <strong>{topPerformer.orders} đơn · {topPerformer.tickets} vé</strong></div>
                 <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">{money(topPerformer.commission)}đ hoa hồng</div>
               </div>
             </div>
@@ -291,7 +317,7 @@ export default function StaffReportPage() {
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">{sortedStaff[2].name}</span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Hạng ba</span>
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">Số lượng: <strong>{sortedStaff[2].tickets} vé</strong></div>
+                  <div className="text-xs text-slate-500">Số lượng: <strong>{sortedStaff[2].orders} đơn · {sortedStaff[2].tickets} vé</strong></div>
                   <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">{money(sortedStaff[2].commission)}đ</div>
                 </div>
               </div>
@@ -308,6 +334,7 @@ export default function StaffReportPage() {
               <tr>
                 <th className={TH}>Thứ hạng</th>
                 <th className={TH}>Nhân viên</th>
+                <th className={`${TH} text-right`}>Số đơn</th>
                 <th className={`${TH} text-right`}>Số vé bán ra</th>
                 <th className={`${TH} text-right`}>Tổng doanh thu vé</th>
                 <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
@@ -317,13 +344,13 @@ export default function StaffReportPage() {
             <tbody>
               {kpiLoading || ordersLoading ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={7} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : sortedStaff.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có dữ liệu nhân viên nào cho ngày đã chọn.
                   </td>
                 </tr>
@@ -356,6 +383,9 @@ export default function StaffReportPage() {
                             <span className="font-extrabold text-slate-900 dark:text-white">{staff.name}</span>
                           </div>
                         </div>
+                      </td>
+                      <td className={`${TD} text-right font-bold text-purple-700 dark:text-purple-400 tnum`}>
+                        {staff.orders.toLocaleString('vi-VN')} đơn
                       </td>
                       <td className={`${TD} text-right font-black text-blue-700 dark:text-blue-400 tnum`}>
                         {staff.tickets.toLocaleString('vi-VN')} vé
