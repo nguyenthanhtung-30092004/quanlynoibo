@@ -16,6 +16,7 @@ import {
   Ticket,
   Trash,
 } from '@phosphor-icons/react';
+import { useCurrentUser } from '@/features/auth/hooks';
 import { useRoutes, useCreateRoute, useUpdateRoute, useDeleteRoute } from '@/features/routes/hooks';
 import type { Route } from '@/features/routes/types';
 import { money } from '@/features/xvip/data';
@@ -53,6 +54,8 @@ const EMPTY_DRAFT: RouteDraft = {
 };
 
 export default function RoutesPage() {
+  const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
   const { data: apiData, isLoading, refetch } = useRoutes();
   const createMutation = useCreateRoute();
   const updateMutation = useUpdateRoute();
@@ -182,6 +185,7 @@ export default function RoutesPage() {
       <PageTitle
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
+            {isAdmin && (
             <button
               type="button"
               onClick={handleOpenCreate}
@@ -189,6 +193,7 @@ export default function RoutesPage() {
             >
               <Plus size={18} weight="bold" /> Thêm tuyến đường mới
             </button>
+            )}
             <button
               type="button"
               onClick={() => showToast('Đang kết xuất danh mục tuyến đường ra file Excel...')}
@@ -398,6 +403,8 @@ export default function RoutesPage() {
                         >
                           <Eye size={16} weight="bold" />
                         </button>
+                        {isAdmin && (
+                          <>
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(route)}
@@ -414,6 +421,8 @@ export default function RoutesPage() {
                         >
                           <Trash size={16} weight="bold" />
                         </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
