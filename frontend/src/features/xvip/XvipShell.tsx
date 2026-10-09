@@ -243,10 +243,10 @@ export function XvipShell({ children }: { children: ReactNode }) {
                 </span>
               </div>
 
-              <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
-                {/* Nút Chuyển Đổi Sáng / Tối 3D */}
-                <ThemeToggle />
+              {/* Nút Chuyển Đổi Sáng / Tối 3D, đặt cạnh tên công ty để nhường chỗ cho bộ lọc ngày */}
+              <ThemeToggle />
 
+              <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
               <DateRangeFilter />
 
               <button

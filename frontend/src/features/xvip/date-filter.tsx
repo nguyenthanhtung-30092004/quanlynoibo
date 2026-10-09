@@ -165,7 +165,7 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
         <div
           role="dialog"
           aria-label="Lọc theo ngày"
-          className={`absolute top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${mobile ? 'inset-x-0' : 'right-0 w-72'}`}
+          className={`absolute top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${mobile ? 'inset-x-0' : 'right-0 w-[30rem] max-w-[calc(100vw-2rem)]'}`}
         >
           <BasisSwitch basis={basis} onChange={setBasis} />
           <ul className="mt-2 space-y-0.5">

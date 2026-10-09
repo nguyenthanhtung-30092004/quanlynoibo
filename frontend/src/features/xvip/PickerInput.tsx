@@ -60,8 +60,10 @@ function PickerShell({
       const margin = 8;
       const below = window.innerHeight - a.bottom;
       const top = below >= p.height + margin || a.top < p.height + margin ? a.bottom + 6 : a.top - p.height - 6;
+      // Màn hình thấp: không để khung tràn khỏi cuối cửa sổ (nếu không sẽ không bấm được các ngày cuối tháng)
+      const fitted = Math.min(top, window.innerHeight - p.height - margin);
       const left = Math.min(Math.max(margin, a.left), window.innerWidth - p.width - margin);
-      setPos({ top: Math.max(margin, top), left });
+      setPos({ top: Math.max(margin, fitted), left });
     };
     place();
     window.addEventListener('resize', place);
@@ -125,7 +127,7 @@ function PickerShell({
               left: pos?.left ?? 0,
               visibility: pos ? 'visible' : 'hidden',
             }}
-            className="z-[100] rounded-3xl border border-slate-200 bg-white p-5 text-slate-800 shadow-[0_6px_0_#cbd5e1,0_24px_48px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-[0_6px_0_#0b1220,0_24px_48px_rgba(0,0,0,0.6)]"
+            className="z-[100] max-h-[calc(100dvh-1rem)] overflow-y-auto rounded-3xl border border-slate-200 bg-white p-5 text-slate-800 shadow-[0_6px_0_#cbd5e1,0_24px_48px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-[0_6px_0_#0b1220,0_24px_48px_rgba(0,0,0,0.6)]"
           >
             {children(close)}
           </div>,
