@@ -10,17 +10,23 @@ import {
 import { UserRole } from '../entities/user.entity.js';
 
 export class CreateUserDto {
-  @ApiProperty({ description: 'Tên đăng nhập', example: 'nhanvien1' })
-  @IsNotEmpty({ message: 'Tên đăng nhập không được để trống' })
+  @ApiPropertyOptional({
+    description: 'Tên đăng nhập; bỏ trống thì dùng số điện thoại',
+    example: '0901234567',
+  })
+  @IsOptional()
   @IsString()
   @Length(3, 50, { message: 'Tên đăng nhập phải từ 3 đến 50 ký tự' })
-  username: string;
+  username?: string;
 
-  @ApiProperty({ description: 'Mật khẩu', example: 'MatKhau123' })
-  @IsNotEmpty({ message: 'Mật khẩu không được để trống' })
+  @ApiPropertyOptional({
+    description: 'Mật khẩu; bỏ trống thì dùng mật khẩu mặc định của nhân viên',
+    example: 'MatKhau123',
+  })
+  @IsOptional()
   @IsString()
   @Length(8, 100, { message: 'Mật khẩu phải từ 8 đến 100 ký tự' })
-  password: string;
+  password?: string;
 
   @ApiProperty({ description: 'Họ và tên', example: 'Nguyễn Văn A' })
   @IsNotEmpty({ message: 'Họ và tên không được để trống' })
@@ -31,7 +37,7 @@ export class CreateUserDto {
   @ApiPropertyOptional({ description: 'Số điện thoại', example: '0901234567' })
   @IsOptional()
   @IsString()
-  @Length(1, 15, { message: 'Số điện thoại phải từ 1 đến 15 ký tự' })
+  @Matches(/^(0|\+84)\d{9,10}$/, { message: 'Số điện thoại không hợp lệ' })
   phone?: string;
 
   @ApiPropertyOptional({
@@ -42,14 +48,6 @@ export class CreateUserDto {
   @IsString()
   @Length(1, 255, { message: 'Địa chỉ không được dài quá 255 ký tự' })
   address?: string;
-
-  @ApiProperty({
-    description: 'Số căn cước công dân (12 chữ số)',
-    example: '001204012345',
-  })
-  @IsNotEmpty({ message: 'Căn cước công dân không được để trống' })
-  @Matches(/^\d{12}$/, { message: 'Căn cước công dân phải gồm đúng 12 chữ số' })
-  citizenId: string;
 
   @ApiPropertyOptional({
     description: 'Vai trò',

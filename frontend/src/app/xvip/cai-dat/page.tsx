@@ -10,7 +10,6 @@ import {
   Sparkle,
 } from '@phosphor-icons/react';
 import { Card, PageTitle } from '@/features/xvip/ui';
-import { useSound } from '@/features/xvip/sound';
 
 export default function SettingsPage() {
   // General company settings
@@ -46,34 +45,28 @@ export default function SettingsPage() {
     .replace('{giaVe}', '300.000')
     .replace('{hotline}', hotline);
 
-  const { playSuccess, playWarn } = useSound();
-
   const handleSaveCompany = (e: FormEvent) => {
     e.preventDefault();
     localStorage.setItem('xvip_company_name', companyName);
     localStorage.setItem('xvip_company_hotline', hotline);
     localStorage.setItem('xvip_company_address', address);
     localStorage.setItem('xvip_company_email', email);
-    playSuccess();
     showToast('Đã lưu thông tin cấu hình công ty thành công!');
   };
 
   const handleSaveTemplate = (e: FormEvent) => {
     e.preventDefault();
     localStorage.setItem('xvip_sms_template', smsTemplate);
-    playSuccess();
     showToast('Đã lưu mẫu tin nhắn SMS / Zalo 1-chạm thành công!');
   };
 
   const handleChangePassword = async (e: FormEvent) => {
     e.preventDefault();
     if (!oldPassword || !newPassword) {
-      playWarn();
       showToast('Vui lòng nhập đầy đủ thông tin mật khẩu.');
       return;
     }
     if (newPassword !== confirmPassword) {
-      playWarn();
       showToast('Mật khẩu mới và xác nhận mật khẩu không trùng khớp!');
       return;
     }
@@ -87,10 +80,8 @@ export default function SettingsPage() {
       setOldPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      playSuccess();
       showToast('Đã đổi mật khẩu tài khoản quản trị thành công!');
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Đổi mật khẩu thất bại.';
       showToast(`Lỗi: ${msg}`);
     }

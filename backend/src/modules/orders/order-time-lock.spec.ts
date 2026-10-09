@@ -10,12 +10,12 @@ const vn = (iso: string) => new Date(`${iso}+07:00`);
 
 describe('isOrderCreationLocked', () => {
   it.each([
-    ['2026-10-08T21:59:59', false],
-    ['2026-10-08T22:00:00', true],
+    ['2026-10-08T22:29:59', false],
+    ['2026-10-08T22:30:00', true],
     ['2026-10-08T23:30:00', true],
     ['2026-10-09T00:00:00', true],
-    ['2026-10-09T06:59:59', true],
-    ['2026-10-09T07:00:00', false],
+    ['2026-10-09T04:29:59', true],
+    ['2026-10-09T04:30:00', false],
     ['2026-10-09T12:00:00', false],
   ])('%s -> khóa=%s', (time, locked) => {
     expect(isOrderCreationLocked(vn(time))).toBe(locked);

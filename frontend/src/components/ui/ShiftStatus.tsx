@@ -1,13 +1,11 @@
 'use client';
 
 import { cn } from '@/lib/cn';
-import { isOrderingLocked, LOCK_END_HOUR, LOCK_START_HOUR } from '@/lib/time';
+import { CLOSE_TIME, isOrderingLocked, OPEN_TIME } from '@/lib/time';
 import { useNow } from '@/lib/use-vn-now';
 
-const pad = (hour: number) => String(hour).padStart(2, '0');
-
 /**
- * Trạng thái nhận đơn theo quy chế khóa 22h–07h (giờ Việt Nam).
+ * Trạng thái nhận đơn theo quy chế 04h30–22h30 (giờ Việt Nam, áp dụng cho nhân viên).
  * Chỉ để hiển thị; server mới là nơi chặn tạo đơn.
  */
 export function ShiftStatus() {
@@ -28,8 +26,8 @@ export function ShiftStatus() {
         aria-hidden
       />
       {locked
-        ? `Đang khóa tạo đơn, mở lại lúc ${pad(LOCK_END_HOUR)}:00`
-        : `Đang nhận đơn, khóa lúc ${pad(LOCK_START_HOUR)}:00`}
+        ? `Đang khóa tạo đơn, mở lại lúc ${OPEN_TIME}`
+        : `Đang nhận đơn, khóa lúc ${CLOSE_TIME}`}
     </span>
   );
 }

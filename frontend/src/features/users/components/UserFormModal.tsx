@@ -11,7 +11,6 @@ interface FormValues {
   username: string;
   password?: string;
   fullName: string;
-  citizenId?: string;
   phone?: string;
   address?: string;
   role: UserRole;
@@ -46,7 +45,6 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
       form.setFieldsValue({
         username: user.username,
         fullName: user.fullName,
-        citizenId: user.citizenId ?? undefined,
         phone: user.phone ?? undefined,
         address: user.address ?? undefined,
         role: user.role,
@@ -66,7 +64,6 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
           id: user.id,
           input: {
             fullName: values.fullName.trim(),
-            citizenId: blank(values.citizenId),
             phone: blank(values.phone),
             address: blank(values.address),
             role: values.role,
@@ -89,7 +86,6 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
         username: values.username.trim(),
         password: values.password ?? '',
         fullName: values.fullName.trim(),
-        citizenId: values.citizenId ?? '',
         phone: blank(values.phone),
         address: blank(values.address),
         role: values.role,
@@ -162,16 +158,6 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
             rules={[{ required: true, whitespace: true, message: 'Nhập họ và tên' }]}
           >
             <Input maxLength={100} className="shadow-3d-sm" />
-          </Form.Item>
-          <Form.Item
-            name="citizenId"
-            label="Căn cước công dân"
-            rules={[
-              { required: !isEdit, message: 'Nhập số căn cước công dân' },
-              { pattern: /^\d{12}$/, message: 'Căn cước công dân phải gồm đúng 12 chữ số' },
-            ]}
-          >
-            <Input maxLength={12} inputMode="numeric" placeholder="12 chữ số" className="tnum shadow-3d-sm" />
           </Form.Item>
 
           <Form.Item

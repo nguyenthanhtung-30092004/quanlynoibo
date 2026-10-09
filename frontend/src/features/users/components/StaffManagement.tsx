@@ -134,14 +134,11 @@ export function StaffManagement() {
       ),
     },
     {
-      title: 'Liên hệ & CCCD',
+      title: 'Liên hệ',
       width: 190,
       render: (_, u) => (
         <div className="leading-tight">
           <div className="tnum font-semibold text-ink">{u.phone ?? <span className="text-ink-3">Chưa có SĐT</span>}</div>
-          <div className="tnum mt-0.5 text-xs text-ink-3">
-            CCCD: {u.citizenId ?? <span className="text-red-500 font-semibold">Chưa có</span>}
-          </div>
         </div>
       ),
     },

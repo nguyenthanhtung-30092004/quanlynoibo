@@ -16,7 +16,7 @@ import { ordersApi } from '@/features/orders/api';
 import { useUsers } from '@/features/users/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
-import { useSound } from '@/features/xvip/sound';
+import { DateInput } from '@/features/xvip/PickerInput';
 
 export default function StaffReportPage() {
   const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -33,8 +33,6 @@ export default function StaffReportPage() {
     page: 1,
   });
   const { data: usersData } = useUsers({ page: 1, search: '' });
-  const { playSuccess, playWarn } = useSound();
-
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
@@ -113,10 +111,8 @@ export default function StaffReportPage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      playSuccess();
       showToast('Đã xuất báo cáo nhân sự ra file Excel thành công!');
     } catch {
-      playWarn();
       showToast('Lỗi khi xuất file Excel từ máy chủ.');
     }
   };
@@ -159,12 +155,7 @@ export default function StaffReportPage() {
         <div className="flex flex-wrap items-end gap-3.5">
           <label className="block min-w-44">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Ngày báo cáo</span>
-            <input
-              type="date"
-              className="input-3d"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-            />
+            <DateInput value={selectedDate} onChange={setSelectedDate} />
           </label>
 
           <label className="block min-w-48 flex-1">

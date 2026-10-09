@@ -41,13 +41,13 @@ export class OrdersService {
   ) {}
 
   /**
-   * Tạo đơn. Bị khóa từ 22h00 đến 07h00 (giờ VN).
+   * Tạo đơn. Nhân viên chỉ tạo được từ 04h30 đến 22h30 (giờ VN), Admin không bị khóa.
    * Ngày vào sổ và nhân viên được điền tự động.
    */
   async create(dto: CreateOrderDto, actor: JwtPayload) {
-    if (isOrderCreationLocked()) {
+    if (actor.role !== UserRole.ADMIN && isOrderCreationLocked()) {
       throw new ForbiddenException(
-        'Khung giờ 22h00 - 07h00 sáng đang khóa tạo đơn theo quy chế nội bộ.',
+        'Nhân viên chỉ được tạo đơn từ 04h30 đến 22h30. Khung giờ này đang khóa theo quy chế nội bộ.',
       );
     }
 
@@ -222,14 +222,24 @@ export class OrdersService {
     await this.orderRepository.update({ messageRefId: referentId }, { messageStatus: mapped });
   }
 
-  /** KPI theo ngày vào sổ. Admin thấy thêm bảng theo từng nhân viên */
+  /** KPI theo ngày vào sổ (mặc định) hoặc theo ngày khởi hành. Admin thấy thêm bảng theo từng nhân viên */
   async kpi(query: KpiQueryDto, actor: JwtPayload) {
     const date = query.date ?? getBusinessDate();
     const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.createdBy', 'staff')
-      .addSelect(['staff.id', 'staff.fullName'])
-      .where('order.entryDate = :date', { date });
+      .addSelect(['staff.id', 'staff.fullName']);
+    if (query.departureFrom || query.departureTo) {
+      // Lọc theo ngày khởi hành (một ngày hoặc một khoảng)
+      if (query.departureFrom) {
+        qb.andWhere('order.departureDate >= :depFrom', { depFrom: query.departureFrom });
+      }
+      if (query.departureTo) {
+        qb.andWhere('order.departureDate <= :depTo', { depTo: query.departureTo });
+      }
+    } else {
+      qb.andWhere('order.entryDate = :date', { date });
+    }
     if (actor.role !== UserRole.ADMIN) {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
@@ -409,6 +419,12 @@ export class OrdersService {
     }
     if (filter.dateTo) {
       qb.andWhere('order.entryDate <= :to', { to: filter.dateTo });
+    }
+    if (filter.departureFrom) {
+      qb.andWhere('order.departureDate >= :depFrom', { depFrom: filter.departureFrom });
+    }
+    if (filter.departureTo) {
+      qb.andWhere('order.departureDate <= :depTo', { depTo: filter.departureTo });
     }
     if (filter.search?.trim()) {
       qb.andWhere(

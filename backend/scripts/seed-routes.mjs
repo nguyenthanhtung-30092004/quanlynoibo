@@ -80,12 +80,21 @@ for (const line of RAW.split('\n')) {
   routes.push({ name, origin, destination });
 }
 
-// Đọc .env của backend (không in ra giá trị nhạy cảm)
+// Cấu hình DB: ưu tiên biến môi trường (trong container Docker), nếu không có
+// thì đọc backend/.env (chạy tay trên máy dev). Không in giá trị nhạy cảm.
 const env = {};
-const envPath = fileURLToPath(new URL('../.env', import.meta.url));
-for (const line of readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-  const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
-  if (m) env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
+try {
+  const envPath = fileURLToPath(new URL('../.env', import.meta.url));
+  for (const line of readFileSync(envPath, 'utf8').split(/?
+/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (m) env[m[1]] = m[2].replace(/^(['"])(.*)$/, '$2');
+  }
+} catch {
+  // không có file .env: dùng biến môi trường
+}
+for (const k of ['DATABASE_HOST', 'DATABASE_PORT', 'DATABASE_USERNAME', 'DATABASE_PASSWORD', 'DATABASE_NAME']) {
+  if (process.env[k]) env[k] = process.env[k];
 }
 
 const client = new pg.Client({

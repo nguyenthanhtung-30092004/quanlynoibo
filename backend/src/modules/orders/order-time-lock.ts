@@ -1,12 +1,13 @@
 /** Múi giờ nghiệp vụ của hệ thống (khóa giờ, báo cáo theo ngày đều tính theo giờ VN) */
 export const BUSINESS_TIME_ZONE = 'Asia/Ho_Chi_Minh';
 
-/** Khóa tạo đơn từ 22h00 tối đến 07h00 sáng hôm sau */
-export const ORDER_LOCK_START_HOUR = 22;
-export const ORDER_LOCK_END_HOUR = 7;
+/** Nhân viên chỉ tạo được đơn từ 04h30 đến 22h30; ngoài khung này là khóa (Admin không bị khóa) */
+export const ORDER_OPEN_MINUTE = 4 * 60 + 30;
+export const ORDER_CLOSE_MINUTE = 22 * 60 + 30;
 
-const hourFormatter = new Intl.DateTimeFormat('en-GB', {
+const timeFormatter = new Intl.DateTimeFormat('en-GB', {
   hour: '2-digit',
+  minute: '2-digit',
   hourCycle: 'h23',
   timeZone: BUSINESS_TIME_ZONE,
 });
@@ -18,9 +19,10 @@ const dateFormatter = new Intl.DateTimeFormat('en-CA', {
   timeZone: BUSINESS_TIME_ZONE,
 });
 
-/** Giờ (0-23) tại múi giờ nghiệp vụ */
-export function getBusinessHour(now: Date = new Date()): number {
-  return Number(hourFormatter.format(now));
+/** Số phút kể từ 00:00 tại múi giờ nghiệp vụ */
+export function getBusinessMinuteOfDay(now: Date = new Date()): number {
+  const [hour, minute] = timeFormatter.format(now).split(':').map(Number);
+  return hour * 60 + minute;
 }
 
 /** Ngày dạng YYYY-MM-DD tại múi giờ nghiệp vụ */
@@ -29,8 +31,8 @@ export function getBusinessDate(now: Date = new Date()): string {
 }
 
 export function isOrderCreationLocked(now: Date = new Date()): boolean {
-  const hour = getBusinessHour(now);
-  return hour >= ORDER_LOCK_START_HOUR || hour < ORDER_LOCK_END_HOUR;
+  const minute = getBusinessMinuteOfDay(now);
+  return minute >= ORDER_CLOSE_MINUTE || minute < ORDER_OPEN_MINUTE;
 }
 
 /** Mốc bắt đầu của một ngày YYYY-MM-DD theo múi giờ nghiệp vụ (UTC+7, không có DST) */

@@ -3,6 +3,7 @@ import { ORDERS_PAGE_SIZE } from './constants';
 import type {
   CreateOrderInput,
   Kpi,
+  KpiRange,
   MessageChannel,
   Order,
   OrderFilters,
@@ -17,6 +18,8 @@ function filterParams(filters: OrderFilters) {
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
     dateFrom: filters.dateFrom ?? undefined,
     dateTo: filters.dateTo ?? undefined,
+    departureFrom: filters.departureFrom ?? undefined,
+    departureTo: filters.departureTo ?? undefined,
   };
 }
 
@@ -62,8 +65,8 @@ export const ordersApi = {
       (res) => res.data,
     ),
 
-  kpi: (date?: string) =>
-    api<ApiResponse<Kpi>>('orders/kpi', { query: { date } }).then((res) => res.data),
+  kpi: (date?: string, range?: KpiRange) =>
+    api<ApiResponse<Kpi>>('orders/kpi', { query: { date, ...range } }).then((res) => res.data),
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),

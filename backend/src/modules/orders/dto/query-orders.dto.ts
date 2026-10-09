@@ -43,6 +43,16 @@ export class OrderFilterDto {
   @IsOptional()
   @Matches(DATE_RE, { message: 'dateTo phải có dạng YYYY-MM-DD' })
   dateTo?: string;
+
+  @ApiPropertyOptional({ description: 'Từ ngày khởi hành (YYYY-MM-DD)' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'departureFrom phải có dạng YYYY-MM-DD' })
+  departureFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Đến hết ngày khởi hành (YYYY-MM-DD)' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'departureTo phải có dạng YYYY-MM-DD' })
+  departureTo?: string;
 }
 
 export class QueryOrdersDto extends OrderFilterDto {
@@ -67,4 +77,14 @@ export class KpiQueryDto {
   @IsOptional()
   @Matches(DATE_RE, { message: 'date phải có dạng YYYY-MM-DD' })
   date?: string;
+
+  @ApiPropertyOptional({ description: 'Từ ngày khởi hành (YYYY-MM-DD); nếu có thì thay cho `date`' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'departureFrom phải có dạng YYYY-MM-DD' })
+  departureFrom?: string;
+
+  @ApiPropertyOptional({ description: 'Đến hết ngày khởi hành (YYYY-MM-DD)' })
+  @IsOptional()
+  @Matches(DATE_RE, { message: 'departureTo phải có dạng YYYY-MM-DD' })
+  departureTo?: string;
 }

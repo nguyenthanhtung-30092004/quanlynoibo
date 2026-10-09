@@ -20,7 +20,6 @@ import { useRoutes, useCreateRoute, useUpdateRoute, useDeleteRoute } from '@/fea
 import type { Route } from '@/features/routes/types';
 import { money } from '@/features/xvip/data';
 import { Card, PageTitle, StatusBadge, TD, TH } from '@/features/xvip/ui';
-import { useSound } from '@/features/xvip/sound';
 
 import { Modal } from '@/features/xvip/Modal';
 /** Tuyến đường đúng như backend trả về (không thêm trường nào) */
@@ -58,8 +57,6 @@ export default function RoutesPage() {
   const createMutation = useCreateRoute();
   const updateMutation = useUpdateRoute();
   const deleteMutation = useDeleteRoute();
-  const { playSuccess, playWarn } = useSound();
-
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
 
@@ -148,7 +145,6 @@ export default function RoutesPage() {
             isActive: draft.isActive,
           },
         });
-        playSuccess();
         showToast(`Đã cập nhật tuyến đường "${finalName}" trên hệ thống thành công!`);
       } else {
         await createMutation.mutateAsync({
@@ -158,13 +154,11 @@ export default function RoutesPage() {
           defaultPrice: draft.defaultPrice,
           isActive: draft.isActive,
         });
-        playSuccess();
         showToast(`Đã thêm mới tuyến đường "${finalName}" vào cơ sở dữ liệu thành công!`);
       }
       refetch();
       setIsOpenModal(false);
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu tuyến đường vào máy chủ.';
       showToast(`Lỗi: ${msg}`);
     }
@@ -174,11 +168,9 @@ export default function RoutesPage() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      playSuccess();
       showToast(`Đã xóa tuyến đường "${deleteTarget.name}" khỏi cơ sở dữ liệu.`);
       refetch();
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Có lỗi khi xóa tuyến đường trên máy chủ.';
       showToast(`Lỗi: ${msg}`);
     }

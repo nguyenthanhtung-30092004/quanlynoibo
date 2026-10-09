@@ -16,10 +16,10 @@ describe('format', () => {
 
 describe('time', () => {
   it.each([
-    ['2026-10-08T14:59:00Z', false], // 21:59 VN
-    ['2026-10-08T15:00:00Z', true], // 22:00 VN
-    ['2026-10-08T23:59:00Z', true], // 06:59 VN
-    ['2026-10-09T00:00:00Z', false], // 07:00 VN
+    ['2026-10-08T15:29:00Z', false], // 22:29 VN
+    ['2026-10-08T15:30:00Z', true], // 22:30 VN
+    ['2026-10-08T21:29:00Z', true], // 04:29 VN
+    ['2026-10-08T21:30:00Z', false], // 04:30 VN
   ])('isOrderingLocked(%s) = %s', (iso, expected) => {
     expect(isOrderingLocked(new Date(iso))).toBe(expected);
   });

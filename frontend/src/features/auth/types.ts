@@ -6,7 +6,6 @@ export interface User {
   fullName: string;
   phone: string | null;
   address: string | null;
-  citizenId: string | null;
   role: UserRole;
   isActive: boolean;
   lastLoginAt: string | null;

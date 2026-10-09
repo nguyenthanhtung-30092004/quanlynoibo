@@ -63,6 +63,9 @@ export interface OrderFilters {
   /** YYYY-MM-DD, theo ngày vào sổ (giờ VN) */
   dateFrom: string | null;
   dateTo: string | null;
+  /** YYYY-MM-DD, theo ngày khởi hành */
+  departureFrom?: string | null;
+  departureTo?: string | null;
   page: number;
 }
 
@@ -88,6 +91,11 @@ export interface CreateOrderInput {
 }
 
 export type UpdateOrderInput = Partial<Omit<CreateOrderInput, 'staffId'>>;
+
+export interface KpiRange {
+  departureFrom: string;
+  departureTo: string;
+}
 
 export interface KpiSummary {
   total: number;

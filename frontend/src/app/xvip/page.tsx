@@ -15,17 +15,26 @@ import { useRoutes } from '@/features/routes/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
+import { useDateFilter } from '@/features/xvip/date-filter';
+import { formatDateVN } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
 export default function OverviewPage() {
-  const { data: kpiData, isLoading: kpiLoading } = useKpi();
+  // Lọc theo ngày đi, chọn ở nút ngày trên header
+  const { range } = useDateFilter();
+  const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
+    departureFrom: range.from,
+    departureTo: range.to,
+  });
   const { data: ordersData, isLoading: ordersLoading } = useOrders({
     search: '',
     staffId: 'all',
     routeId: 'all',
     dateFrom: null,
     dateTo: null,
+    departureFrom: range.from,
+    departureTo: range.to,
     page: 1,
   });
   const { data: partnerData } = usePartners();
@@ -350,7 +359,7 @@ export default function OverviewPage() {
                     <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
                       {t.departureTime}
                       <span className="block text-[11px] font-normal text-slate-400 dark:text-slate-500">
-                        {t.departureDate}
+                        {formatDateVN(t.departureDate)}
                       </span>
                     </td>
                     <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>

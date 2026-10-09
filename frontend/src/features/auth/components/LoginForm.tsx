@@ -34,8 +34,8 @@ export function LoginForm() {
         <Form layout="vertical" onFinish={handleFinish} requiredMark={false}>
           <Form.Item
             name="username"
-            label="Tên đăng nhập"
-            rules={[{ required: true, message: 'Nhập tên đăng nhập' }]}
+            label="Số điện thoại / Tên đăng nhập"
+            rules={[{ required: true, message: 'Nhập số điện thoại hoặc tên đăng nhập' }]}
           >
             <Input
               autoFocus

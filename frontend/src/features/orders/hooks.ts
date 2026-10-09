@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from './api';
 import type {
   CreateOrderInput,
+  KpiRange,
   OrderFilters,
   UpdateOrderInput,
 } from './types';
@@ -69,10 +70,10 @@ export function useSendSms() {
   });
 }
 
-export function useKpi(date?: string) {
+export function useKpi(date?: string, range?: KpiRange) {
   return useQuery({
-    queryKey: [...KPI_KEY, date],
-    queryFn: () => ordersApi.kpi(date),
+    queryKey: [...KPI_KEY, date, range?.departureFrom, range?.departureTo],
+    queryFn: () => ordersApi.kpi(date, range),
   });
 }
 

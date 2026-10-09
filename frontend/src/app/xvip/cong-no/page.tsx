@@ -14,7 +14,6 @@ import { usePartners } from '@/features/partners/hooks';
 import { useOrders } from '@/features/orders/hooks';
 import { money } from '@/features/xvip/data';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
-import { useSound } from '@/features/xvip/sound';
 
 import { Modal } from '@/features/xvip/Modal';
 interface SettlementModalData {
@@ -39,8 +38,6 @@ export default function DebtPage() {
     dateTo: null,
     page: 1,
   });
-
-  const { playSuccess, playWarn } = useSound();
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -102,7 +99,6 @@ export default function DebtPage() {
     if (!settlementTarget) return;
     const amount = Number(settlementAmount) || 0;
     if (amount <= 0) {
-      playWarn();
       showToast('Vui lòng nhập số tiền thanh toán hợp lệ.');
       return;
     }
@@ -112,7 +108,6 @@ export default function DebtPage() {
       [settlementTarget.carrierName]: (prev[settlementTarget.carrierName] ?? 0) + amount,
     }));
 
-    playSuccess();
     showToast(`Đã ghi nhận thanh toán ${money(amount)}đ cho đối tác ${settlementTarget.carrierName}.`);
     setSettlementTarget(null);
   };
@@ -125,7 +120,6 @@ export default function DebtPage() {
             <button
               type="button"
               onClick={() => {
-                playSuccess();
                 showToast('Đang kết xuất bảng công nợ nhà xe ra Excel...');
               }}
               className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"

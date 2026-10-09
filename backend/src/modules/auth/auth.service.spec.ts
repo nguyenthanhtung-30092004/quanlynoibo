@@ -107,11 +107,11 @@ describe('AuthService', () => {
   it('register chỉ cho phép khi chưa có user nào', async () => {
     users.count.mockResolvedValue(1);
     await expect(
-      service.register({ username: 'a', password: '123456', fullName: 'A', citizenId: '001204012345' }),
+      service.register({ username: 'a', password: '123456', fullName: 'A' }),
     ).rejects.toThrow(ForbiddenException);
 
     users.count.mockResolvedValue(0);
-    await service.register({ username: 'admin', password: '123456', fullName: 'A', citizenId: '001204012345' });
+    await service.register({ username: 'admin', password: '123456', fullName: 'A' });
     expect(users.create).toHaveBeenCalledWith(
       expect.objectContaining({ role: UserRole.ADMIN }),
     );

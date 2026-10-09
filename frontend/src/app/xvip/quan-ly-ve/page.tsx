@@ -9,6 +9,7 @@ import {
   PaperPlaneTilt,
   PencilSimple,
   Plus,
+  Repeat,
   Trash,
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
@@ -21,7 +22,7 @@ import { useCurrentUser } from '@/features/auth/hooks';
 import { SEAT_ZONE_LABELS, SeatZone, type CreateOrderInput, type MessageChannel, type Order, type OrderFilters } from '@/features/orders/types';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { useSound } from '@/features/xvip/sound';
+import { formatDateVN } from '@/lib/format';
 
 import { Modal } from '@/features/xvip/Modal';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
@@ -93,6 +94,43 @@ function NumInput({
   );
 }
 
+/** Ô nhập tiền VNĐ: để trống khi bằng 0, tự phân cách hàng nghìn bằng dấu chấm (15000 -> 15.000) */
+function MoneyInput({
+  value,
+  onChange,
+  className,
+  required,
+}: {
+  value: number;
+  onChange: (n: number) => void;
+  className?: string;
+  required?: boolean;
+}) {
+  const fmt = (n: number) => (n ? n.toLocaleString('vi-VN') : '');
+  const [text, setText] = useState(fmt(value));
+
+  // Đồng bộ khi giá trị đổi từ bên ngoài (mở vé khác, chọn tuyến có giá mặc định...)
+  useEffect(() => {
+    setText((t) => (Number(t.replace(/\D/g, '') || 0) === value ? t : fmt(value)));
+  }, [value]);
+
+  return (
+    <input
+      className={className}
+      type="text"
+      inputMode="numeric"
+      required={required}
+      placeholder="0"
+      value={text}
+      onChange={(e) => {
+        const n = Number(e.target.value.replace(/\D/g, '').slice(0, 10) || 0);
+        setText(fmt(n));
+        onChange(n);
+      }}
+    />
+  );
+}
+
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
     <label className="block">
@@ -147,10 +185,10 @@ export default function TicketManagementPage() {
   const updateMutation = useUpdateOrder();
   const deleteMutation = useDeleteOrder();
 
-  const { playSuccess, playWarn } = useSound();
-
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  // Đang đặt lại từ đơn nào (tạo đơn mới dựa trên đơn cũ)
+  const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
@@ -191,11 +229,40 @@ export default function TicketManagementPage() {
 
   const handleOpenCreate = () => {
     setEditingId(null);
+    setRebookFromId(null);
     setFormState(defaultFormState);
     setIsOpenModal(true);
   };
 
+  /** Đặt lại: điền sẵn dữ liệu đơn cũ, ngày đi về hôm nay; lưu sẽ tạo đơn mới */
+  const handleOpenRebook = (o: Order) => {
+    setEditingId(null);
+    setRebookFromId(o.id);
+    setFormState({
+      customerName: o.customerName ?? '',
+      phone: o.phone,
+      routeId: o.route?.id ?? 0,
+      partner: o.partner ?? '',
+      vehicleType: o.vehicleType ?? '',
+      seatZone: o.seatZone ?? '',
+      departureTime: o.departureTime,
+      departureDate: todayStr,
+      sellPrice: o.sellPrice,
+      costPrice: o.costPrice,
+      deposit: o.deposit,
+      collectOnDelivery: o.collectOnDelivery,
+      commission: o.commission,
+      seatCount: o.seatCount,
+      pickupPoint: o.pickupPoint ?? '',
+      dropoffPoint: o.dropoffPoint ?? '',
+      note: o.note ?? '',
+      staffId: isAdmin ? o.staff?.id : undefined,
+    });
+    setIsOpenModal(true);
+  };
+
   const handleOpenEdit = (o: Order) => {
+    setRebookFromId(null);
     setEditingId(o.id);
     setFormState({
       customerName: o.customerName ?? '',
@@ -254,7 +321,6 @@ export default function TicketManagementPage() {
     try {
       if (editingId) {
         await updateMutation.mutateAsync({ id: editingId, input: payload });
-        playSuccess();
         showToast('Đã cập nhật vé thành công trên hệ thống!');
       } else {
         await createMutation.mutateAsync({
@@ -262,13 +328,15 @@ export default function TicketManagementPage() {
           // Chỉ Admin được chỉ định nhân viên; nhân viên luôn là chính mình
           staffId: isAdmin ? formState.staffId : undefined,
         });
-        playSuccess();
-        showToast('Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!');
+        showToast(
+          rebookFromId
+            ? `Đã đặt lại đơn #${rebookFromId} thành đơn mới thành công!`
+            : 'Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!',
+        );
       }
       refetch();
       setIsOpenModal(false);
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu đơn vé.';
       showToast(`Lỗi: ${msg}`);
     }
@@ -278,11 +346,9 @@ export default function TicketManagementPage() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      playSuccess();
       showToast(`Đã xóa đơn vé #${deleteTarget.id} khỏi hệ thống.`);
       refetch();
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Có lỗi khi xóa đơn vé.';
       showToast(`Lỗi: ${msg}`);
     }
@@ -294,7 +360,6 @@ export default function TicketManagementPage() {
     setSendingChannel(channel);
     try {
       const res = await ordersApi.sendMessage(id, channel);
-      playSuccess();
       showToast(
         res.dryRun
           ? `Chế độ thử: chưa gửi ${label} thật tới khách (Sandbox hoặc chưa cấu hình nhà cung cấp).`
@@ -303,7 +368,6 @@ export default function TicketManagementPage() {
       setSmsOrder(null);
       refetch();
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : `Có lỗi khi gửi tin ${label}.`;
       showToast(`Lỗi: ${msg}`);
     } finally {
@@ -320,10 +384,8 @@ export default function TicketManagementPage() {
       a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
-      playSuccess();
       showToast('Đã kết xuất dữ liệu vé ra file Excel thành công!');
     } catch {
-      playWarn();
       showToast('Lỗi khi xuất file Excel từ máy chủ.');
     }
   };
@@ -331,7 +393,6 @@ export default function TicketManagementPage() {
   const handleCopy = (text: string) => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    playSuccess();
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -486,7 +547,7 @@ export default function TicketManagementPage() {
                     </td>
                     <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
                       {t.departureTime}
-                      <span className="block text-[11px] font-normal text-slate-400 dark:text-slate-500">{t.departureDate}</span>
+                      <span className="block text-[11px] font-normal text-slate-400 dark:text-slate-500">{formatDateVN(t.departureDate)}</span>
                     </td>
                     <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
                       {t.partner || 'XVIP'}
@@ -535,8 +596,17 @@ export default function TicketManagementPage() {
                       )}
                     </td>
                     <td className={`${TD} text-center`}>
-                      {isAdmin ? (
                       <div className="flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenRebook(t)}
+                          title="Đặt lại (tạo đơn mới từ đơn này)"
+                          className="btn-3d btn-3d-green px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                        >
+                          <Repeat size={13} weight="bold" /> Đặt lại
+                        </button>
+                        {isAdmin && (
+                          <>
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(t)}
@@ -553,10 +623,9 @@ export default function TicketManagementPage() {
                         >
                           <Trash size={16} weight="bold" />
                         </button>
+                          </>
+                        )}
                       </div>
-                      ) : (
-                        <span className="text-xs text-slate-400">—</span>
-                      )}
                     </td>
                   </tr>
                 ))
@@ -569,7 +638,13 @@ export default function TicketManagementPage() {
       {/* Modal Thêm / Sửa Vé */}
       {isOpenModal && (
         <Modal
-          title={editingId ? `Cập nhật đơn vé #${editingId}` : 'Thêm vé / Đơn đặt xe mới'}
+          title={
+            editingId
+              ? `Cập nhật đơn vé #${editingId}`
+              : rebookFromId
+                ? `Đặt lại đơn #${rebookFromId} (tạo đơn mới)`
+                : 'Thêm vé / Đơn đặt xe mới'
+          }
           onClose={() => setIsOpenModal(false)}
         >
           <form onSubmit={handleSave} className="space-y-4" noValidate>
@@ -677,23 +752,23 @@ export default function TicketManagementPage() {
               </Field>
 
               <Field label="Giá nhập (VNĐ)">
-                <NumInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} min={0} step={5000} />
+                <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />
               </Field>
 
               <Field label="Giá bán (VNĐ)" required>
-                <NumInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} min={0} step={5000} required />
+                <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
               </Field>
 
               <Field label="Đã cọc (VNĐ)">
-                <NumInput className="input-3d" value={formState.deposit} onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))} min={0} step={5000} />
+                <MoneyInput className="input-3d" value={formState.deposit} onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))} />
               </Field>
 
               <Field label="Nhờ thu (VNĐ)">
-                <NumInput className="input-3d" value={formState.collectOnDelivery} onChange={(n) => setFormState((p) => ({ ...p, collectOnDelivery: n }))} min={0} step={5000} />
+                <MoneyInput className="input-3d" value={formState.collectOnDelivery} onChange={(n) => setFormState((p) => ({ ...p, collectOnDelivery: n }))} />
               </Field>
 
               <Field label="Hoa hồng (VNĐ)">
-                <NumInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} min={0} step={1000} />
+                <MoneyInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} />
               </Field>
 
               {isAdmin && !editingId && (
@@ -759,7 +834,7 @@ export default function TicketManagementPage() {
                 type="submit"
                 className="btn-3d btn-3d-blue px-5 py-2 text-sm"
               >
-                {editingId ? 'Cập nhật vé' : 'Lưu vé vào máy chủ'}
+                {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé vào máy chủ'}
               </button>
             </div>
           </form>
@@ -777,7 +852,7 @@ export default function TicketManagementPage() {
               <div className="mb-1 font-bold text-blue-900 dark:text-blue-300">Nội dung tin nhắn khách hàng:</div>
               <div className="rounded-lg bg-white dark:bg-slate-900 p-2.5 font-mono text-[11px] border border-blue-100 dark:border-blue-800 shadow-inner">
                 {smsOrder.smsContent ||
-                  `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${smsOrder.departureDate}. Tổng đài 1900 1977. Trân trọng!`}
+                  `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${formatDateVN(smsOrder.departureDate)}. Tổng đài 1900 1977. Trân trọng!`}
               </div>
             </div>
 
@@ -787,7 +862,7 @@ export default function TicketManagementPage() {
                 onClick={() =>
                   handleCopy(
                     smsOrder.smsContent ||
-                      `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${smsOrder.departureDate}. Tổng đài 1900 1977. Trân trọng!`
+                      `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${formatDateVN(smsOrder.departureDate)}. Tổng đài 1900 1977. Trân trọng!`
                   )
                 }
                 className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-2 text-xs"

@@ -17,7 +17,6 @@ import type { User, UserRole } from '@/features/auth/types';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/features/users/hooks';
 import { Avatar, Card, PageTitle, StatusBadge, TD, TH } from '@/features/xvip/ui';
-import { useSound } from '@/features/xvip/sound';
 
 import { Modal } from '@/features/xvip/Modal';
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
@@ -32,22 +31,16 @@ function Field({ label, required, children }: { label: string; required?: boolea
 }
 
 interface UserDraft {
-  username: string;
   fullName: string;
-  password?: string;
   phone: string;
-  citizenId: string;
   address: string;
   role: UserRole;
   isActive: boolean;
 }
 
 const EMPTY_DRAFT: UserDraft = {
-  username: '',
   fullName: '',
-  password: 'Password@123',
   phone: '',
-  citizenId: '',
   address: '',
   role: 'STAFF',
   isActive: true,
@@ -77,8 +70,6 @@ function UsersPageContent() {
   const createMutation = useCreateUser();
   const updateMutation = useUpdateUser();
   const deleteMutation = useDeleteUser();
-  const { playSuccess, playWarn } = useSound();
-
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [draft, setDraft] = useState<UserDraft>(EMPTY_DRAFT);
@@ -102,8 +93,7 @@ function UsersPageContent() {
       const matchSearch =
         u.fullName.toLowerCase().includes(search.toLowerCase()) ||
         u.username.toLowerCase().includes(search.toLowerCase()) ||
-        (u.phone && u.phone.includes(search)) ||
-        (u.citizenId && u.citizenId.includes(search));
+        (u.phone && u.phone.includes(search));
 
       const matchRole = roleFilter === 'all' || u.role === roleFilter;
 
@@ -124,10 +114,8 @@ function UsersPageContent() {
   const handleOpenEdit = (u: User) => {
     setEditingUser(u);
     setDraft({
-      username: u.username,
       fullName: u.fullName,
       phone: u.phone || '',
-      citizenId: u.citizenId || '',
       address: u.address || '',
       role: u.role,
       isActive: u.isActive,
@@ -144,32 +132,25 @@ function UsersPageContent() {
         const payload = {
           fullName: draft.fullName,
           phone: draft.phone.replace(/\s+/g, '') || undefined,
-          citizenId: draft.citizenId || undefined,
           address: draft.address.trim() || undefined,
           role: draft.role,
           isActive: draft.isActive,
         };
         await updateMutation.mutateAsync({ id: editingUser.id, input: payload });
-        playSuccess();
         showToast(`Đã cập nhật tài khoản "${draft.fullName}" thành công!`);
       } else {
-        if (!draft.username.trim() || !draft.citizenId.trim()) return;
+        // Tên đăng nhập = số điện thoại, mật khẩu mặc định do server đặt
         await createMutation.mutateAsync({
-          username: draft.username.trim(),
-          password: draft.password || 'Password@123',
           fullName: draft.fullName.trim(),
-          citizenId: draft.citizenId.trim(),
-          phone: draft.phone.replace(/\s+/g, '') || undefined,
+          phone: draft.phone.replace(/\s+/g, ''),
           address: draft.address.trim() || undefined,
           role: draft.role,
         });
-        playSuccess();
         showToast(`Đã tạo tài khoản nhân viên "${draft.fullName}" vào cơ sở dữ liệu!`);
       }
       refetch();
       setIsOpenModal(false);
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Lỗi khi lưu tài khoản vào máy chủ.';
       showToast(`Lỗi: ${msg}`);
     }
@@ -179,11 +160,9 @@ function UsersPageContent() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      playSuccess();
       showToast(`Đã xóa tài khoản "${deleteTarget.fullName}" khỏi hệ thống.`);
       refetch();
     } catch (err: unknown) {
-      playWarn();
       const msg = err instanceof Error ? err.message : 'Lỗi khi xóa tài khoản trên máy chủ.';
       showToast(`Lỗi: ${msg}`);
     }
@@ -282,7 +261,7 @@ function UsersPageContent() {
             <input
               type="text"
               className="input-3d pl-10"
-              placeholder="Tìm theo tên nhân viên, username, SĐT, số CCCD..."
+              placeholder="Tìm theo tên nhân viên, SĐT..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -326,7 +305,6 @@ function UsersPageContent() {
                 <th className={TH}>Nhân viên</th>
                 <th className={TH}>Tên đăng nhập</th>
                 <th className={TH}>Số điện thoại</th>
-                <th className={TH}>Số CCCD</th>
                 <th className={TH}>Vai trò</th>
                 <th className={TH}>Trạng thái</th>
                 <th className={`${TH} text-center`}>Thao tác</th>
@@ -335,13 +313,13 @@ function UsersPageContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={7} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải danh sách tài khoản từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={7} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có tài khoản nào hoặc không tìm thấy kết quả phù hợp.
                   </td>
                 </tr>
@@ -368,9 +346,6 @@ function UsersPageContent() {
                         <Phone size={14} className="text-blue-600 dark:text-blue-400" />
                         {u.phone || 'Chưa cập nhật'}
                       </span>
-                    </td>
-                    <td className={`${TD} font-mono text-xs font-semibold text-slate-600 dark:text-slate-400`}>
-                      {u.citizenId || '—'}
                     </td>
                     <td className={TD}>
                       {u.role === 'ADMIN' ? (
@@ -435,51 +410,23 @@ function UsersPageContent() {
             </Field>
 
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Tên đăng nhập (Username)" required>
+              <Field label="Số điện thoại (dùng để đăng nhập)" required>
                 <input
                   className="input-3d"
-                  value={draft.username}
-                  onChange={(e) => setDraft({ ...draft, username: e.target.value })}
-                  placeholder="VD: lan.anh"
-                  disabled={!!editingUser}
-                  required
-                />
-              </Field>
-
-              {!editingUser && (
-                <Field label="Mật khẩu khởi tạo" required>
-                  <input
-                    className="input-3d"
-                    type="password"
-                    value={draft.password}
-                    onChange={(e) => setDraft({ ...draft, password: e.target.value })}
-                    placeholder="Tối thiểu 6 ký tự"
-                    required
-                  />
-                </Field>
-              )}
-            </div>
-
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <Field label="Số điện thoại" required>
-                <input
-                  className="input-3d"
+                  inputMode="tel"
                   value={draft.phone}
                   onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
                   placeholder="0912 345 678"
-                />
-              </Field>
-
-              <Field label="Số CCCD (12 số)" required>
-                <input
-                  className="input-3d"
-                  value={draft.citizenId}
-                  onChange={(e) => setDraft({ ...draft, citizenId: e.target.value })}
-                  placeholder="001200000002"
-                  maxLength={12}
+                  required
                 />
               </Field>
             </div>
+
+            {!editingUser && (
+              <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
+                Mật khẩu đăng nhập mặc định: <span className="font-mono">nhanvienxvip123</span>
+              </p>
+            )}
 
             <Field label="Địa chỉ / Chi nhánh">
               <input

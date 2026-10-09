@@ -6,7 +6,6 @@ import { useCurrentUser } from '@/features/auth/hooks';
 import { useCreatePartner, useDeletePartner, usePartners, useUpdatePartner } from '@/features/partners/hooks';
 import type { Partner } from '@/features/partners/types';
 import { Modal } from '@/features/xvip/Modal';
-import { useSound } from '@/features/xvip/sound';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
 interface Draft {
@@ -35,8 +34,6 @@ export default function PartnersPage() {
   const createMutation = useCreatePartner();
   const updateMutation = useUpdatePartner();
   const deleteMutation = useDeletePartner();
-  const { playSuccess, playWarn } = useSound();
-
   const [search, setSearch] = useState('');
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -86,10 +83,8 @@ export default function PartnersPage() {
         await createMutation.mutateAsync(input);
         showToast(`Đã thêm đối tác "${name}".`);
       }
-      playSuccess();
       setIsOpenModal(false);
     } catch (err: unknown) {
-      playWarn();
       showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không lưu được đối tác.'}`);
     }
   };
@@ -98,10 +93,8 @@ export default function PartnersPage() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      playSuccess();
       showToast(`Đã xóa đối tác "${deleteTarget.name}".`);
     } catch (err: unknown) {
-      playWarn();
       showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không xóa được đối tác.'}`);
     }
     setDeleteTarget(null);
