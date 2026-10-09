@@ -19,6 +19,17 @@ export class OrdersSchemaGuard implements OnModuleInit {
       `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "seatBack" integer NOT NULL DEFAULT 0`,
       `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "cancelledAt" timestamptz`,
       `CREATE INDEX IF NOT EXISTS "IDX_orders_createdBy_createdAt" ON "orders" ("createdById", "createdAt")`,
+      `CREATE TABLE IF NOT EXISTS "order_history" (
+        "id" SERIAL PRIMARY KEY,
+        "orderId" integer NOT NULL,
+        "action" varchar(20) NOT NULL,
+        "actorId" integer,
+        "actorName" varchar(100) NOT NULL DEFAULT '',
+        "summary" varchar(255),
+        "changes" jsonb,
+        "createdAt" timestamptz NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX IF NOT EXISTS "IDX_order_history_orderId" ON "order_history" ("orderId")`,
     ];
     try {
       for (const sql of statements) await this.dataSource.query(sql);

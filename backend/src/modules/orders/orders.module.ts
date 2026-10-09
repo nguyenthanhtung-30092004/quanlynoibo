@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Route } from '../routes/entities/route.entity.js';
 import { User } from '../users/entities/user.entity.js';
 import { Order } from './entities/order.entity.js';
+import { OrderHistory } from './entities/order-history.entity.js';
 import { OrdersSchemaGuard } from './orders-schema.guard.js';
 import { OrdersController } from './orders.controller.js';
 import { VmgCallbackController } from './vmg-callback.controller.js';
@@ -15,7 +16,7 @@ import { VmgProvider } from './messaging/vmg.provider.js';
 import { ZaloZnsProvider } from './messaging/zalo-zns.provider.js';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Order, User, Route])],
+  imports: [TypeOrmModule.forFeature([Order, OrderHistory, User, Route])],
   controllers: [OrdersController, VmgCallbackController],
   providers: [
     OrdersService,

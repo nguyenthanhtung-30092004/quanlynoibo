@@ -7,6 +7,7 @@ import type {
   MessageChannel,
   Order,
   OrderFilters,
+  OrderHistoryEntry,
   UpdateOrderInput,
 } from './types';
 
@@ -33,6 +34,9 @@ export const ordersApi = {
         limit: ORDERS_PAGE_SIZE,
       },
     }),
+
+  history: (id: number) =>
+    api<ApiResponse<OrderHistoryEntry[]>>(`orders/${id}/history`).then((res) => res.data),
 
   get: (id: number) =>
     api<ApiResponse<Order>>(`orders/${id}`).then((res) => res.data),

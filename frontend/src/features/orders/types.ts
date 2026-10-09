@@ -123,3 +123,24 @@ export interface Kpi extends KpiSummary {
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
 }
+
+export type OrderHistoryAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE';
+
+export interface OrderChange {
+  field: string;
+  label: string;
+  from: string | number | null;
+  to: string | number | null;
+}
+
+/** Một dòng lịch sử thao tác trên đơn */
+export interface OrderHistoryEntry {
+  id: number;
+  orderId: number;
+  action: OrderHistoryAction;
+  actorId: number | null;
+  actorName: string;
+  summary: string | null;
+  changes: OrderChange[] | null;
+  createdAt: string;
+}

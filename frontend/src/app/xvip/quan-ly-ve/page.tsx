@@ -6,6 +6,7 @@ import {
   FileXls,
   MagnifyingGlass,
   PencilSimple,
+  ClockCounterClockwise,
   Plus,
   Copy,
   Repeat,
@@ -26,6 +27,7 @@ import { money } from '@/features/xvip/data';
 import { formatDateVN } from '@/lib/format';
 
 import { Modal } from '@/features/xvip/Modal';
+import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
@@ -240,6 +242,7 @@ export default function TicketManagementPage() {
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [historyOrderId, setHistoryOrderId] = useState<number | null>(null);
   const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string; seats?: string }>({});
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
   const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: false, ZALO: false });
@@ -706,6 +709,14 @@ export default function TicketManagementPage() {
                         >
                           <Repeat size={13} weight="bold" /> Đặt lại
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setHistoryOrderId(t.id)}
+                          title="Xem lịch sử thay đổi của đơn"
+                          className="btn-3d btn-3d-white px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                        >
+                          <ClockCounterClockwise size={13} weight="bold" /> Lịch sử
+                        </button>
                         {!t.cancelledAt && (
                           <>
                             <button
@@ -1045,6 +1056,10 @@ export default function TicketManagementPage() {
             </div>
           </form>
         </Modal>
+      )}
+
+      {historyOrderId !== null && (
+        <OrderHistoryModal orderId={historyOrderId} onClose={() => setHistoryOrderId(null)} />
       )}
 
       {/* Modal Hủy vé */}

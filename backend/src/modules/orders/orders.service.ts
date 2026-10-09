@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +20,11 @@ import {
 import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { Order, SeatZone } from './entities/order.entity.js';
 import {
+  OrderChange,
+  OrderHistory,
+  OrderHistoryAction,
+} from './entities/order-history.entity.js';
+import {
   getBusinessDate,
   isOrderCreationLocked,
 } from './order-time-lock.js';
@@ -28,11 +34,38 @@ import { buildBookingSms } from './sms/sms-template.js';
 
 const EXPORT_LIMIT = 5000;
 
+/** Các trường được so sánh để ghi lịch sử khi sửa đơn */
+const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
+  { key: 'customerName', label: 'Tên khách' },
+  { key: 'phone', label: 'Số điện thoại' },
+  { key: 'routeName', label: 'Tuyến đường' },
+  { key: 'departureTime', label: 'Giờ đi' },
+  { key: 'departureDate', label: 'Ngày đi' },
+  { key: 'partner', label: 'Đối tác' },
+  { key: 'vehicleType', label: 'Loại hình' },
+  { key: 'seatCount', label: 'Số ghế' },
+  { key: 'seatFront', label: 'Ghế đầu' },
+  { key: 'seatMiddle', label: 'Ghế giữa' },
+  { key: 'seatBack', label: 'Ghế cuối' },
+  { key: 'pickupPoint', label: 'Điểm đón' },
+  { key: 'dropoffPoint', label: 'Điểm trả' },
+  { key: 'sellPrice', label: 'Giá bán' },
+  { key: 'costPrice', label: 'Giá nhập' },
+  { key: 'deposit', label: 'Đã cọc' },
+  { key: 'collectOnDelivery', label: 'Nhờ thu' },
+  { key: 'commission', label: 'Hoa hồng' },
+  { key: 'note', label: 'Ghi chú' },
+];
+
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly orderRepository: Repository<Order>,
+    @InjectRepository(OrderHistory)
+    private readonly historyRepository: Repository<OrderHistory>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     @InjectRepository(Route)
@@ -96,6 +129,7 @@ export class OrdersService {
         note: dto.note || null,
       }),
     );
+    await this.record(saved.id, 'CREATE', actor, { summary: 'Tạo đơn' });
     return this.findOne(saved.id, actor);
   }
 
@@ -163,10 +197,51 @@ export class OrdersService {
       note: dto.note !== undefined ? dto.note || null : order.note,
     };
 
+    const nextCommission = dto.commission ?? order.commission;
     await this.orderRepository.update(order.id, {
       ...next,
-      commission: dto.commission ?? order.commission,
+      commission: nextCommission,
     });
+
+    // Ghi lịch sử: chỉ những trường thật sự đổi
+    const newRoute =
+      next.routeId !== order.routeId
+        ? await this.routeRepository.findOne({ where: { id: next.routeId } })
+        : null;
+    const before: Record<string, string | number | null> = {
+      ...this.seatsOf(order),
+      customerName: order.customerName,
+      phone: order.phone,
+      routeName: order.route?.name ?? null,
+      departureTime: order.departureTime,
+      departureDate: order.departureDate,
+      partner: order.partner,
+      vehicleType: order.vehicleType,
+      seatCount: order.seatCount,
+      pickupPoint: order.pickupPoint,
+      dropoffPoint: order.dropoffPoint,
+      sellPrice: order.sellPrice,
+      costPrice: order.costPrice,
+      deposit: order.deposit,
+      collectOnDelivery: order.collectOnDelivery,
+      commission: order.commission,
+      note: order.note,
+    };
+    const after: Record<string, string | number | null> = {
+      ...before,
+      ...next,
+      commission: nextCommission,
+      routeName: newRoute ? newRoute.name : before.routeName,
+    };
+    const changes: OrderChange[] = [];
+    for (const { key, label } of TRACKED_FIELDS) {
+      const from = before[key] ?? null;
+      const to = after[key] ?? null;
+      if ((from ?? '') !== (to ?? '')) changes.push({ field: key, label, from, to });
+    }
+    if (changes.length > 0) {
+      await this.record(order.id, 'UPDATE', actor, { changes });
+    }
     return this.findOne(order.id, actor);
   }
 
@@ -177,12 +252,14 @@ export class OrdersService {
       throw new BadRequestException('Vé này đã được hủy trước đó.');
     }
     await this.orderRepository.update(order.id, { cancelledAt: new Date() });
+    await this.record(order.id, 'CANCEL', actor, { summary: 'Hủy vé (khách không đặt nữa)' });
     return this.findOne(order.id, actor);
   }
 
   async remove(id: number, actor: JwtPayload) {
     const order = await this.findEntity(id, actor);
     await this.orderRepository.delete(order.id);
+    await this.historyRepository.delete({ orderId: order.id });
   }
 
   /**
@@ -217,7 +294,46 @@ export class OrdersService {
         messageStatus: null,
       });
     }
+    await this.record(order.id, 'SEND_MESSAGE', actor, {
+      summary: `Gửi ${channel === MessageChannel.ZALO ? 'Zalo' : 'SMS'} cho khách${dryRun ? ' (chạy thử, chưa gửi thật)' : ''}`,
+    });
     return { order: await this.findOne(order.id, actor), dryRun };
+  }
+
+  /** Lịch sử thao tác của một đơn (mới nhất trước); nhân viên chỉ xem được đơn của mình */
+  async history(id: number, actor: JwtPayload) {
+    await this.findEntity(id, actor);
+    return this.historyRepository.find({
+      where: { orderId: id },
+      order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  /** Ghi một dòng lịch sử; lỗi ghi lịch sử không được làm hỏng thao tác chính */
+  private async record(
+    orderId: number,
+    action: OrderHistoryAction,
+    actor: JwtPayload,
+    detail: { summary?: string; changes?: OrderChange[] } = {},
+  ) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: actor.sub },
+        select: { id: true, fullName: true },
+      });
+      await this.historyRepository.save(
+        this.historyRepository.create({
+          orderId,
+          action,
+          actorId: actor.sub,
+          actorName: user?.fullName ?? actor.username ?? '',
+          summary: detail.summary ?? null,
+          changes: detail.changes ?? null,
+        }),
+      );
+    } catch (err) {
+      this.logger.error(`Không ghi được lịch sử đơn #${orderId}: ${(err as Error).message}`);
+    }
   }
 
   /** Tra trạng thái tin đã gửi (VMG) và lưu lại */

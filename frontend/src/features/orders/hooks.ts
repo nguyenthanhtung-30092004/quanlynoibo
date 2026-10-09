@@ -19,6 +19,16 @@ export function useOrders(filters: OrderFilters) {
   });
 }
 
+export function useOrderHistory(id: number | null) {
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'history', id],
+    queryFn: () => ordersApi.history(id as number),
+    enabled: !!id,
+    // Luôn lấy mới khi mở: lịch sử thay đổi sau mỗi lần sửa
+    staleTime: 0,
+  });
+}
+
 export function useOrder(id: number | null) {
   return useQuery({
     queryKey: [...ORDERS_KEY, id],

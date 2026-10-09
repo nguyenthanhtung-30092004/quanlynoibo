@@ -142,6 +142,16 @@ export class OrdersController {
     return { statusCode: HttpStatus.OK, message: 'Xóa đơn hàng thành công' };
   }
 
+  /** Lịch sử thao tác của đơn: ai làm gì, lúc nào, đổi những gì */
+  @Get(':id/history')
+  async history(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy lịch sử đơn hàng thành công',
+      data: await this.ordersService.history(id, user),
+    };
+  }
+
   /** Tra trạng thái tin đã gửi: 0 chờ báo cáo, 1 thành công, 2 thất bại */
   @Get(':id/message-status')
   async messageStatus(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
