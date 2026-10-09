@@ -14,10 +14,13 @@ export function Modal({
   title,
   onClose,
   children,
+  size = 'md',
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** md: hộp nhỏ (xác nhận...); xl: form rộng cho màn hình máy tính */
+  size?: 'md' | 'xl';
 }) {
   const [mounted, setMounted] = useState(false);
   // onClose thường là hàm tạo mới mỗi lần render; giữ qua ref để không gắn lại sự kiện liên tục
@@ -51,7 +54,7 @@ export function Modal({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[calc(100dvh-1.5rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-900 shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_10px_0_#cbd5e1,0_25px_50px_-12px_rgba(0,0,0,0.3)] dark:border-slate-700 dark:bg-[#111d35] dark:text-white dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_10px_0_#09101f,0_25px_50px_-12px_rgba(0,0,0,0.6)] sm:max-h-[calc(100dvh-2rem)]">
+      <div className={`flex max-h-[calc(100dvh-1.5rem)] w-full ${size === 'xl' ? 'max-w-4xl' : 'max-w-lg'} flex-col overflow-hidden rounded-2xl border border-slate-300 bg-white text-slate-900 shadow-[inset_0_1px_1px_rgba(255,255,255,1),0_10px_0_#cbd5e1,0_25px_50px_-12px_rgba(0,0,0,0.3)] dark:border-slate-700 dark:bg-[#111d35] dark:text-white dark:shadow-[inset_0_1px_1px_rgba(255,255,255,0.08),0_10px_0_#09101f,0_25px_50px_-12px_rgba(0,0,0,0.6)] sm:max-h-[calc(100dvh-2rem)]`}>
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800 sm:px-6">
           <div className="flex min-w-0 items-center gap-2">
             <div className="size-2 shrink-0 rounded-full bg-blue-600 shadow-[0_0_6px_rgba(37,99,235,0.8)]" />

@@ -170,6 +170,7 @@ interface OrderFormState {
   seatFront: number;
   seatMiddle: number;
   seatBack: number;
+  seatCount: number;
   departureTime: string;
   departureDate: string;
   sellPrice: number;
@@ -212,7 +213,7 @@ export default function TicketManagementPage() {
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
-  const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string }>({});
+  const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string; seats?: string }>({});
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
@@ -237,6 +238,7 @@ export default function TicketManagementPage() {
       seatFront: 0,
       seatMiddle: 0,
       seatBack: 0,
+      seatCount: 0,
       departureTime: '13:00',
       departureDate: todayStr,
       sellPrice: 0,
@@ -274,6 +276,7 @@ export default function TicketManagementPage() {
       seatFront: o.seatFront,
       seatMiddle: o.seatMiddle,
       seatBack: o.seatBack,
+      seatCount: o.seatCount,
       departureTime: o.departureTime,
       departureDate: todayStr,
       sellPrice: o.sellPrice,
@@ -302,6 +305,7 @@ export default function TicketManagementPage() {
       seatFront: o.seatFront,
       seatMiddle: o.seatMiddle,
       seatBack: o.seatBack,
+      seatCount: o.seatCount,
       departureTime: o.departureTime,
       departureDate: o.departureDate,
       sellPrice: o.sellPrice,
@@ -324,17 +328,17 @@ export default function TicketManagementPage() {
       showToast('Vui lòng chọn tuyến đường.');
       return;
     }
-    if ((Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0) < 1) {
-      showToast('Vui lòng nhập ít nhất 1 ghế (đầu, giữa hoặc cuối).');
-      return;
-    }
-    const errors: { customerName?: string; phone?: string } = {};
+    const errors: { customerName?: string; phone?: string; seats?: string } = {};
     if (!formState.customerName.trim()) errors.customerName = 'Vui lòng nhập tên khách hàng.';
     const phoneClean = formState.phone.replace(/\s+/g, '');
     if (!phoneClean) errors.phone = 'Vui lòng nhập số điện thoại.';
     else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean)) errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
+    const total = Number(formState.seatCount) || 0;
+    const split = (Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0);
+    if (total < 1) errors.seats = 'Vui lòng nhập số ghế.';
+    else if (split > 0 && split !== total) errors.seats = `Đầu + giữa + cuối đang là ${split}, phải bằng số ghế (${total}).`;
     setFormErrors(errors);
-    if (errors.customerName || errors.phone) return;
+    if (errors.customerName || errors.phone || errors.seats) return;
 
     const payload: CreateOrderInput = {
       customerName: formState.customerName.trim() || undefined,
@@ -349,6 +353,7 @@ export default function TicketManagementPage() {
       deposit: Number(formState.deposit),
       collectOnDelivery: Number(formState.collectOnDelivery),
       commission: Number(formState.commission),
+      seatCount: Number(formState.seatCount) || 0,
       seatFront: Number(formState.seatFront) || 0,
       seatMiddle: Number(formState.seatMiddle) || 0,
       seatBack: Number(formState.seatBack) || 0,
@@ -731,9 +736,10 @@ export default function TicketManagementPage() {
                 : 'Thêm vé / Đơn đặt xe mới'
           }
           onClose={() => setIsOpenModal(false)}
+          size="xl"
         >
           <form onSubmit={handleSave} className="space-y-4" noValidate>
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Tuyến đường" required>
                 <RouteCombobox
                   routes={activeRoutes}
@@ -825,30 +831,31 @@ export default function TicketManagementPage() {
                 <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
                   Số ghế <span className="text-red-500">*</span>
                 </span>
-                <div className="grid max-w-lg grid-cols-2 gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_4px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_4px_0_#0b1220]">
-                  <div className="rounded-xl border border-blue-700 bg-gradient-to-b from-blue-500 to-blue-700 p-3.5 text-center text-white shadow-[0_4px_0_#1e3a8a]">
-                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-white/85">Tổng số ghế</span>
-                    <span className="tnum block text-3xl font-black leading-none">
-                      {(Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0)}
-                    </span>
-                    <span className="mt-1 block text-[11px] font-medium text-white/80">= số vé của đơn</span>
-                  </div>
+                <div className="grid max-w-md grid-cols-4 gap-2">
                   {(
                     [
-                      { key: 'seatFront', label: 'Ghế đầu' },
-                      { key: 'seatMiddle', label: 'Ghế giữa' },
-                      { key: 'seatBack', label: 'Ghế cuối' },
+                      { key: 'seatCount', label: 'Số ghế' },
+                      { key: 'seatFront', label: 'Đầu' },
+                      { key: 'seatMiddle', label: 'Giữa' },
+                      { key: 'seatBack', label: 'Cuối' },
                     ] as const
                   ).map((z) => (
                     <label
                       key={z.key}
-                      className="block rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-[0_4px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-800/60 dark:shadow-[0_4px_0_#0b1220]"
+                      className={`block rounded-lg border p-2 shadow-[0_2px_0_#cbd5e1] dark:shadow-[0_2px_0_#0b1220] ${
+                        z.key === 'seatCount'
+                          ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40'
+                          : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
+                      }`}
                     >
-                      <span className="mb-1.5 block text-center text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">{z.label}</span>
+                      <span className="mb-1 block text-center text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">{z.label}</span>
                       <NumInput
-                        className="input-3d !min-h-[48px] text-center text-lg font-bold"
+                        className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
                         value={formState[z.key]}
-                        onChange={(n) => setFormState((p) => ({ ...p, [z.key]: n }))}
+                        onChange={(n) => {
+                          setFormState((p) => ({ ...p, [z.key]: n }));
+                          setFormErrors((er) => ({ ...er, seats: undefined }));
+                        }}
                         min={0}
                         max={60}
                         blankZero
@@ -856,6 +863,11 @@ export default function TicketManagementPage() {
                     </label>
                   ))}
                 </div>
+                {formErrors.seats && (
+                  <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
+                    {formErrors.seats}
+                  </span>
+                )}
               </div>
 
               <Field label="Giá nhập (VNĐ)">
@@ -898,7 +910,7 @@ export default function TicketManagementPage() {
               )}
             </div>
 
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
               <Field label="Điểm đón">
                 <input
                   className="input-3d"

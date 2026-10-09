@@ -511,29 +511,21 @@ export class OrdersService {
     };
   }
 
-  /** Tổng ghế luôn bằng đầu + giữa + cuối nếu client gửi phần tách */
+  /** Số ghế do người dùng nhập; phần tách đầu/giữa/cuối lưu riêng (mỗi phần 0..60) */
   private resolveSeats(
     dto: { seatFront?: number; seatMiddle?: number; seatBack?: number; seatCount?: number },
     current?: Order,
   ) {
-    const split =
-      dto.seatFront !== undefined || dto.seatMiddle !== undefined || dto.seatBack !== undefined;
-    if (!split) {
-      if (current) {
-        return { seatFront: current.seatFront, seatMiddle: current.seatMiddle, seatBack: current.seatBack, seatCount: dto.seatCount ?? current.seatCount };
-      }
-      return { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: dto.seatCount ?? 1 };
-    }
     const base = current ? this.seatsOf(current) : { seatFront: 0, seatMiddle: 0, seatBack: 0 };
     const seatFront = dto.seatFront ?? base.seatFront;
     const seatMiddle = dto.seatMiddle ?? base.seatMiddle;
     const seatBack = dto.seatBack ?? base.seatBack;
-    const seatCount = seatFront + seatMiddle + seatBack;
-    if (seatCount < 1) {
-      throw new BadRequestException('Đơn phải có ít nhất 1 ghế (đầu, giữa hoặc cuối).');
-    }
-    if (seatCount > 60) {
-      throw new BadRequestException('Tổng số ghế quá lớn.');
+    const seatCount = dto.seatCount ?? current?.seatCount ?? 1;
+    const split = seatFront + seatMiddle + seatBack;
+    if (split > 0 && split !== seatCount) {
+      throw new BadRequestException(
+        `Ghế đầu + giữa + cuối (${split}) phải bằng số ghế (${seatCount}).`,
+      );
     }
     return { seatFront, seatMiddle, seatBack, seatCount };
   }
