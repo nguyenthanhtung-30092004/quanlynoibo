@@ -103,12 +103,14 @@ function PickerShell({
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`input-3d flex items-center justify-between gap-2 pr-3 text-left ${
+        className={`input-3d flex min-h-[46px] items-center justify-between gap-3 px-4 py-2.5 text-left text-[15px] ${
           open ? '!border-blue-600 !shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : ''
         } ${display ? '' : 'text-slate-400'}`}
       >
         <span className="truncate font-medium">{display || placeholder}</span>
-        <span className="shrink-0 text-blue-500">{icon}</span>
+        <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-blue-600 dark:bg-slate-800 dark:text-blue-400">
+          {icon}
+        </span>
       </button>
 
       {open &&
@@ -123,7 +125,7 @@ function PickerShell({
               left: pos?.left ?? 0,
               visibility: pos ? 'visible' : 'hidden',
             }}
-            className="z-[100] rounded-2xl border border-slate-200 bg-white p-3 text-slate-800 shadow-[0_12px_32px_rgba(15,23,42,0.22)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            className="z-[100] rounded-3xl border border-slate-200 bg-white p-5 text-slate-800 shadow-[0_6px_0_#cbd5e1,0_24px_48px_rgba(15,23,42,0.28)] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:shadow-[0_6px_0_#0b1220,0_24px_48px_rgba(0,0,0,0.6)]"
           >
             {children(close)}
           </div>,
@@ -161,15 +163,15 @@ function Calendar({
   const cells = Array.from({ length: 42 }, (_, i) => new Date(year, month, 1 - offset + i));
 
   const navBtn =
-    'flex size-8 items-center justify-center rounded-lg text-slate-600 hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800';
+    'flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-[0_2px_0_#cbd5e1] active:translate-y-0.5 active:shadow-none hover:bg-blue-50 hover:text-blue-700 dark:text-slate-300 dark:hover:bg-slate-800';
 
   return (
-    <div className="w-[17.5rem]">
-      <div className="mb-2 flex items-center justify-between">
+    <div className="w-[21rem] max-w-[calc(100vw-4rem)]">
+      <div className="mb-3 flex items-center justify-between">
         <button type="button" className={navBtn} onClick={() => go(-1)} aria-label="Tháng trước">
           <CaretLeft size={16} weight="bold" />
         </button>
-        <div className="text-sm font-extrabold text-slate-900 dark:text-white">
+        <div className="text-base font-extrabold text-slate-900 dark:text-white">
           Tháng {month + 1}, {year}
         </div>
         <button type="button" className={navBtn} onClick={() => go(1)} aria-label="Tháng sau">
@@ -179,7 +181,7 @@ function Calendar({
 
       <div className="grid grid-cols-7 text-center">
         {WEEKDAYS.map((w) => (
-          <div key={w} className="pb-1 text-[11px] font-bold uppercase text-slate-400">
+          <div key={w} className="pb-2 text-xs font-bold uppercase text-slate-400">
             {w}
           </div>
         ))}
@@ -195,7 +197,7 @@ function Calendar({
               type="button"
               disabled={disabled}
               onClick={() => onPick(iso)}
-              className={`mx-auto my-0.5 flex size-9 items-center justify-center rounded-lg text-sm tnum transition-colors ${
+              className={`mx-auto my-0.5 flex size-10 items-center justify-center rounded-xl text-[15px] tnum transition-colors ${
                 selected
                   ? 'bg-gradient-to-b from-blue-500 to-blue-700 font-extrabold text-white shadow-[0_2px_0_#1d4ed8]'
                   : disabled
@@ -211,12 +213,12 @@ function Calendar({
         })}
       </div>
 
-      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2 dark:border-slate-800">
+      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-3 dark:border-slate-800">
         <button
           type="button"
           onClick={() => onPick(today)}
           disabled={!!min && today < min}
-          className="rounded-lg px-2.5 py-1 text-xs font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-slate-800"
+          className="rounded-xl px-3.5 py-2 text-sm font-bold text-blue-700 hover:bg-blue-50 disabled:opacity-40 dark:text-blue-400 dark:hover:bg-slate-800"
         >
           Hôm nay
         </button>
@@ -273,20 +275,20 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
     });
   }, []);
   const cell = (selected: boolean) =>
-    `flex h-9 w-full items-center justify-center rounded-lg text-sm tnum transition-colors ${
+    `flex h-10 w-full items-center justify-center rounded-xl text-[15px] tnum transition-colors ${
       selected
         ? 'bg-gradient-to-b from-blue-500 to-blue-700 font-extrabold text-white shadow-[0_2px_0_#1d4ed8]'
         : 'font-semibold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-slate-800'
     }`;
 
   return (
-    <div ref={colRef} className="w-44">
+    <div ref={colRef} className="w-56">
       <div className="mb-2 grid grid-cols-2 gap-2 text-center text-[11px] font-bold uppercase text-slate-400">
         <span>Giờ</span>
         <span>Phút</span>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div className="relative max-h-56 space-y-0.5 overflow-y-auto pr-1">
+        <div className="relative max-h-64 space-y-1 overflow-y-auto pr-1.5">
           {HOURS.map((hh) => (
             <button
               key={hh}
@@ -299,7 +301,7 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
             </button>
           ))}
         </div>
-        <div className="relative max-h-56 space-y-0.5 overflow-y-auto pr-1">
+        <div className="relative max-h-64 space-y-1 overflow-y-auto pr-1.5">
           {minutes.map((mm) => (
             <button
               key={mm}
