@@ -162,13 +162,25 @@ function Field({
 }
 
 /** Khối nhóm các ô nhập trong form vé, đánh số bước để dễ theo dõi */
-function Section({ step, title, children }: { step: number; title: string; children: ReactNode }) {
+function Section({
+  step,
+  title,
+  className = '',
+  children,
+}: {
+  step?: number;
+  title: string;
+  className?: string;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+    <section className={`rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40 ${className}`}>
       <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
-        <span className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white shadow-[0_2px_0_#1e3a8a]">
-          {step}
-        </span>
+        {step !== undefined && (
+          <span className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white shadow-[0_2px_0_#1e3a8a]">
+            {step}
+          </span>
+        )}
         {title}
       </h3>
       {children}
@@ -749,8 +761,8 @@ export default function TicketManagementPage() {
         >
           <form onSubmit={handleSave} className="space-y-4" noValidate>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {/* Cột trái: khách hàng + chuyến đi */}
-              <div className="space-y-4">
+              {/* Cột trái: khách hàng + chuyến đi + ghi chú (ghi chú giãn cho bằng chiều cao cột phải) */}
+              <div className="flex flex-col gap-4">
                 <Section step={1} title="Khách hàng">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                     <Field label="Tên khách hàng" required error={formErrors.customerName}>
@@ -886,6 +898,15 @@ export default function TicketManagementPage() {
                     </Field>
                   </div>
                 </Section>
+
+                <Section title="Ghi chú" className="flex min-h-[7rem] flex-1 flex-col">
+                  <textarea
+                    className="input-3d min-h-[5rem] flex-1 resize-none p-3"
+                    value={formState.note}
+                    onChange={(e) => setFormState((p) => ({ ...p, note: e.target.value }))}
+                    maxLength={1000}
+                  />
+                </Section>
               </div>
 
               {/* Cột phải: số ghế + giá tiền */}
@@ -983,15 +1004,6 @@ export default function TicketManagementPage() {
                 </Section>
               </div>
             </div>
-
-            <Field label="Ghi chú">
-              <input
-                className="input-3d"
-                value={formState.note}
-                onChange={(e) => setFormState((p) => ({ ...p, note: e.target.value }))}
-                maxLength={1000}
-              />
-            </Field>
 
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
               <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
