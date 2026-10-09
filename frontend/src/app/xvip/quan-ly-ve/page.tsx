@@ -797,15 +797,17 @@ export default function TicketManagementPage() {
               </Field>
 
               <div className="sm:col-span-2">
-                <div className="mb-1.5 flex items-center justify-between">
-                  <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                    Số ghế theo vị trí <span className="text-red-500">*</span>
-                  </span>
-                  <span className="rounded-lg bg-blue-600 px-2.5 py-0.5 text-xs font-extrabold text-white shadow-[0_2px_0_#1e3a8a]">
-                    Tổng: {(Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0)} vé
-                  </span>
-                </div>
-                <div className="grid grid-cols-3 gap-3">
+                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                  Số ghế <span className="text-red-500">*</span>
+                </span>
+                <div className="grid max-w-lg grid-cols-2 gap-3.5 rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_4px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_4px_0_#0b1220]">
+                  <div className="rounded-xl border border-blue-700 bg-gradient-to-b from-blue-500 to-blue-700 p-3.5 text-center text-white shadow-[0_4px_0_#1e3a8a]">
+                    <span className="mb-1 block text-xs font-bold uppercase tracking-wide text-white/85">Tổng số ghế</span>
+                    <span className="tnum block text-3xl font-black leading-none">
+                      {(Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0)}
+                    </span>
+                    <span className="mt-1 block text-[11px] font-medium text-white/80">= số vé của đơn</span>
+                  </div>
                   {(
                     [
                       { key: 'seatFront', label: 'Ghế đầu' },
@@ -815,11 +817,11 @@ export default function TicketManagementPage() {
                   ).map((z) => (
                     <label
                       key={z.key}
-                      className="block rounded-xl border border-slate-200 bg-slate-50 p-2.5 shadow-[0_3px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-800/60 dark:shadow-[0_3px_0_#0b1220]"
+                      className="block rounded-xl border border-slate-200 bg-slate-50 p-3.5 shadow-[0_4px_0_#cbd5e1] dark:border-slate-700 dark:bg-slate-800/60 dark:shadow-[0_4px_0_#0b1220]"
                     >
-                      <span className="mb-1 block text-center text-xs font-bold text-slate-600 dark:text-slate-300">{z.label}</span>
+                      <span className="mb-1.5 block text-center text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">{z.label}</span>
                       <NumInput
-                        className="input-3d text-center"
+                        className="input-3d !min-h-[48px] text-center text-lg font-bold"
                         value={formState[z.key]}
                         onChange={(n) => setFormState((p) => ({ ...p, [z.key]: n }))}
                         min={0}
