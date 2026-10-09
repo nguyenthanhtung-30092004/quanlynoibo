@@ -1,14 +1,38 @@
 import { LoginForm } from '@/features/auth/components/LoginForm';
+import './login.css';
+
+const CUBES = [
+  { s: 54, d: '22s', t: '12%', l: '10%' },
+  { s: 34, d: '16s', t: '70%', l: '8%' },
+  { s: 70, d: '28s', t: '18%', l: '82%' },
+  { s: 40, d: '19s', t: '76%', l: '86%' },
+  { s: 26, d: '14s', t: '42%', l: '92%' },
+  { s: 30, d: '17s', t: '8%', l: '48%' },
+];
 
 export default function LoginPage() {
   return (
-    <main className="relative flex min-h-dvh items-center justify-center p-4 overflow-hidden">
-      {/* 3D ambient light orbs */}
-      <div className="pointer-events-none absolute -top-40 -left-40 size-96 rounded-full bg-accent/15 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 size-96 rounded-full bg-blue-500/10 blur-3xl" />
-      <div className="relative z-10 w-full max-w-sm">
-        <LoginForm />
-      </div>
+    <main className="lg-root">
+      <div className="lg-orb a" />
+      <div className="lg-orb b" />
+      <div className="lg-orb c" />
+      <div className="lg-grid" />
+      {CUBES.map((c, i) => (
+        <div
+          key={i}
+          className="lg-cube"
+          style={{ ['--s' as string]: `${c.s}px`, ['--d' as string]: c.d, top: c.t, left: c.l }}
+        >
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+          <i />
+        </div>
+      ))}
+      <LoginForm />
+      <div className="lg-foot">© Hệ thống điều hành đặt xe nội bộ</div>
     </main>
   );
 }
