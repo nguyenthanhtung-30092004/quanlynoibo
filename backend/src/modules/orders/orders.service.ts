@@ -449,7 +449,7 @@ export class OrdersService {
     const GOLD = 'FFFFE9A8';
     const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
     const thin = { style: 'thin', color: { argb: LINE } } as const;
-    // Kẻ đủ bốn phía (ngang và dọc) cho mọi ô của bảng
+    // Kẻ đủ bốn phía (ngang và dọc) cho tiêu đề và các dòng vé; từ dòng vé cuối trở xuống không kẻ viền
     const box: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin };
     const headerLine = { style: 'thin', color: { argb: 'FF93B4F5' } } as const;
     const GREEN = 'FF16A34A';
@@ -501,12 +501,6 @@ export class OrdersService {
     COLS.forEach((c, i) => {
       sheet.getColumn(i + 1).width = c.width;
     });
-    // Viền mặc định theo cột: mọi ô trống của trang tính (kể cả phía dưới và bên phải) đều có kẻ ô
-    const SHEET_COLS = N + 12;
-    for (let i = 1; i <= SHEET_COLS; i++) {
-      sheet.getColumn(i).border = box;
-    }
-
     // ---- tiêu đề + dòng thông tin
     sheet.mergeCells(1, 1, 1, N);
     const title = sheet.getCell(1, 1);
@@ -586,7 +580,6 @@ export class OrdersService {
     COLS.forEach((c, i) => {
       const cell = totalRow.getCell(i + 1);
       cell.fill = solid(GOLD);
-      cell.border = { ...box, top: { style: 'medium', color: { argb: NAVY } } };
       cell.font = { bold: true, size: 12, color: { argb: NAVY } };
       if (c.sum && orders.length > 0) {
         const colLetter = sheet.getColumn(i + 1).letter;
@@ -646,26 +639,12 @@ export class OrdersService {
       for (const c of [1, 2, 3, 4, 5, 6]) {
         const cell = sheet.getCell(r, c);
         cell.fill = solid(i % 2 === 0 ? 'FFF1F5FF' : 'FFFFFFFF');
-        cell.border = box;
       }
       l.font = { size: 11, color: { argb: 'FF334155' } };
       l.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
       v.font = { bold: true, size: 13, color: { argb: item.color ?? NAVY } };
       v.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
     });
-
-    // Các dòng trống bên dưới khối tổng kết: kẻ ô và tô xen kẽ cho đỡ trơ
-    const FILLER_ROWS = 30;
-    const fillerStart = panelTop + panel.length + 2;
-    for (let k = 0; k < FILLER_ROWS; k++) {
-      const row = sheet.getRow(fillerStart + k);
-      row.height = 21;
-      for (let c = 1; c <= N; c++) {
-        const cell = row.getCell(c);
-        cell.border = box;
-        if (k % 2 === 1) cell.fill = solid(BAND);
-      }
-    }
 
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
