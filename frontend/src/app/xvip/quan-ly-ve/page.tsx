@@ -7,6 +7,7 @@ import {
   MagnifyingGlass,
   PencilSimple,
   Plus,
+  Copy,
   Repeat,
   Trash,
   XCircle,
@@ -330,6 +331,46 @@ export default function TicketManagementPage() {
     setFormErrors({});
     setAutoSend({ SMS: false, ZALO: false });
     setIsOpenModal(true);
+  };
+
+  /** Nội dung đơn dạng chữ, điền tới đâu hiện tới đó, để xem và sao chép gửi đi nơi khác */
+  const previewLines = (() => {
+    const join = (parts: (string | false | undefined)[]) => parts.filter(Boolean).join(' - ');
+    const f = formState;
+    const seats = Number(f.seatCount) || 0;
+    return [
+      join([f.departureTime, f.departureDate && formatDateVN(f.departureDate)]),
+      join([f.customerName.trim(), f.phone.trim()]),
+      f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
+      f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
+      seats > 0 && `${seats} ghế`,
+    ].filter((line): line is string => !!line);
+  })();
+
+  const handleCopyPreview = async () => {
+    if (previewLines.length === 0) {
+      showToast('Chưa có nội dung để sao chép.', 'info');
+      return;
+    }
+    const text = previewLines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // Trình duyệt chặn clipboard (http, quyền...): dùng cách cũ
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (!ok) {
+        showToast('Không sao chép được, hãy bôi đen và copy thủ công.', 'error');
+        return;
+      }
+    }
+    showToast('Đã sao chép nội dung đơn.');
   };
 
   /** Gửi tin theo các kênh đã tích; trả về câu kết quả để nối vào thông báo (rỗng nếu không tích kênh nào) */
@@ -915,6 +956,29 @@ export default function TicketManagementPage() {
                     <Field label="Hoa hồng">
                       <MoneyInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} />
                     </Field>
+                  </div>
+                </Section>
+
+                <Section step={5} title="Nội dung đơn (để sao chép)">
+                  <div className="relative rounded-xl border border-dashed border-blue-300 bg-white p-3.5 pr-24 shadow-inner dark:border-blue-800 dark:bg-slate-900">
+                    {previewLines.length === 0 ? (
+                      <p className="text-sm text-slate-400">Điền thông tin bên trái, nội dung sẽ hiện ở đây.</p>
+                    ) : (
+                      <div className="space-y-1 font-mono text-sm font-semibold leading-relaxed text-slate-900 dark:text-slate-100">
+                        {previewLines.map((line, i) => (
+                          <div key={i} className="select-all break-words">
+                            {line}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleCopyPreview}
+                      className="btn-3d btn-3d-blue absolute right-2.5 top-2.5 flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                    >
+                      <Copy size={14} weight="bold" /> Sao chép
+                    </button>
                   </div>
                 </Section>
               </div>
