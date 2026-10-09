@@ -659,17 +659,17 @@ export default function TicketManagementPage() {
                               type="button"
                               onClick={() => handleOpenEdit(t)}
                               title="Sửa vé"
-                              className="btn-3d-mini text-blue-600 hover:text-blue-700"
+                              className="btn-3d btn-3d-amber px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                             >
-                              <PencilSimple size={16} weight="bold" />
+                              <PencilSimple size={13} weight="bold" /> Sửa
                             </button>
                             <button
                               type="button"
                               onClick={() => setCancelTarget(t)}
                               title="Hủy vé (khách không đặt nữa)"
-                              className="btn-3d-mini text-amber-600 hover:text-amber-700"
+                              className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                             >
-                              <XCircle size={16} weight="bold" />
+                              <XCircle size={13} weight="bold" /> Hủy
                             </button>
                           </>
                         )}
