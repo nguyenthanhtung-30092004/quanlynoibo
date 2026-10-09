@@ -7,6 +7,7 @@ import type {
   MessageChannel,
   Order,
   OrderFilters,
+  OrderActivity,
   OrderHistoryEntry,
   PartnerDebt,
   UpdateOrderInput,
@@ -78,6 +79,9 @@ export const ordersApi = {
 
   kpi: (date?: string, range?: KpiRange) =>
     api<ApiResponse<Kpi>>('orders/kpi', { query: { date, ...range } }).then((res) => res.data),
+
+  activity: () =>
+    api<ApiResponse<OrderActivity[]>>('orders/activity').then((res) => res.data),
 
   debts: (range?: KpiRange) =>
     api<ApiResponse<PartnerDebt[]>>('orders/debts', { query: { ...range } }).then((res) => res.data),

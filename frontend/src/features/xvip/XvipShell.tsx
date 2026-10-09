@@ -4,7 +4,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Bell,
   CaretDown,
   ChartBar,
   Gear,
@@ -20,6 +19,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
+import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
 import { DateFilterProvider, DateRangeFilter } from './date-filter';
@@ -257,16 +257,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
               <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
               <DateRangeFilter />
 
-              <button
-                type="button"
-                aria-label="Thông báo"
-                className="btn-3d-mini relative size-9 rounded-xl"
-              >
-                <Bell size={20} weight="bold" />
-                <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-black text-white shadow-[0_2px_4px_rgba(225,29,72,0.5)]">
-                  3
-                </span>
-              </button>
+              <NotificationBell />
 
               <UserMenu />
             </div>

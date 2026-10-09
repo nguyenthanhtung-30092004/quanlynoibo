@@ -78,6 +78,16 @@ export class OrdersController {
     };
   }
 
+  /** Hoạt động gần đây trên đơn, cho chuông thông báo */
+  @Get('activity')
+  async activity(@CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy hoạt động gần đây thành công',
+      data: await this.ordersService.activity(user),
+    };
+  }
+
   /** Công nợ theo đối tác (chỉ Admin) */
   @Get('debts')
   @Roles(UserRole.ADMIN)

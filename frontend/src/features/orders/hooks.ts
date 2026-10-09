@@ -100,6 +100,14 @@ export function useKpi(date?: string, range?: KpiRange) {
   });
 }
 
+/** Hoạt động gần đây; khóa nằm dưới 'orders' nên tự tải lại khi có sự kiện realtime về đơn */
+export function useOrderActivity() {
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'activity'],
+    queryFn: () => ordersApi.activity(),
+  });
+}
+
 export function useDebts(range?: KpiRange) {
   return useQuery({
     queryKey: [...KPI_KEY, 'debts', range],

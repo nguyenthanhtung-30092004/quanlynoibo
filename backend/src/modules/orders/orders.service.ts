@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import ExcelJS from 'exceljs';
 import { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Route } from '../routes/entities/route.entity.js';
@@ -33,6 +33,8 @@ import { MessagingService } from './messaging/messaging.service.js';
 import { buildBookingSms } from './sms/sms-template.js';
 
 const EXPORT_LIMIT = 5000;
+/** Chuông thông báo chỉ lấy hoạt động trong ngần này ngày */
+const ACTIVITY_DAYS = 7;
 
 /** Các trường được so sánh để ghi lịch sử khi sửa đơn */
 const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
@@ -306,6 +308,53 @@ export class OrdersService {
     return this.historyRepository.find({
       where: { orderId: id },
       order: { createdAt: 'DESC', id: 'DESC' },
+    });
+  }
+
+  /**
+   * Hoạt động gần đây trên đơn (cho chuông thông báo): ai tạo / sửa / hủy / gửi tin.
+   * Admin thấy tất cả; nhân viên chỉ thấy hoạt động trên đơn của mình.
+   */
+  async activity(actor: JwtPayload, limit = 30) {
+    const since = new Date(Date.now() - ACTIVITY_DAYS * 24 * 60 * 60 * 1000);
+    const qb = this.historyRepository
+      .createQueryBuilder('h')
+      .innerJoin(Order, 'o', 'o.id = h.orderId')
+      .where('h.createdAt >= :since', { since });
+    if (actor.role !== UserRole.ADMIN) {
+      qb.andWhere('o.createdById = :uid', { uid: actor.sub });
+    }
+    const rows = await qb.orderBy('h.createdAt', 'DESC').addOrderBy('h.id', 'DESC').limit(limit).getMany();
+    if (rows.length === 0) return [];
+
+    const orders = await this.orderRepository.find({
+      where: { id: In([...new Set(rows.map((r) => r.orderId))]) },
+      relations: { route: true },
+      select: {
+        id: true,
+        customerName: true,
+        phone: true,
+        departureTime: true,
+        departureDate: true,
+        route: { id: true, name: true },
+      },
+    });
+    const byId = new Map(orders.map((o) => [o.id, o]));
+    return rows.map((r) => {
+      const o = byId.get(r.orderId);
+      return {
+        id: r.id,
+        orderId: r.orderId,
+        action: r.action,
+        actorId: r.actorId,
+        actorName: r.actorName,
+        summary: r.summary,
+        createdAt: r.createdAt,
+        customerName: o?.customerName ?? null,
+        routeName: o?.route?.name ?? null,
+        departureTime: o?.departureTime ?? null,
+        departureDate: o?.departureDate ?? null,
+      };
     });
   }
 

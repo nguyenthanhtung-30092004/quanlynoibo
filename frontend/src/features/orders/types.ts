@@ -165,3 +165,18 @@ export interface PartnerDebt {
   /** Giá nhập: số tiền phải trả nhà xe */
   cost: number;
 }
+
+/** Một hoạt động trên đơn, hiện trong chuông thông báo */
+export interface OrderActivity {
+  id: number;
+  orderId: number;
+  action: OrderHistoryAction;
+  actorId: number | null;
+  actorName: string;
+  summary: string | null;
+  createdAt: string;
+  customerName: string | null;
+  routeName: string | null;
+  departureTime: string | null;
+  departureDate: string | null;
+}
