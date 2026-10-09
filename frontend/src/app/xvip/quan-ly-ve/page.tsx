@@ -3,10 +3,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   CheckCircle,
-  Copy,
   FileXls,
   MagnifyingGlass,
-  PaperPlaneTilt,
   PencilSimple,
   Plus,
   Repeat,
@@ -229,11 +227,8 @@ export default function TicketManagementPage() {
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [formErrors, setFormErrors] = useState<{ customerName?: string; phone?: string; seats?: string }>({});
-  const [smsOrder, setSmsOrder] = useState<Order | null>(null);
-  const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
   const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: false, ZALO: false });
-  const [sendingChannel, setSendingChannel] = useState<MessageChannel | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const showToast = (msg: string) => {
@@ -440,26 +435,6 @@ export default function TicketManagementPage() {
     setDeleteTarget(null);
   };
 
-  const handleSendMessage = async (id: number, channel: MessageChannel) => {
-    const label = channel === 'ZALO' ? 'Zalo' : 'SMS';
-    setSendingChannel(channel);
-    try {
-      const res = await ordersApi.sendMessage(id, channel);
-      showToast(
-        res.dryRun
-          ? `Chế độ thử: chưa gửi ${label} thật tới khách (Sandbox hoặc chưa cấu hình nhà cung cấp).`
-          : `Đã gửi tin ${label} cho khách hàng thành công!`,
-      );
-      setSmsOrder(null);
-      refetch();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : `Có lỗi khi gửi tin ${label}.`;
-      showToast(`Lỗi: ${msg}`);
-    } finally {
-      setSendingChannel(null);
-    }
-  };
-
   const handleExportExcel = async () => {
     try {
       const { blob, filename } = await ordersApi.exportExcel(filters);
@@ -473,12 +448,6 @@ export default function TicketManagementPage() {
     } catch {
       showToast('Lỗi khi xuất file Excel từ máy chủ.');
     }
-  };
-
-  const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
   };
 
   const ordersList: Order[] = ordersData?.data ?? [];
@@ -672,22 +641,9 @@ export default function TicketManagementPage() {
                           <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
                             Đã gửi{t.messageChannel ? ` ${t.messageChannel === 'ZALO' ? 'Zalo' : 'SMS'}` : ''}
                           </span>
-                          <button
-                            type="button"
-                            onClick={() => setSmsOrder(t)}
-                            className="text-[11px] text-blue-600 dark:text-blue-400 font-semibold underline ml-1 hover:text-blue-800"
-                          >
-                            Xem
-                          </button>
                         </div>
                       ) : (
-                        <button
-                          type="button"
-                          onClick={() => setSmsOrder(t)}
-                          className="btn-3d btn-3d-blue px-2.5 py-1 text-[11px] flex items-center gap-1"
-                        >
-                          <PaperPlaneTilt size={13} weight="bold" /> Gửi tin
-                        </button>
+                        <span className="text-xs text-slate-400">Chưa gửi</span>
                       )}
                     </td>
                     <td className={`${TD} text-center`}>
@@ -1019,60 +975,6 @@ export default function TicketManagementPage() {
               </div>
             </div>
           </form>
-        </Modal>
-      )}
-
-      {/* Modal SMS */}
-      {smsOrder && (
-        <Modal
-          title={`Gửi tin nhắn cho đơn #${smsOrder.id}`}
-          onClose={() => setSmsOrder(null)}
-        >
-          <div className="space-y-4">
-            <div className="rounded-xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/40 p-3.5 text-xs text-slate-700 dark:text-slate-300">
-              <div className="mb-1 font-bold text-blue-900 dark:text-blue-300">Nội dung tin nhắn khách hàng:</div>
-              <div className="rounded-lg bg-white dark:bg-slate-900 p-2.5 font-mono text-[11px] border border-blue-100 dark:border-blue-800 shadow-inner">
-                {smsOrder.smsContent ||
-                  `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${formatDateVN(smsOrder.departureDate)}. Tổng đài 1900 1977. Trân trọng!`}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between gap-2.5 pt-2 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() =>
-                  handleCopy(
-                    smsOrder.smsContent ||
-                      `Thông tin: Quý khách ${smsOrder.customerName || ''} đặt thành công vé xe tuyến ${smsOrder.route?.name || ''} lúc ${smsOrder.departureTime} ngày ${formatDateVN(smsOrder.departureDate)}. Tổng đài 1900 1977. Trân trọng!`
-                  )
-                }
-                className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-2 text-xs"
-              >
-                <Copy size={16} weight="bold" /> {copied ? 'Đã sao chép!' : 'Sao chép tin'}
-              </button>
-
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <button
-                  type="button"
-                  disabled={sendingChannel !== null}
-                  onClick={() => handleSendMessage(smsOrder.id, 'ZALO')}
-                  className="btn-3d btn-3d-blue flex items-center gap-1.5 px-4 py-2 text-xs"
-                >
-                  <PaperPlaneTilt size={16} weight="bold" />
-                  {sendingChannel === 'ZALO' ? 'Đang gửi…' : 'Gửi Zalo'}
-                </button>
-                <button
-                  type="button"
-                  disabled={sendingChannel !== null}
-                  onClick={() => handleSendMessage(smsOrder.id, 'SMS')}
-                  className="btn-3d btn-3d-green flex items-center gap-1.5 px-4 py-2 text-xs"
-                >
-                  <PaperPlaneTilt size={16} weight="bold" />
-                  {sendingChannel === 'SMS' ? 'Đang gửi…' : 'Gửi SMS'}
-                </button>
-              </div>
-            </div>
-          </div>
         </Modal>
       )}
 
