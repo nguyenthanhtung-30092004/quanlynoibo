@@ -458,7 +458,7 @@ export class OrdersService {
     workbook.created = new Date();
     const sheet = workbook.addWorksheet('Nhật ký vé', {
       properties: { tabColor: { argb: BLUE } },
-      views: [{ state: 'frozen', xSplit: 3, ySplit: 4, showGridLines: false }],
+      views: [{ state: 'frozen', ySplit: 4, showGridLines: false }],
       pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
     });
 
@@ -507,7 +507,7 @@ export class OrdersService {
     title.value = 'NHẬT KÝ VÉ XE';
     title.font = { name: 'Calibri', size: 20, bold: true, color: { argb: 'FFFFFFFF' } };
     title.fill = solid(NAVY);
-    title.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+    title.alignment = { horizontal: 'center', vertical: 'middle' };
     sheet.getRow(1).height = 38;
 
     sheet.mergeCells(2, 1, 2, N);
@@ -544,6 +544,19 @@ export class OrdersService {
       cell.border = { bottom: { style: 'medium', color: { argb: NAVY } } };
     });
 
+    // Bảng luôn kéo dài tối thiểu MIN_ROWS dòng: các dòng trống vẫn có kẻ ngang cho đỡ trắng trơn
+    const MIN_ROWS = 25;
+    const rowCount = Math.max(orders.length, MIN_ROWS);
+    for (let idx = orders.length; idx < rowCount; idx++) {
+      const row = sheet.getRow(HEADER_ROW + 1 + idx);
+      row.height = 21;
+      COLS.forEach((_c, i) => {
+        const cell = row.getCell(i + 1);
+        cell.border = box;
+        if (idx % 2 === 1) cell.fill = solid(BAND);
+      });
+    }
+
     // ---- dữ liệu
     orders.forEach((o, idx) => {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
@@ -570,7 +583,7 @@ export class OrdersService {
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)
     const first = HEADER_ROW + 1;
-    const last = HEADER_ROW + orders.length;
+    const last = HEADER_ROW + rowCount;
     const totalRow = sheet.getRow(last + 1);
     totalRow.height = 26;
     sheet.mergeCells(last + 1, 1, last + 1, 4);
