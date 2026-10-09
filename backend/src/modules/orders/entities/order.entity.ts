@@ -131,6 +131,10 @@ export class Order {
   @Column({ name: 'messageStatus', type: 'int', nullable: true })
   messageStatus: number | null;
 
+  /** Thời điểm hủy vé (khách không đặt nữa); null = vé còn hiệu lực */
+  @Column({ name: 'cancelledAt', type: 'timestamptz', nullable: true })
+  cancelledAt: Date | null;
+
   @Index()
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;

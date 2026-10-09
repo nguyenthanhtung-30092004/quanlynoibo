@@ -48,6 +48,17 @@ export function useUpdateOrder() {
   });
 }
 
+export function useCancelOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => ordersApi.cancel(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    },
+  });
+}
+
 export function useDeleteOrder() {
   const queryClient = useQueryClient();
   return useMutation({

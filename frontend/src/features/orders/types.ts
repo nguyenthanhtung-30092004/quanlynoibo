@@ -52,6 +52,8 @@ export interface Order {
   messageChannel: MessageChannel | null;
   /** Nội dung tin nhắn đã điền sẵn từ mẫu, do server sinh */
   smsContent: string;
+  /** Thời điểm hủy vé; null = còn hiệu lực */
+  cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -116,6 +116,20 @@ export class OrdersController {
     };
   }
 
+  /** Hủy vé khi khách không đặt nữa; nhân viên chỉ hủy được vé của mình */
+  @Post(':id/cancel')
+  @HttpCode(HttpStatus.OK)
+  async cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã hủy vé',
+      data: await this.ordersService.cancel(id, user),
+    };
+  }
+
   /** Chỉ Admin được xóa đơn */
   @Delete(':id')
   @Roles(UserRole.ADMIN)

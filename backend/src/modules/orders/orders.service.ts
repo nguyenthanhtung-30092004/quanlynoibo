@@ -120,6 +120,9 @@ export class OrdersService {
 
   async update(id: number, dto: UpdateOrderDto, actor: JwtPayload) {
     const order = await this.findEntity(id, actor);
+    if (order.cancelledAt) {
+      throw new BadRequestException('Vé đã hủy, không thể sửa.');
+    }
 
     if (dto.routeId !== undefined && dto.routeId !== order.routeId) {
       await this.assertRouteUsable(dto.routeId);
@@ -160,6 +163,16 @@ export class OrdersService {
       ...next,
       commission: dto.commission ?? order.commission,
     });
+    return this.findOne(order.id, actor);
+  }
+
+  /** Hủy vé (khách không đặt nữa): giữ lại đơn nhưng không tính vào doanh thu */
+  async cancel(id: number, actor: JwtPayload) {
+    const order = await this.findEntity(id, actor);
+    if (order.cancelledAt) {
+      throw new BadRequestException('Vé này đã được hủy trước đó.');
+    }
+    await this.orderRepository.update(order.id, { cancelledAt: new Date() });
     return this.findOne(order.id, actor);
   }
 
@@ -243,6 +256,8 @@ export class OrdersService {
     if (actor.role !== UserRole.ADMIN) {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
+    // Vé đã hủy không tính vào doanh thu
+    qb.andWhere('order.cancelledAt IS NULL');
     const orders = await qb.getMany();
 
     const sum = (list: Order[], pick: (o: Order) => number) =>
@@ -469,6 +484,7 @@ export class OrdersService {
         departureTime: order.departureTime,
         departureDate: order.departureDate,
       }),
+      cancelledAt: order.cancelledAt,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

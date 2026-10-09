@@ -48,6 +48,11 @@ export const ordersApi = {
       body: input,
     }).then((res) => res.data),
 
+  cancel: (id: number) =>
+    api<ApiResponse<Order>>(`orders/${id}/cancel`, { method: 'POST' }).then(
+      (res) => res.data,
+    ),
+
   remove: (id: number) =>
     api<ApiResponse<{ message: string }>>(`orders/${id}`, {
       method: 'DELETE',

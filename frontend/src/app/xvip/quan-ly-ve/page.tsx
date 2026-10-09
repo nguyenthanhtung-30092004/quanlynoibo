@@ -11,9 +11,10 @@ import {
   Plus,
   Repeat,
   Trash,
+  XCircle,
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
-import { useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder } from '@/features/orders/hooks';
+import { useOrders, useCreateOrder, useUpdateOrder, useDeleteOrder, useCancelOrder } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
@@ -184,12 +185,14 @@ export default function TicketManagementPage() {
   const createMutation = useCreateOrder();
   const updateMutation = useUpdateOrder();
   const deleteMutation = useDeleteOrder();
+  const cancelMutation = useCancelOrder();
 
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   // Đang đặt lại từ đơn nào (tạo đơn mới dựa trên đơn cũ)
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
+  const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
@@ -356,6 +359,19 @@ export default function TicketManagementPage() {
       const msg = err instanceof Error ? err.message : 'Có lỗi khi lưu đơn vé.';
       showToast(`Lỗi: ${msg}`);
     }
+  };
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    try {
+      await cancelMutation.mutateAsync(cancelTarget.id);
+      showToast(`Đã hủy vé #${cancelTarget.id}. Vé không còn tính vào doanh thu.`);
+      refetch();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Có lỗi khi hủy vé.';
+      showToast(`Lỗi: ${msg}`);
+    }
+    setCancelTarget(null);
   };
 
   const handleDelete = async () => {
@@ -556,10 +572,20 @@ export default function TicketManagementPage() {
                 </tr>
               ) : (
                 ordersList.map((t, i) => (
-                  <tr key={t.id} className="hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors">
+                  <tr
+                    key={t.id}
+                    className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
+                      t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
+                    }`}
+                  >
                     <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{i + 1}</td>
                     <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
                       #{t.id}
+                      {t.cancelledAt && (
+                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          Đã hủy
+                        </span>
+                      )}
                     </td>
                     <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
                       {t.departureTime}
@@ -621,14 +647,26 @@ export default function TicketManagementPage() {
                         >
                           <Repeat size={13} weight="bold" /> Đặt lại
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenEdit(t)}
-                          title="Sửa vé"
-                          className="btn-3d-mini text-blue-600 hover:text-blue-700"
-                        >
-                          <PencilSimple size={16} weight="bold" />
-                        </button>
+                        {!t.cancelledAt && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEdit(t)}
+                              title="Sửa vé"
+                              className="btn-3d-mini text-blue-600 hover:text-blue-700"
+                            >
+                              <PencilSimple size={16} weight="bold" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setCancelTarget(t)}
+                              title="Hủy vé (khách không đặt nữa)"
+                              className="btn-3d-mini text-amber-600 hover:text-amber-700"
+                            >
+                              <XCircle size={16} weight="bold" />
+                            </button>
+                          </>
+                        )}
                         {isAdmin && (
                         <button
                           type="button"
@@ -887,7 +925,7 @@ export default function TicketManagementPage() {
                 type="submit"
                 className="btn-3d btn-3d-blue px-5 py-2 text-sm"
               >
-                {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé vào máy chủ'}
+                {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé'}
               </button>
             </div>
           </form>
@@ -943,6 +981,35 @@ export default function TicketManagementPage() {
                   {sendingChannel === 'SMS' ? 'Đang gửi…' : 'Gửi SMS'}
                 </button>
               </div>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Modal Hủy vé */}
+      {cancelTarget && (
+        <Modal title="Hủy vé" onClose={() => setCancelTarget(null)}>
+          <div className="space-y-4">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              Khách <strong className="text-slate-900 dark:text-white">{cancelTarget.customerName || cancelTarget.phone}</strong> không đặt nữa? Vé{' '}
+              <strong className="text-slate-900 dark:text-white">#{cancelTarget.id}</strong> sẽ được đánh dấu <strong>Đã hủy</strong>, vẫn lưu lại trong danh sách nhưng không tính vào doanh thu và không sửa được nữa.
+            </p>
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancelTarget(null)}
+                className="btn-3d btn-3d-white px-4 py-2 text-sm"
+              >
+                Giữ vé
+              </button>
+              <button
+                type="button"
+                onClick={handleCancel}
+                disabled={cancelMutation.isPending}
+                className="btn-3d btn-3d-red px-5 py-2 text-sm"
+              >
+                Xác nhận hủy vé
+              </button>
             </div>
           </div>
         </Modal>
