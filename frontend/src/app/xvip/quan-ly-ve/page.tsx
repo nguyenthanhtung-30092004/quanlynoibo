@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
   type FormEvent,
   type ReactNode,
@@ -10,6 +11,7 @@ import {
 import {
   CheckCircle,
   FileXls,
+  UploadSimple,
   MagnifyingGlass,
   PencilSimple,
   ClockCounterClockwise,
@@ -26,6 +28,7 @@ import {
   useUpdateOrder,
   useDeleteOrder,
   useCancelOrder,
+  useImportOrders,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -34,6 +37,7 @@ import { useActiveStaff } from '@/features/users/hooks';
 import { useCurrentUser } from '@/features/auth/hooks';
 import {
   type CreateOrderInput,
+  type ImportResult,
   type MessageChannel,
   type Order,
   type OrderFilters,
@@ -320,6 +324,9 @@ export default function TicketManagementPage() {
   const updateMutation = useUpdateOrder();
   const deleteMutation = useDeleteOrder();
   const cancelMutation = useCancelOrder();
+  const importMutation = useImportOrders();
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
 
   const [isOpenModal, setIsOpenModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -617,6 +624,19 @@ export default function TicketManagementPage() {
     setDeleteTarget(null);
   };
 
+  const handleImportFile = async (file: File | undefined) => {
+    if (importInputRef.current) importInputRef.current.value = '';
+    if (!file) return;
+    try {
+      const result = await importMutation.mutateAsync(file);
+      setImportResult(result);
+      if (result.created > 0) refetch();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Không nhập được file.';
+      showToast(`Lỗi: ${msg}`, 'error');
+    }
+  };
+
   const handleExportExcel = async () => {
     try {
       const { blob, filename } = await ordersApi.exportExcel(filters);
@@ -640,13 +660,31 @@ export default function TicketManagementPage() {
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             {isAdmin && (
-              <button
-                type="button"
-                className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
-                onClick={handleExportExcel}
-              >
-                <FileXls size={18} weight="bold" /> Xuất Excel
-              </button>
+              <>
+                <input
+                  ref={importInputRef}
+                  type="file"
+                  accept=".xlsx"
+                  className="hidden"
+                  onChange={(e) => handleImportFile(e.target.files?.[0])}
+                />
+                <button
+                  type="button"
+                  className="btn-3d btn-3d-white flex items-center gap-2 px-4 py-2.5 text-sm"
+                  onClick={() => importInputRef.current?.click()}
+                  disabled={importMutation.isPending}
+                >
+                  <UploadSimple size={18} weight="bold" />{' '}
+                  {importMutation.isPending ? 'Đang nhập...' : 'Nhập Excel'}
+                </button>
+                <button
+                  type="button"
+                  className="btn-3d btn-3d-green flex items-center gap-2 px-4 py-2.5 text-sm"
+                  onClick={handleExportExcel}
+                >
+                  <FileXls size={18} weight="bold" /> Xuất Excel
+                </button>
+              </>
             )}
             <button
               type="button"
@@ -1375,6 +1413,63 @@ export default function TicketManagementPage() {
               </div>
             </div>
           </form>
+        </Modal>
+      )}
+
+      {/* Kết quả nhập Excel */}
+      {importResult && (
+        <Modal title="Kết quả nhập Excel" onClose={() => setImportResult(null)}>
+          <div className="space-y-4">
+            <div className="grid grid-cols-3 gap-2.5 text-center">
+              <div className="rounded-xl bg-emerald-50 p-3 dark:bg-emerald-950/40">
+                <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">
+                  {importResult.created}
+                </div>
+                <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  Đã nhập
+                </div>
+              </div>
+              <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-950/40">
+                <div className="text-2xl font-black text-amber-700 dark:text-amber-400">
+                  {importResult.duplicates}
+                </div>
+                <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  Trùng, bỏ qua
+                </div>
+              </div>
+              <div className="rounded-xl bg-rose-50 p-3 dark:bg-rose-950/40">
+                <div className="text-2xl font-black text-rose-700 dark:text-rose-400">
+                  {importResult.failed}
+                </div>
+                <div className="text-xs font-bold text-slate-600 dark:text-slate-300">
+                  Lỗi
+                </div>
+              </div>
+            </div>
+            {importResult.errors.length > 0 && (
+              <div>
+                <h3 className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-rose-700 dark:text-rose-400">
+                  Các dòng không nhập được
+                </h3>
+                <ul className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
+                  {importResult.errors.map((er) => (
+                    <li key={er.row} className="text-slate-800 dark:text-slate-200">
+                      <strong>Dòng {er.row}:</strong> {er.message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => setImportResult(null)}
+                className="btn-3d btn-3d-blue px-5 py-2 text-sm"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
         </Modal>
       )}
 

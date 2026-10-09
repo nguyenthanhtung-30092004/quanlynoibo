@@ -8,6 +8,8 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import ExcelJS from 'exceljs';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Route } from '../routes/entities/route.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
@@ -31,6 +33,20 @@ import {
 import { MessageChannel } from './messaging/message.types.js';
 import { MessagingService } from './messaging/messaging.service.js';
 import { buildBookingSms } from './sms/sms-template.js';
+import {
+  normalizeKey,
+  parseOrderWorkbook,
+  type ImportRow,
+} from './order-import.parser.js';
+
+/** Kết quả nhập Excel: số đơn đã nạp, trùng đã bỏ qua và các dòng lỗi */
+export interface ImportResult {
+  total: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  errors: Array<{ row: number; message: string }>;
+}
 
 const EXPORT_LIMIT = 5000;
 /** Chuông thông báo chỉ lấy hoạt động trong ngần này ngày */
@@ -79,7 +95,11 @@ export class OrdersService {
    * Tạo đơn. Nhân viên chỉ tạo được từ 04h30 đến 22h30 (giờ VN), Admin không bị khóa.
    * Ngày vào sổ và nhân viên được điền tự động.
    */
-  async create(dto: CreateOrderDto, actor: JwtPayload) {
+  async create(
+    dto: CreateOrderDto,
+    actor: JwtPayload,
+    options: { entryDate?: string } = {},
+  ) {
     if (actor.role !== UserRole.ADMIN && isOrderCreationLocked()) {
       throw new ForbiddenException(
         'Nhân viên chỉ được tạo đơn từ 04h30 đến 22h30. Khung giờ này đang khóa theo quy chế nội bộ.',
@@ -110,7 +130,7 @@ export class OrdersService {
 
     const saved = await this.orderRepository.save(
       this.orderRepository.create({
-        entryDate: getBusinessDate(),
+        entryDate: options.entryDate ?? getBusinessDate(),
         createdById: ownerId,
         customerName: dto.customerName || null,
         phone: dto.phone,
@@ -133,6 +153,101 @@ export class OrdersService {
     );
     await this.record(saved.id, 'CREATE', actor, { summary: 'Tạo đơn' });
     return this.findOne(saved.id, actor);
+  }
+
+  /**
+   * Nhập đơn từ file Excel (chỉ Admin). Mỗi dòng đi qua đúng các kiểm tra như tạo đơn
+   * thường; dòng lỗi hoặc trùng được bỏ qua và báo lại, các dòng hợp lệ vẫn được nạp.
+   */
+  async importExcel(buffer: Buffer, actor: JwtPayload): Promise<ImportResult> {
+    let rows: ImportRow[];
+    try {
+      rows = await parseOrderWorkbook(buffer);
+    } catch (err) {
+      throw new BadRequestException(err instanceof Error ? err.message : 'File không hợp lệ.');
+    }
+
+    const [routes, users] = await Promise.all([
+      this.routeRepository.find({ where: { isActive: true } }),
+      this.userRepository.find({ where: { isActive: true } }),
+    ]);
+    const routeByName = new Map(routes.map((r) => [normalizeKey(r.name), r.id]));
+    const userByName = new Map<string, number>();
+    for (const u of users) {
+      userByName.set(normalizeKey(u.username), u.id);
+      userByName.set(normalizeKey(u.fullName), u.id);
+    }
+
+    const result: ImportResult = { total: rows.length, created: 0, duplicates: 0, failed: 0, errors: [] };
+    const fail = (rowNumber: number, message: string) => {
+      result.failed++;
+      if (result.errors.length < 200) result.errors.push({ row: rowNumber, message });
+    };
+
+    for (const row of rows) {
+      const problems = [...row.errors];
+      const routeId = routeByName.get(normalizeKey(row.routeName));
+      if (row.routeName && !routeId) problems.push(`không có tuyến "${row.routeName}"`);
+
+      const dto = plainToInstance(CreateOrderDto, {
+        customerName: row.customerName,
+        phone: row.phone,
+        routeId,
+        departureTime: row.departureTime,
+        departureDate: row.departureDate,
+        vehicleType: row.vehicleType,
+        seatFront: row.seatFront,
+        seatMiddle: row.seatMiddle,
+        seatBack: row.seatBack,
+        seatCount: row.seatCount,
+        costPrice: row.costPrice,
+        sellPrice: row.sellPrice,
+        deposit: row.deposit,
+        collectOnDelivery: row.collectOnDelivery,
+        commission: row.commission,
+        partner: row.partner,
+        pickupPoint: row.pickupPoint,
+        dropoffPoint: row.dropoffPoint,
+        note: row.note,
+        // NV không khớp tài khoản nào thì gán cho người đang nhập
+        staffId: (row.staffName && userByName.get(normalizeKey(row.staffName))) || actor.sub,
+      });
+      if (problems.length === 0) {
+        const violations = await validate(dto);
+        for (const v of violations) problems.push(...Object.values(v.constraints ?? {}));
+      }
+      if (problems.length > 0) {
+        fail(row.rowNumber, problems.join('; '));
+        continue;
+      }
+
+      const duplicate = await this.orderRepository.exists({
+        where: {
+          phone: dto.phone,
+          routeId: dto.routeId,
+          departureDate: dto.departureDate,
+          departureTime: dto.departureTime,
+          seatCount: dto.seatCount,
+          seatFront: dto.seatFront,
+          seatMiddle: dto.seatMiddle,
+          seatBack: dto.seatBack,
+          sellPrice: dto.sellPrice,
+        },
+      });
+      if (duplicate) {
+        result.duplicates++;
+        continue;
+      }
+
+      try {
+        const order = await this.create(dto, actor, { entryDate: row.entryDate });
+        if (row.cancelled) await this.cancel(order.id, actor);
+        result.created++;
+      } catch (err) {
+        fail(row.rowNumber, err instanceof Error ? err.message : 'Không lưu được đơn.');
+      }
+    }
+    return result;
   }
 
   async findAll(query: QueryOrdersDto, actor: JwtPayload) {
@@ -694,7 +809,7 @@ export class OrdersService {
     info.value =
       `Xuất lúc ${stamp}  •  Người xuất: ${exporter?.fullName ?? actor.username}  •  ` +
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
-      (cancelledCount > 0 ? '  (vé đã hủy tô đỏ, gạch ngang và không tính vào dòng TỔNG)' : '');
+      (cancelledCount > 0 ? '  (vé đã hủy tô đỏ và không tính vào dòng TỔNG)' : '');
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
     info.fill = solid('FFE0EAFF');
     info.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
@@ -727,7 +842,7 @@ export class OrdersService {
         cell.alignment = { horizontal: c.align ?? 'left', vertical: 'middle' };
         if (cancelled) {
           cell.fill = solid(RED_BG);
-          cell.font = { color: { argb: 'FF7F1D1D' }, strike: i > 1 };
+          cell.font = { color: { argb: 'FF7F1D1D' } };
         } else if (idx % 2 === 1) {
           cell.fill = solid(BAND);
         }

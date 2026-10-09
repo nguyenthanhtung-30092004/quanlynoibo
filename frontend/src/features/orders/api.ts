@@ -1,4 +1,4 @@
-import { api, apiDownload, type ApiResponse, type Paginated } from '@/lib/api-client';
+import { api, apiDownload, apiUpload, type ApiResponse, type Paginated } from '@/lib/api-client';
 import { ORDERS_PAGE_SIZE } from './constants';
 import type {
   CreateOrderInput,
@@ -9,6 +9,7 @@ import type {
   OrderFilters,
   OrderActivity,
   OrderHistoryEntry,
+  ImportResult,
   PartnerDebt,
   UpdateOrderInput,
 } from './types';
@@ -90,4 +91,13 @@ export const ordersApi = {
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),
+
+  /** Nhập đơn từ file Excel (chỉ Admin) */
+  importExcel: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return apiUpload<ApiResponse<ImportResult>>('orders/import', form).then(
+      (res) => res.data,
+    );
+  },
 };

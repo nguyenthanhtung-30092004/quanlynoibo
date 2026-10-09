@@ -180,3 +180,12 @@ export interface OrderActivity {
   departureTime: string | null;
   departureDate: string | null;
 }
+
+/** Kết quả nhập đơn từ Excel */
+export interface ImportResult {
+  total: number;
+  created: number;
+  duplicates: number;
+  failed: number;
+  errors: Array<{ row: number; message: string }>;
+}

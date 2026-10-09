@@ -96,3 +96,13 @@ export async function apiDownload(
   const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'download';
   return { blob: await res.blob(), filename };
 }
+
+/** Gửi file lên server (multipart); trình duyệt tự gắn content-type kèm boundary */
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+  const res = await fetch(buildUrl(path), { method: 'POST', body: formData });
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized(path);
+    throw await readError(res);
+  }
+  return (await res.json()) as T;
+}

@@ -48,6 +48,17 @@ export function useCreateOrder() {
   });
 }
 
+export function useImportOrders() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (file: File) => ordersApi.importExcel(file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    },
+  });
+}
+
 export function useUpdateOrder() {
   const queryClient = useQueryClient();
   return useMutation({

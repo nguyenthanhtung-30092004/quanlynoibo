@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -11,7 +12,10 @@ import {
   Post,
   Query,
   StreamableFile,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import {
   CurrentUser,
@@ -121,6 +125,25 @@ export class OrdersController {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       disposition: `attachment; filename="don-hang-${getBusinessDate()}.xlsx"`,
     });
+  }
+
+  /** Nhập đơn từ file Excel (chỉ Admin), file gửi dạng multipart trường "file" */
+  @Post('import')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  @UseInterceptors(
+    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+  )
+  async importExcel(
+    @UploadedFile() file: { buffer: Buffer } | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    if (!file) throw new BadRequestException('Vui lòng chọn file Excel để nhập.');
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã xử lý file Excel',
+      data: await this.ordersService.importExcel(file.buffer, user),
+    };
   }
 
   @Get(':id')
