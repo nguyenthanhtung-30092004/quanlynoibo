@@ -1415,10 +1415,10 @@ export default function TicketManagementPage() {
                 label="Số ghế"
                 value={[
                   detailOrder.seatCount > 0 && `${detailOrder.seatCount} ghế`,
-                  detailOrder.seatFront > 0 && `đầu ${detailOrder.seatFront}`,
+                  detailOrder.seatFront > 0 && `${detailOrder.seatFront} đầu`,
                   detailOrder.seatMiddle > 0 &&
-                    `giữa ${detailOrder.seatMiddle}`,
-                  detailOrder.seatBack > 0 && `cuối ${detailOrder.seatBack}`,
+                    `${detailOrder.seatMiddle} giữa`,
+                  detailOrder.seatBack > 0 && `${detailOrder.seatBack} cuối`,
                 ]
                   .filter(Boolean)
                   .join(', ')}
