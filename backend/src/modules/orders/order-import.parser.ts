@@ -236,7 +236,11 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
     });
     if (REQUIRED_FIELDS.every((f) => found.has(f))) {
       headerRow = r;
-      found.forEach((col, f) => columns.set(f, col));
+      // Chỉ lấy các cột tính tới cột Ghi chú, bỏ mọi thứ nằm bên phải nó
+      const lastCol = found.get('note') ?? Infinity;
+      found.forEach((col, f) => {
+        if (col <= lastCol) columns.set(f, col);
+      });
       break;
     }
   }
@@ -245,13 +249,16 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
       'Không tìm thấy dòng tiêu đề. File cần có các cột: Số điện thoại, Tuyến đi, Ngày khởi hành.',
     );
   }
-  if (sheet.rowCount - headerRow > IMPORT_MAX_ROWS + 50) {
-    throw new Error(`File quá nhiều dòng, mỗi lần nhập tối đa ${IMPORT_MAX_ROWS} đơn.`);
-  }
+
+  // Chỉ duyệt các dòng thật sự có dữ liệu; dòng trống chỉ còn định dạng thì không tính
+  const dataRows: ExcelJS.Row[] = [];
+  sheet.eachRow({ includeEmpty: false }, (row, r) => {
+    if (r > headerRow) dataRows.push(row);
+  });
 
   const rows: ImportRow[] = [];
-  for (let r = headerRow + 1; r <= sheet.rowCount; r++) {
-    const row = sheet.getRow(r);
+  for (const row of dataRows) {
+    const r = row.number;
     const get = (f: FieldKey): ExcelJS.CellValue => {
       const col = columns.get(f);
       return col ? row.getCell(col).value : null;
@@ -261,8 +268,8 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
     const phone = parsePhone(get('phone'));
     const routeName = text('route');
     const dateCell = parseDate(get('date'));
-    // Dòng trống, dòng TỔNG, khối tổng kết cuối bảng: không có SĐT, tuyến, ngày thì bỏ qua
-    if (!phone && !routeName && !dateCell.value && !dateCell.error) continue;
+    // Dòng trống, dòng TỔNG, khối tổng kết cuối bảng: không có SĐT, tuyến, tên khách thì bỏ qua
+    if (!phone && !routeName && !text('customer')) continue;
 
     const errors: string[] = [];
     if (!phone) errors.push('thiếu số điện thoại');
