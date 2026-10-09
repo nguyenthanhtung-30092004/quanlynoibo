@@ -161,6 +161,21 @@ function Field({
   );
 }
 
+/** Khối nhóm các ô nhập trong form vé, đánh số bước để dễ theo dõi */
+function Section({ step, title, children }: { step: number; title: string; children: ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-800/40">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-extrabold text-slate-900 dark:text-white">
+        <span className="flex size-6 items-center justify-center rounded-full bg-blue-600 text-xs font-black text-white shadow-[0_2px_0_#1e3a8a]">
+          {step}
+        </span>
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 interface OrderFormState {
   customerName: string;
   phone: string;
@@ -739,219 +754,218 @@ export default function TicketManagementPage() {
           size="xl"
         >
           <form onSubmit={handleSave} className="space-y-4" noValidate>
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Tuyến đường" required>
-                <RouteCombobox
-                  routes={activeRoutes}
-                  value={formState.routeId}
-                  onChange={(rId) => {
-                    const selRoute = activeRoutes.find((r) => r.id === rId);
-                    setFormState((p) => ({
-                      ...p,
-                      routeId: rId,
-                      // Chỉ gợi ý giá bán theo giá mặc định của tuyến, vẫn sửa được
-                      sellPrice: selRoute?.defaultPrice ? selRoute.defaultPrice : p.sellPrice,
-                    }));
-                  }}
-                />
-              </Field>
-
-              <Field label="Đối tác">
-                <SuggestInput
-                  options={partnerList.map((c) => c.name)}
-                  value={formState.partner}
-                  onChange={(v) => setFormState((p) => ({ ...p, partner: v }))}
-                  maxLength={100}
-                />
-              </Field>
-
-              <Field label="Giờ đi" required>
-                <TimeInput
-                  value={formState.departureTime}
-                  onChange={(v) => setFormState((p) => ({ ...p, departureTime: v }))}
-                  required
-                />
-              </Field>
-
-              <Field label="Ngày khởi hành" required>
-                <DateInput
-                  value={formState.departureDate}
-                  onChange={(v) => setFormState((p) => ({ ...p, departureDate: v }))}
-                  required
-                />
-              </Field>
-
-              <Field label="Tên khách hàng" required error={formErrors.customerName}>
-                <input
-                  className={`input-3d ${formErrors.customerName ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
-                  value={formState.customerName}
-                  onChange={(e) => {
-                    setFormState((p) => ({ ...p, customerName: e.target.value }));
-                    setFormErrors((er) => ({ ...er, customerName: undefined }));
-                  }}
-                  maxLength={100}
-                  aria-invalid={!!formErrors.customerName}
-                  autoFocus
-                />
-              </Field>
-
-              <Field label="Số điện thoại" required error={formErrors.phone}>
-                <input
-                  className={`input-3d font-mono font-bold ${formErrors.phone ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
-                  inputMode="tel"
-                  value={formState.phone}
-                  onChange={(e) => {
-                    setFormState((p) => ({ ...p, phone: e.target.value }));
-                    setFormErrors((er) => ({ ...er, phone: undefined }));
-                  }}
-                  aria-invalid={!!formErrors.phone}
-                />
-              </Field>
-
-              <Field label="Loại hình">
-                <select
-                  className="input-3d"
-                  value={formState.vehicleType}
-                  onChange={(e) => setFormState((p) => ({ ...p, vehicleType: e.target.value }))}
-                >
-                  <option value="">Chọn loại hình</option>
-                  {/* Vé cũ có loại hình ngoài danh sách vẫn hiển thị đúng khi sửa */}
-                  {formState.vehicleType && !VEHICLE_TYPES.includes(formState.vehicleType) && (
-                    <option value={formState.vehicleType}>{formState.vehicleType}</option>
-                  )}
-                  {VEHICLE_TYPES.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-
-              <div className="sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  Số ghế <span className="text-red-500">*</span>
-                </span>
-                <div className="grid max-w-md grid-cols-4 gap-2">
-                  {(
-                    [
-                      { key: 'seatCount', label: 'Số ghế' },
-                      { key: 'seatFront', label: 'Đầu' },
-                      { key: 'seatMiddle', label: 'Giữa' },
-                      { key: 'seatBack', label: 'Cuối' },
-                    ] as const
-                  ).map((z) => (
-                    <label
-                      key={z.key}
-                      className={`block rounded-lg border p-2 shadow-[0_2px_0_#cbd5e1] dark:shadow-[0_2px_0_#0b1220] ${
-                        z.key === 'seatCount'
-                          ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40'
-                          : 'border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800/60'
-                      }`}
-                    >
-                      <span className="mb-1 block text-center text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">{z.label}</span>
-                      <NumInput
-                        className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
-                        value={formState[z.key]}
-                        onChange={(n) => {
-                          setFormState((p) => ({ ...p, [z.key]: n }));
-                          setFormErrors((er) => ({ ...er, seats: undefined }));
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              {/* Cột trái: khách hàng + chuyến đi */}
+              <div className="space-y-4">
+                <Section step={1} title="Khách hàng">
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <Field label="Tên khách hàng" required error={formErrors.customerName}>
+                      <input
+                        className={`input-3d ${formErrors.customerName ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+                        value={formState.customerName}
+                        onChange={(e) => {
+                          setFormState((p) => ({ ...p, customerName: e.target.value }));
+                          setFormErrors((er) => ({ ...er, customerName: undefined }));
                         }}
-                        min={0}
-                        max={60}
-                        blankZero
+                        maxLength={100}
+                        aria-invalid={!!formErrors.customerName}
+                        autoFocus
                       />
-                    </label>
-                  ))}
-                </div>
-                {formErrors.seats && (
-                  <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
-                    {formErrors.seats}
-                  </span>
-                )}
+                    </Field>
+
+                    <Field label="Số điện thoại" required error={formErrors.phone}>
+                      <input
+                        className={`input-3d font-mono font-bold ${formErrors.phone ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+                        inputMode="tel"
+                        value={formState.phone}
+                        onChange={(e) => {
+                          setFormState((p) => ({ ...p, phone: e.target.value }));
+                          setFormErrors((er) => ({ ...er, phone: undefined }));
+                        }}
+                        aria-invalid={!!formErrors.phone}
+                      />
+                    </Field>
+
+                    {isAdmin && !editingId && (
+                      <div className="sm:col-span-2">
+                        <Field label="Nhân viên phụ trách">
+                          <select
+                            className="input-3d"
+                            value={formState.staffId ?? ''}
+                            onChange={(e) =>
+                              setFormState((p) => ({ ...p, staffId: e.target.value ? Number(e.target.value) : undefined }))
+                            }
+                          >
+                            <option value="">Mặc định: tôi</option>
+                            {activeStaff.map((u) => (
+                              <option key={u.id} value={u.id}>
+                                {u.fullName}
+                              </option>
+                            ))}
+                          </select>
+                        </Field>
+                      </div>
+                    )}
+                  </div>
+                </Section>
+
+                <Section step={2} title="Chuyến đi">
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <div className="sm:col-span-2">
+                      <Field label="Tuyến đường" required>
+                        <RouteCombobox
+                          routes={activeRoutes}
+                          value={formState.routeId}
+                          onChange={(rId) => {
+                            const selRoute = activeRoutes.find((r) => r.id === rId);
+                            setFormState((p) => ({
+                              ...p,
+                              routeId: rId,
+                              // Chỉ gợi ý giá bán theo giá mặc định của tuyến, vẫn sửa được
+                              sellPrice: selRoute?.defaultPrice ? selRoute.defaultPrice : p.sellPrice,
+                            }));
+                          }}
+                        />
+                      </Field>
+                    </div>
+
+                    <Field label="Ngày khởi hành" required>
+                      <DateInput
+                        value={formState.departureDate}
+                        onChange={(v) => setFormState((p) => ({ ...p, departureDate: v }))}
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Giờ đi" required>
+                      <TimeInput
+                        value={formState.departureTime}
+                        onChange={(v) => setFormState((p) => ({ ...p, departureTime: v }))}
+                        required
+                      />
+                    </Field>
+
+                    <Field label="Đối tác">
+                      <SuggestInput
+                        options={partnerList.map((c) => c.name)}
+                        value={formState.partner}
+                        onChange={(v) => setFormState((p) => ({ ...p, partner: v }))}
+                        maxLength={100}
+                      />
+                    </Field>
+
+                    <Field label="Loại hình">
+                      <select
+                        className="input-3d"
+                        value={formState.vehicleType}
+                        onChange={(e) => setFormState((p) => ({ ...p, vehicleType: e.target.value }))}
+                      >
+                        <option value="">Chọn loại hình</option>
+                        {/* Vé cũ có loại hình ngoài danh sách vẫn hiển thị đúng khi sửa */}
+                        {formState.vehicleType && !VEHICLE_TYPES.includes(formState.vehicleType) && (
+                          <option value={formState.vehicleType}>{formState.vehicleType}</option>
+                        )}
+                        {VEHICLE_TYPES.map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Điểm đón">
+                      <input
+                        className="input-3d"
+                        value={formState.pickupPoint}
+                        onChange={(e) => setFormState((p) => ({ ...p, pickupPoint: e.target.value }))}
+                        maxLength={255}
+                      />
+                    </Field>
+
+                    <Field label="Điểm trả">
+                      <input
+                        className="input-3d"
+                        value={formState.dropoffPoint}
+                        onChange={(e) => setFormState((p) => ({ ...p, dropoffPoint: e.target.value }))}
+                        maxLength={255}
+                      />
+                    </Field>
+                  </div>
+                </Section>
               </div>
 
-              <Field label="Giá nhập (VNĐ)">
-                <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />
-              </Field>
-
-              <Field label="Giá bán (VNĐ)" required>
-                <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
-              </Field>
-
-              <Field label="Đã cọc (VNĐ)">
-                <MoneyInput className="input-3d" value={formState.deposit} onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))} />
-              </Field>
-
-              <Field label="Nhờ thu (VNĐ)">
-                <MoneyInput className="input-3d" value={formState.collectOnDelivery} onChange={(n) => setFormState((p) => ({ ...p, collectOnDelivery: n }))} />
-              </Field>
-
-              <Field label="Hoa hồng (VNĐ)">
-                <MoneyInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} />
-              </Field>
-
-              {isAdmin && !editingId && (
-                <Field label="Nhân viên phụ trách">
-                  <select
-                    className="input-3d"
-                    value={formState.staffId ?? ''}
-                    onChange={(e) =>
-                      setFormState((p) => ({ ...p, staffId: e.target.value ? Number(e.target.value) : undefined }))
-                    }
-                  >
-                    <option value="">Mặc định: tôi</option>
-                    {activeStaff.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.fullName}
-                      </option>
+              {/* Cột phải: số ghế + giá tiền */}
+              <div className="space-y-4">
+                <Section step={3} title="Số ghế">
+                  <div className="grid max-w-sm grid-cols-4 gap-2">
+                    {(
+                      [
+                        { key: 'seatCount', label: 'Số ghế' },
+                        { key: 'seatFront', label: 'Đầu' },
+                        { key: 'seatMiddle', label: 'Giữa' },
+                        { key: 'seatBack', label: 'Cuối' },
+                      ] as const
+                    ).map((z) => (
+                      <label
+                        key={z.key}
+                        className={`block rounded-lg border p-2 ${
+                          z.key === 'seatCount'
+                            ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40'
+                            : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/60'
+                        }`}
+                      >
+                        <span className="mb-1 block text-center text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                          {z.label}
+                        </span>
+                        <NumInput
+                          className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
+                          value={formState[z.key]}
+                          onChange={(n) => {
+                            setFormState((p) => ({ ...p, [z.key]: n }));
+                            setFormErrors((er) => ({ ...er, seats: undefined }));
+                          }}
+                          min={0}
+                          max={60}
+                          blankZero
+                        />
+                      </label>
                     ))}
-                  </select>
-                </Field>
-              )}
-            </div>
+                  </div>
+                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                    Điền tổng số ghế; nếu tách theo vị trí thì đầu + giữa + cuối phải bằng tổng.
+                  </p>
+                  {formErrors.seats && (
+                    <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">
+                      {formErrors.seats}
+                    </span>
+                  )}
+                </Section>
 
-            <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Điểm đón">
-                <input
-                  className="input-3d"
-                  value={formState.pickupPoint}
-                  onChange={(e) => setFormState((p) => ({ ...p, pickupPoint: e.target.value }))}
-                  maxLength={255}
-                />
-              </Field>
-              <Field label="Điểm trả">
-                <input
-                  className="input-3d"
-                  value={formState.dropoffPoint}
-                  onChange={(e) => setFormState((p) => ({ ...p, dropoffPoint: e.target.value }))}
-                  maxLength={255}
-                />
-              </Field>
-            </div>
+                <Section step={4} title="Giá tiền (VNĐ)">
+                  <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
+                    <Field label="Giá bán" required>
+                      <MoneyInput className="input-3d font-bold text-blue-900 dark:text-blue-400" value={formState.sellPrice} onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))} required />
+                    </Field>
 
-            {!editingId && (
-              <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-                <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  Gửi tin cho khách khi lưu:
-                </span>
-                {(
-                  [
-                    { id: 'SMS', label: 'SMS' },
-                    { id: 'ZALO', label: 'Zalo' },
-                  ] as const
-                ).map((o) => (
-                  <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
-                    <input
-                      type="checkbox"
-                      className="size-4 cursor-pointer rounded accent-blue-600"
-                      checked={autoSend[o.id]}
-                      onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
-                    />
-                    {o.label}
-                  </label>
-                ))}
+                    <Field label="Giá nhập">
+                      <MoneyInput className="input-3d" value={formState.costPrice} onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))} />
+                    </Field>
+
+                    <Field label="Đã cọc">
+                      <MoneyInput className="input-3d" value={formState.deposit} onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))} />
+                    </Field>
+
+                    <Field label="Nhờ thu">
+                      <MoneyInput className="input-3d" value={formState.collectOnDelivery} onChange={(n) => setFormState((p) => ({ ...p, collectOnDelivery: n }))} />
+                    </Field>
+
+                    <Field label="Hoa hồng">
+                      <MoneyInput className="input-3d font-bold text-red-600 dark:text-red-400" value={formState.commission} onChange={(n) => setFormState((p) => ({ ...p, commission: n }))} />
+                    </Field>
+                  </div>
+                </Section>
               </div>
-            )}
+            </div>
 
             <Field label="Ghi chú">
               <input
@@ -962,20 +976,47 @@ export default function TicketManagementPage() {
               />
             </Field>
 
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={() => setIsOpenModal(false)}
-                className="btn-3d btn-3d-white px-4 py-2 text-sm"
-              >
-                Đóng
-              </button>
-              <button
-                type="submit"
-                className="btn-3d btn-3d-blue px-5 py-2 text-sm"
-              >
-                {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé'}
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-3 dark:border-slate-800">
+              {!editingId ? (
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <span className="text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                    Gửi tin cho khách khi lưu:
+                  </span>
+                  {(
+                    [
+                      { id: 'SMS', label: 'SMS' },
+                      { id: 'ZALO', label: 'Zalo' },
+                    ] as const
+                  ).map((o) => (
+                    <label key={o.id} className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200">
+                      <input
+                        type="checkbox"
+                        className="size-4 cursor-pointer rounded accent-blue-600"
+                        checked={autoSend[o.id]}
+                        onChange={(e) => setAutoSend((p) => ({ ...p, [o.id]: e.target.checked }))}
+                      />
+                      {o.label}
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <span />
+              )}
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsOpenModal(false)}
+                  className="btn-3d btn-3d-white px-4 py-2 text-sm"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="submit"
+                  className="btn-3d btn-3d-blue px-5 py-2 text-sm"
+                >
+                  {editingId ? 'Cập nhật vé' : rebookFromId ? 'Đặt đơn mới' : 'Lưu vé'}
+                </button>
+              </div>
             </div>
           </form>
         </Modal>

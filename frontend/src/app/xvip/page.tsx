@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CurrencyCircleDollar,
@@ -21,7 +22,21 @@ import { formatDateVN } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
+/** Chỉ Admin xem tổng quan; nhân viên được chuyển sang trang Quản lý vé */
 export default function OverviewPage() {
+  const router = useRouter();
+  const { data: me, isLoading } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
+
+  useEffect(() => {
+    if (me && !isAdmin) router.replace('/xvip/quan-ly-ve');
+  }, [me, isAdmin, router]);
+
+  if (isLoading || !isAdmin) return null;
+  return <OverviewContent />;
+}
+
+function OverviewContent() {
   // Lọc theo ngày đi, chọn ở nút ngày trên header
   const { range } = useDateFilter();
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
