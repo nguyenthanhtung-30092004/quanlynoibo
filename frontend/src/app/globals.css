@@ -410,7 +410,8 @@ html.dark .btn-3d-mini:active {
   .input-3d,
   input[type='date'].input-3d,
   input[type='time'].input-3d,
-  select.input-3d {
+  select.input-3d,
+  button.input-3d {
     min-height: 46px;
     border-radius: 10px;
   }

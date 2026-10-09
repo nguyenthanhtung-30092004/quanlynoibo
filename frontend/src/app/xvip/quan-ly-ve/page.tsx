@@ -49,6 +49,8 @@ import { formatDateVN } from '@/lib/format';
 
 import { Modal } from '@/features/xvip/Modal';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
+import { Pagination } from '@/features/xvip/Pagination';
+import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
@@ -244,13 +246,7 @@ function DetailGroup({
   );
 }
 
-function DetailRow({
-  label,
-  value,
-}: {
-  label: string;
-  value?: string | null;
-}) {
+function DetailRow({ label, value }: { label: string; value?: string | null }) {
   return (
     <div className="flex gap-3 px-3 py-2 text-sm">
       <dt className="w-32 shrink-0 font-semibold text-slate-500 dark:text-slate-400">
@@ -299,16 +295,31 @@ export default function TicketManagementPage() {
 
   // Khoảng ngày lấy từ bộ lọc ở header (theo ngày đi hoặc ngày tạo vé)
   const { range, basis, label: rangeLabel } = useDateFilter();
+  // Đang gõ tìm kiếm thì tìm trong tất cả vé, bỏ qua mọi bộ lọc khác
+  const searching = localFilters.search.trim() !== '';
   const filters = useMemo<OrderFilters>(
-    () => ({
-      ...localFilters,
-      dateFrom: null,
-      dateTo: null,
-      departureFrom: null,
-      departureTo: null,
-      ...rangeParams(range, basis),
-    }),
-    [localFilters, range, basis],
+    () =>
+      searching
+        ? {
+            search: localFilters.search,
+            staffId: ALL,
+            routeId: ALL,
+            routeIds: [],
+            dateFrom: null,
+            dateTo: null,
+            departureFrom: null,
+            departureTo: null,
+            page: localFilters.page,
+          }
+        : {
+            ...localFilters,
+            dateFrom: null,
+            dateTo: null,
+            departureFrom: null,
+            departureTo: null,
+            ...rangeParams(range, basis),
+          },
+    [localFilters, range, basis, searching],
   );
   useEffect(() => {
     setFilters((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
@@ -655,6 +666,15 @@ export default function TicketManagementPage() {
   };
 
   const ordersList: Order[] = ordersData?.data ?? [];
+  const totalOrders = ordersData?.total ?? 0;
+  const currentPage = filters.page;
+  const lastPage = Math.max(1, Math.ceil(totalOrders / ORDERS_PAGE_SIZE));
+  // Xóa hết đơn ở trang cuối thì lùi về trang cuối còn dữ liệu
+  useEffect(() => {
+    if (ordersData && currentPage > lastPage) {
+      setFilters((prev) => ({ ...prev, page: lastPage }));
+    }
+  }, [ordersData, currentPage, lastPage]);
 
   return (
     <>
@@ -799,8 +819,9 @@ export default function TicketManagementPage() {
           )}
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Đang lọc theo {BASIS_LABEL[basis].toLowerCase()}: {rangeLabel}. Đổi ở
-          nút ngày trên thanh menu.
+          {searching
+            ? 'Đang tìm trong tất cả vé, không theo bộ lọc ngày, tuyến, đối tác, nhân viên. Xóa ô tìm kiếm để quay lại bộ lọc.'
+            : `Đang lọc theo ${BASIS_LABEL[basis].toLowerCase()}: ${rangeLabel}. Đổi ở nút ngày trên thanh menu.`}
         </p>
       </Card>
 
@@ -868,7 +889,7 @@ export default function TicketManagementPage() {
                     <td
                       className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}
                     >
-                      {i + 1}
+                      {(currentPage - 1) * ORDERS_PAGE_SIZE + i + 1}
                     </td>
                     <td
                       className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}
@@ -1003,6 +1024,14 @@ export default function TicketManagementPage() {
             </tbody>
           </table>
         </div>
+        {!isLoading && totalOrders > 0 && (
+          <Pagination
+            page={currentPage}
+            pageSize={ORDERS_PAGE_SIZE}
+            total={totalOrders}
+            onChange={(page) => setFilters((prev) => ({ ...prev, page }))}
+          />
+        )}
       </Card>
 
       {/* Modal Thêm / Sửa Vé */}
@@ -1448,7 +1477,10 @@ export default function TicketManagementPage() {
                 </h3>
                 <ul className="max-h-64 space-y-1 overflow-y-auto rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-700">
                   {importResult.errors.map((er) => (
-                    <li key={er.row} className="text-slate-800 dark:text-slate-200">
+                    <li
+                      key={er.row}
+                      className="text-slate-800 dark:text-slate-200"
+                    >
                       <strong>Dòng {er.row}:</strong> {er.message}
                     </li>
                   ))}

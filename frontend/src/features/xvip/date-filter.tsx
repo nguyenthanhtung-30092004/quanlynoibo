@@ -27,7 +27,7 @@ export function rangeParams(range: DateRange, basis: DateBasis) {
     : { dateFrom: range.from, dateTo: range.to };
 }
 
-type PresetKey = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom';
+type PresetKey = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom';
 
 interface DateFilterValue {
   range: DateRange;
@@ -63,6 +63,9 @@ function presetRange(key: Exclude<PresetKey, 'custom'>): DateRange {
       return { from: shiftDay(today, -29), to: today };
     case 'month':
       return { from: `${today.slice(0, 7)}-01`, to: today };
+    case 'year':
+      // Cả năm (đến 31/12) để vé đặt trước cho các tháng sau vẫn hiện
+      return { from: `${today.slice(0, 4)}-01-01`, to: `${today.slice(0, 4)}-12-31` };
   }
 }
 
@@ -72,6 +75,7 @@ const PRESETS: Array<{ key: Exclude<PresetKey, 'custom'>; label: string }> = [
   { key: '7d', label: '7 ngày qua' },
   { key: '30d', label: '30 ngày qua' },
   { key: 'month', label: 'Tháng này' },
+  { key: 'year', label: 'Năm nay' },
 ];
 
 export function DateFilterProvider({ children }: { children: ReactNode }) {
