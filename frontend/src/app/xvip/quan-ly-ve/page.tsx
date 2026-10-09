@@ -217,7 +217,7 @@ export default function TicketManagementPage() {
   const [smsOrder, setSmsOrder] = useState<Order | null>(null);
   const [copied, setCopied] = useState(false);
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
-  const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: true, ZALO: false });
+  const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({ SMS: false, ZALO: false });
   const [sendingChannel, setSendingChannel] = useState<MessageChannel | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
