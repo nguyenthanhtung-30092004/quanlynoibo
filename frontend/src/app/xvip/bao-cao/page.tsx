@@ -81,7 +81,7 @@ export default function StaffReportPage() {
         id: u.id,
         name: u.fullName,
         orders: matchOrders.length,
-        tickets: matchOrders.reduce((sum, o) => sum + (o.seatCount || 1), 0),
+        tickets: matchOrders.reduce((sum, o) => sum + (o.tickets || 0), 0),
         revenue: rev,
         commission: comm,
       };

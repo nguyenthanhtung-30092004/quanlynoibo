@@ -93,11 +93,11 @@ export class CreateOrderDto {
   @Max(60, { message: 'Số ghế cuối quá lớn' })
   seatBack?: number;
 
-  @ApiPropertyOptional({ description: 'Tổng số ghế (bỏ qua nếu gửi đầu/giữa/cuối)', default: 1, example: 2 })
+  @ApiPropertyOptional({ description: 'Số ghế (độc lập với đầu/giữa/cuối; có thể để 0 nếu nhà xe chỉ tính theo vị trí)', default: 1, example: 2 })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'Số ghế phải là số nguyên' })
-  @Min(1, { message: 'Số ghế phải từ 1 trở lên' })
+  @Min(0, { message: 'Số ghế không được âm' })
   @Max(60, { message: 'Số ghế quá lớn' })
   seatCount?: number;
 

@@ -353,12 +353,18 @@ export default function TicketManagementPage() {
     const join = (parts: (string | false | undefined)[], sep = ' - ') => parts.filter(Boolean).join(sep);
     const f = formState;
     const seats = Number(f.seatCount) || 0;
+    const zones = [
+      Number(f.seatFront) > 0 && `đầu ${Number(f.seatFront)}`,
+      Number(f.seatMiddle) > 0 && `giữa ${Number(f.seatMiddle)}`,
+      Number(f.seatBack) > 0 && `cuối ${Number(f.seatBack)}`,
+    ].filter(Boolean);
     return [
       join([f.departureTime, f.departureDate && formatDateVN(f.departureDate)], ' ngày '),
       join([f.customerName.trim(), f.phone.trim()]),
       f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
       f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
       seats > 0 && `${seats} ghế`,
+      zones.length > 0 && `Ghế ${zones.join(', ')}`,
     ].filter((line): line is string => !!line);
   })();
 
@@ -414,8 +420,8 @@ export default function TicketManagementPage() {
     else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean)) errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
     const total = Number(formState.seatCount) || 0;
     const split = (Number(formState.seatFront) || 0) + (Number(formState.seatMiddle) || 0) + (Number(formState.seatBack) || 0);
-    if (total < 1) errors.seats = 'Vui lòng nhập số ghế.';
-    else if (split > 0 && split !== total) errors.seats = `Đầu + giữa + cuối đang là ${split}, phải bằng số ghế (${total}).`;
+    // Số ghế và đầu/giữa/cuối độc lập: nhà xe nào chỉ cần một trong hai, chỉ cần có ít nhất một
+    if (total + split < 1) errors.seats = 'Vui lòng nhập số ghế, hoặc ghế đầu/giữa/cuối.';
     setFormErrors(errors);
     if (errors.customerName || errors.phone || errors.seats) {
       // Hộp thoại che mất vùng trang bên dưới nên báo bằng toast nổi phía trên
@@ -958,7 +964,7 @@ export default function TicketManagementPage() {
                     ))}
                   </div>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Điền tổng số ghế; nếu tách theo vị trí thì đầu + giữa + cuối phải bằng tổng.
+                    Số ghế và đầu/giữa/cuối độc lập: điền một trong hai tùy nhà xe (hoặc cả hai).
                   </p>
                   {formErrors.seats && (
                     <span role="alert" className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400">

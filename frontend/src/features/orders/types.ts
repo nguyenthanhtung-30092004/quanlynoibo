@@ -39,8 +39,10 @@ export interface Order {
   seatFront: number;
   seatMiddle: number;
   seatBack: number;
-  /** Tổng ghế = đầu + giữa + cuối (số vé của đơn) */
+  /** Số ghế nhập riêng (có thể 0 nếu nhà xe chỉ tính theo đầu/giữa/cuối) */
   seatCount: number;
+  /** Số vé của đơn: số ghế, hoặc tổng đầu+giữa+cuối nếu không nhập số ghế */
+  tickets: number;
   costPrice: number;
   sellPrice: number;
   deposit: number;

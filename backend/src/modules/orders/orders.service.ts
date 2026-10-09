@@ -384,7 +384,7 @@ export class OrdersService {
       list.reduce((total, o) => total + pick(o), 0);
     const summarize = (list: Order[]) => ({
       total: list.length,
-      seats: sum(list, (o) => o.seatCount),
+      seats: sum(list, (o) => this.ticketsOf(o)),
       smsSent: list.filter((o) => o.smsSent).length,
       revenue: sum(list, (o) => o.sellPrice),
       cost: sum(list, (o) => o.costPrice),
@@ -486,7 +486,7 @@ export class OrdersService {
         front: this.seatsOf(o).seatFront || '',
         middle: this.seatsOf(o).seatMiddle || '',
         back: this.seatsOf(o).seatBack || '',
-        seatCount: o.seatCount,
+        seatCount: this.ticketsOf(o),
         costPrice: o.costPrice,
         sellPrice: o.sellPrice,
         deposit: o.deposit,
@@ -596,6 +596,7 @@ export class OrdersService {
       seatZone: order.seatZone,
       ...this.seatsOf(order),
       seatCount: order.seatCount,
+      tickets: this.ticketsOf(order),
       costPrice: order.costPrice,
       sellPrice: order.sellPrice,
       deposit: order.deposit,
@@ -635,7 +636,10 @@ export class OrdersService {
     };
   }
 
-  /** Số ghế do người dùng nhập; phần tách đầu/giữa/cuối lưu riêng (mỗi phần 0..60) */
+  /**
+   * Số ghế và ghế đầu/giữa/cuối là hai cách ghi độc lập: có nhà xe chỉ cần số ghế,
+   * có nhà xe chỉ cần đầu/giữa/cuối. Không ràng buộc bằng nhau, chỉ cần có ít nhất một trong hai.
+   */
   private resolveSeats(
     dto: { seatFront?: number; seatMiddle?: number; seatBack?: number; seatCount?: number },
     current?: Order,
@@ -645,13 +649,17 @@ export class OrdersService {
     const seatMiddle = dto.seatMiddle ?? base.seatMiddle;
     const seatBack = dto.seatBack ?? base.seatBack;
     const seatCount = dto.seatCount ?? current?.seatCount ?? 1;
-    const split = seatFront + seatMiddle + seatBack;
-    if (split > 0 && split !== seatCount) {
-      throw new BadRequestException(
-        `Ghế đầu + giữa + cuối (${split}) phải bằng số ghế (${seatCount}).`,
-      );
+    if (seatCount + seatFront + seatMiddle + seatBack < 1) {
+      throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
     return { seatFront, seatMiddle, seatBack, seatCount };
+  }
+
+  /** Số vé của đơn: ưu tiên số ghế; nhà xe chỉ ghi đầu/giữa/cuối thì lấy tổng ba vị trí */
+  private ticketsOf(order: Order): number {
+    if (order.seatCount > 0) return order.seatCount;
+    const { seatFront, seatMiddle, seatBack } = this.seatsOf(order);
+    return seatFront + seatMiddle + seatBack;
   }
 
   private escapeLike(value: string): string {
