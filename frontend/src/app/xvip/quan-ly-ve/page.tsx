@@ -750,12 +750,39 @@ export default function TicketManagementPage() {
             </span>
           </label>
 
-          <div className="block min-w-60 flex-1 order-last">
+          <div className="block min-w-60 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Thời gian
             </span>
             <DateRangeFilter align="right" />
           </div>
+
+          {activeStaff.length > 0 && (
+            <label className="block min-w-44 flex-1">
+              <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                Nhân viên
+              </span>
+              <select
+                className="input-3d"
+                value={filters.staffId}
+                onChange={(e) =>
+                  setFilters((prev) => ({
+                    ...prev,
+                    staffId:
+                      e.target.value === ALL ? ALL : Number(e.target.value),
+                    page: 1,
+                  }))
+                }
+              >
+                <option value={ALL}>Tất cả nhân viên</option>
+                {activeStaff.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.fullName}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
 
           <div className="block min-w-48 sm:min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
@@ -798,33 +825,6 @@ export default function TicketManagementPage() {
               ))}
             </select>
           </label>
-
-          {activeStaff.length > 0 && (
-            <label className="block min-w-44 flex-1">
-              <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                Nhân viên
-              </span>
-              <select
-                className="input-3d"
-                value={filters.staffId}
-                onChange={(e) =>
-                  setFilters((prev) => ({
-                    ...prev,
-                    staffId:
-                      e.target.value === ALL ? ALL : Number(e.target.value),
-                    page: 1,
-                  }))
-                }
-              >
-                <option value={ALL}>Tất cả nhân viên</option>
-                {activeStaff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
           {searching

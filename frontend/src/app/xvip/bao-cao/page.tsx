@@ -190,7 +190,7 @@ export default function StaffReportPage() {
       {/* 3D Filter Bar */}
       <Card className="print:hidden">
         <div className="flex flex-wrap items-end gap-3.5">
-          <div className="block min-w-64 flex-1 order-last">
+          <div className="block min-w-64 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Thời gian
             </span>
