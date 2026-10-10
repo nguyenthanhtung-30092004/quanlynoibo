@@ -34,7 +34,7 @@ export default function StaffReportPage() {
   const [partnerFilter, setPartnerFilter] = useState('all');
 
   // Khoảng ngày lấy từ nút ngày trên header; ở đây chỉ chọn lọc theo ngày đi hay ngày tạo vé
-  const { range, basis, setBasis, label: rangeLabel } = useDateFilter();
+  const { range, basis, label: rangeLabel } = useDateFilter();
   const dates = rangeParams(range, basis);
 
   const { data: me } = useCurrentUser();
