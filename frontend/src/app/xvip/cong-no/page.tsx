@@ -145,11 +145,11 @@ export default function DebtPage() {
       {/* 3D Filter Bar */}
       <Card>
         <div className="flex flex-wrap items-end gap-3.5">
-          <div className="block min-w-64 flex-1">
+          <div className="block min-w-64 flex-1 order-last">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Thời gian đối soát
             </span>
-            <DateRangeFilter />
+            <DateRangeFilter align="right" />
           </div>
 
           <label className="block min-w-56 flex-1">

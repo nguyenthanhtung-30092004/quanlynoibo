@@ -16,8 +16,8 @@ export interface DateRange {
 export type DateBasis = 'departure' | 'created';
 
 export const BASIS_LABEL: Record<DateBasis, string> = {
-  departure: 'Ngày đi',
   created: 'Ngày tạo vé',
+  departure: 'Ngày đi',
 };
 
 /** Tham số ngày gửi lên API (đơn và KPI dùng chung tên) theo cơ sở đang chọn */
