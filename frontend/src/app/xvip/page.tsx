@@ -17,7 +17,7 @@ import { useRoutes } from '@/features/routes/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { rangeParams, useDateFilter } from '@/features/xvip/date-filter';
+import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 import { formatDateVN } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
@@ -173,7 +173,15 @@ function OverviewContent() {
 
   return (
     <>
-      <PageTitle>Tổng quan điều hành hệ thống</PageTitle>
+      <PageTitle
+        actions={
+          <div className="flex items-center gap-2">
+            <DateRangeFilter align="right" className="w-auto min-w-56" />
+          </div>
+        }
+      >
+        Tổng quan điều hành hệ thống
+      </PageTitle>
 
       {/* 5 Thẻ chỉ số 3D kết nối API thật */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">

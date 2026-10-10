@@ -15,7 +15,7 @@ import { ordersApi } from '@/features/orders/api';
 import { money } from '@/features/xvip/data';
 import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
-import { rangeParams, useDateFilter } from '@/features/xvip/date-filter';
+import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
 import { Modal } from '@/features/xvip/Modal';
 interface SettlementModalData {
@@ -145,6 +145,13 @@ export default function DebtPage() {
       {/* 3D Filter Bar */}
       <Card>
         <div className="flex flex-wrap items-end gap-3.5">
+          <div className="block min-w-64 flex-1">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Thời gian đối soát
+            </span>
+            <DateRangeFilter />
+          </div>
+
           <label className="block min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Đối tác</span>
             <select
@@ -161,6 +168,9 @@ export default function DebtPage() {
             </select>
           </label>
         </div>
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
+          Số liệu công nợ và đối soát tính theo khoảng thời gian và đối tác đã chọn.
+        </p>
       </Card>
 
       {/* 3D KPI Metrics Cards */}

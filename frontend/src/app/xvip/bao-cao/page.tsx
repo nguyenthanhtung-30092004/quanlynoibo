@@ -23,7 +23,7 @@ import { money } from '@/features/xvip/data';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 import {
   BASIS_LABEL,
-  BasisSwitch,
+  DateRangeFilter,
   rangeParams,
   useDateFilter,
 } from '@/features/xvip/date-filter';
@@ -190,20 +190,11 @@ export default function StaffReportPage() {
       {/* 3D Filter Bar */}
       <Card className="print:hidden">
         <div className="flex flex-wrap items-end gap-3.5">
-          <div className="block min-w-56">
+          <div className="block min-w-64 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-              Lọc theo
+              Thời gian
             </span>
-            <BasisSwitch basis={basis} onChange={setBasis} />
-          </div>
-
-          <div className="block min-w-48">
-            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-              Khoảng ngày
-            </span>
-            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-200">
-              {rangeLabel}
-            </div>
+            <DateRangeFilter />
           </div>
 
           {isAdmin && (
@@ -226,7 +217,7 @@ export default function StaffReportPage() {
             </label>
           )}
 
-          <label className="block min-w-44 flex-1">
+          <label className="block min-w-48 sm:min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tuyến đường
             </span>
@@ -263,8 +254,7 @@ export default function StaffReportPage() {
           </label>
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Đổi khoảng ngày ở nút ngày trên thanh menu. Xuất Excel và in báo cáo
-          theo đúng bộ lọc này.
+          Xuất Excel và in báo cáo theo đúng bộ lọc này.
         </p>
       </Card>
 

@@ -22,7 +22,7 @@ import { useCurrentUser, useLogout } from '@/features/auth/hooks';
 import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
-import { DateFilterProvider, DateRangeFilter } from './date-filter';
+import { DateFilterProvider } from './date-filter';
 
 interface NavItem {
   href: string;
@@ -251,19 +251,13 @@ export function XvipShell({ children }: { children: ReactNode }) {
                 </span>
               </div>
 
-              {/* Nút Chuyển Đổi Sáng / Tối 3D, đặt cạnh tên công ty để nhường chỗ cho bộ lọc ngày */}
+              {/* Nút Chuyển Đổi Sáng / Tối 3D */}
               <ThemeToggle />
 
               <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
-              <DateRangeFilter />
-
-              <NotificationBell />
-
-              <UserMenu />
-            </div>
-
-              {/* Thanh lọc ngày đi trên điện thoại */}
-              <DateRangeFilter mobile />
+                <NotificationBell />
+                <UserMenu />
+              </div>
           </header>
 
           <main className="w-full flex-1 px-4 py-6 sm:px-6">{children}</main>

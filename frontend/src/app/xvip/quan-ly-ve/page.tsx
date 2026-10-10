@@ -57,6 +57,7 @@ import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import {
   BASIS_LABEL,
+  DateRangeFilter,
   rangeParams,
   useDateFilter,
 } from '@/features/xvip/date-filter';
@@ -724,7 +725,7 @@ export default function TicketManagementPage() {
       {/* Bộ lọc 3D dập chìm */}
       <Card>
         <div className="flex flex-wrap items-end gap-3.5">
-          <label className="block min-w-64 flex-[2]">
+          <label className="block min-w-64 flex-[1.6]">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tìm kiếm nhanh
             </span>
@@ -749,7 +750,14 @@ export default function TicketManagementPage() {
             </span>
           </label>
 
-          <div className="block min-w-36 flex-1">
+          <div className="block min-w-60 flex-1">
+            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+              Thời gian
+            </span>
+            <DateRangeFilter />
+          </div>
+
+          <div className="block min-w-48 sm:min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tuyến đường
             </span>
@@ -767,7 +775,7 @@ export default function TicketManagementPage() {
             />
           </div>
 
-          <label className="block min-w-36 flex-1">
+          <label className="block min-w-44 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Đối tác
             </span>
@@ -792,7 +800,7 @@ export default function TicketManagementPage() {
           </label>
 
           {activeStaff.length > 0 && (
-            <label className="block min-w-36 flex-1">
+            <label className="block min-w-44 flex-1">
               <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                 Nhân viên
               </span>
@@ -821,7 +829,7 @@ export default function TicketManagementPage() {
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
           {searching
             ? 'Đang tìm trong tất cả vé, không theo bộ lọc ngày, tuyến, đối tác, nhân viên. Xóa ô tìm kiếm để quay lại bộ lọc.'
-            : `Đang lọc theo ${BASIS_LABEL[basis].toLowerCase()}: ${rangeLabel}. Đổi ở nút ngày trên thanh menu.`}
+            : `Đang lọc theo ${BASIS_LABEL[basis].toLowerCase()}: ${rangeLabel}.`}
         </p>
       </Card>
 

@@ -267,11 +267,13 @@ html.dark * {
  * Độ ưu tiên (0,0,1): cao hơn mức reset padding:0 của Tailwind (cùng độ ưu tiên
  * nhưng nằm sau nên thắng), nhưng thấp hơn các lớp tiện ích như pl-10 chừa chỗ cho icon.
  */
-:is(input, select, textarea, div):where(.input-3d) {
+:is(input, select, textarea, div, button):where(.input-3d) {
   padding: 8px 12px;
 }
 .input-3d {
   width: 100%;
+  height: 42px;
+  min-height: 42px;
   border-radius: 8px;
   border: 1px solid #cbd5e1;
   background: #ffffff;
@@ -280,6 +282,10 @@ html.dark * {
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05), inset 0 1px 2px rgba(0, 0, 0, 0.04);
   outline: none;
   transition: all 0.15s ease;
+}
+textarea.input-3d {
+  height: auto;
+  min-height: 80px;
 }
 .input-3d:focus {
   border-color: #2563eb;

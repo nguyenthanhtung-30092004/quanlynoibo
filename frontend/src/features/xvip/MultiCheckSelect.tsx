@@ -74,20 +74,24 @@ export function MultiCheckSelect({
         : `${value.length} đã chọn`;
 
   return (
-    <div ref={rootRef} className="relative">
+    <div ref={rootRef} className="relative w-full">
       <button
         type="button"
-        className="input-3d flex w-full items-center justify-between gap-2 text-left"
+        className="input-3d flex h-[42px] w-full items-center justify-between gap-2 text-left cursor-pointer select-none"
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <span
-          className={`truncate ${value.length > 0 ? 'font-bold text-blue-700 dark:text-blue-400' : ''}`}
+          className={`truncate text-sm ${value.length > 0 ? 'font-bold text-blue-700 dark:text-blue-400' : 'text-slate-800 dark:text-slate-100'}`}
         >
           {summary}
         </span>
-        <CaretDown size={14} weight="bold" className="shrink-0 text-slate-400" />
+        <CaretDown
+          size={14}
+          weight="bold"
+          className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
 
       {open && (

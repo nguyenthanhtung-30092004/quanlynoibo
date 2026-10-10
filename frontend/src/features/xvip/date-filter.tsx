@@ -115,8 +115,16 @@ export function useDateFilter(): DateFilterValue {
   return ctx;
 }
 
-/** Nút lọc theo ngày đi đặt ở Header: chọn nhanh hoặc tự chọn khoảng ngày */
-export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
+/** Nút lọc theo khoảng ngày / tiêu chí ngày (dùng trong thanh lọc) */
+export function DateRangeFilter({
+  mobile = false,
+  className = '',
+  align = 'left',
+}: {
+  mobile?: boolean;
+  className?: string;
+  align?: 'left' | 'right';
+} = {}) {
   const { range, preset, label, basis, setBasis, setPreset, setCustom } = useDateFilter();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(range.from);
@@ -150,29 +158,50 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
   const customValid = !!from && !!to && from <= to;
 
   return (
-    <div ref={boxRef} className={mobile ? 'relative w-full sm:hidden' : 'relative hidden sm:block'}>
+    <div
+      ref={boxRef}
+      className={`relative w-full ${className} ${mobile ? 'sm:hidden' : ''}`}
+    >
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
         title={`Lọc theo ${BASIS_LABEL[basis].toLowerCase()}`}
-        className={`flex items-center gap-2 rounded-xl bg-slate-50 dark:bg-slate-800/80 px-3.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 shadow-[inset_0_1px_0_#fff,0_2px_0_#cbd5e1] dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_2px_0_#0f172a] border border-slate-200 dark:border-slate-700 active:translate-y-0.5 ${mobile ? 'w-full py-2' : ''}`}
+        className="input-3d flex h-[42px] w-full items-center justify-between gap-2 text-left font-normal cursor-pointer select-none"
       >
-        <CalendarBlank size={16} weight="bold" className="text-blue-600 dark:text-blue-400" aria-hidden />
-        <span className="font-semibold text-slate-500 dark:text-slate-400">{BASIS_LABEL[basis]}:</span>
-        <span className={mobile ? 'truncate' : undefined}>{label}</span>
-        <CaretDown size={12} aria-hidden className={mobile ? 'ml-auto shrink-0' : undefined} />
+        <span className="flex items-center gap-2 truncate min-w-0">
+          <CalendarBlank size={17} weight="bold" className="shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{BASIS_LABEL[basis]}:</span>
+          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+        </span>
+        <CaretDown
+          size={14}
+          weight="bold"
+          className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`}
+          aria-hidden
+        />
       </button>
 
       {open && (
         <div
           role="dialog"
           aria-label="Lọc theo ngày"
-          className={`absolute top-full z-40 mt-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${mobile ? 'inset-x-0' : 'right-0 w-[30rem] max-w-[calc(100vw-2rem)]'}`}
+          className={`absolute top-full z-40 mt-1.5 w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 ${
+            align === 'right' ? 'right-0' : 'left-0'
+          }`}
         >
-          <BasisSwitch basis={basis} onChange={setBasis} />
-          <ul className="mt-2 space-y-0.5">
+          <div className="mb-2">
+            <span className="mb-1.5 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+              Lọc theo tiêu chí
+            </span>
+            <BasisSwitch basis={basis} onChange={setBasis} />
+          </div>
+
+          <span className="mb-1 block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+            Chọn nhanh khoảng ngày
+          </span>
+          <ul className="grid grid-cols-2 gap-1">
             {PRESETS.map((p) => (
               <li key={p.key}>
                 <button
@@ -181,18 +210,20 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
                     setPreset(p.key);
                     setOpen(false);
                   }}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-semibold hover:bg-blue-50 dark:hover:bg-slate-800 ${
-                    preset === p.key ? 'text-blue-700 dark:text-blue-400' : 'text-slate-700 dark:text-slate-200'
+                  className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left text-xs font-semibold hover:bg-blue-50 dark:hover:bg-slate-800 ${
+                    preset === p.key
+                      ? 'bg-blue-50 text-blue-700 font-bold dark:bg-blue-950/60 dark:text-blue-300'
+                      : 'text-slate-700 dark:text-slate-200'
                   }`}
                 >
-                  {p.label}
+                  <span>{p.label}</span>
                   {preset === p.key && <Check size={14} weight="bold" aria-hidden />}
                 </button>
               </li>
             ))}
           </ul>
 
-          <div className="mt-2 border-t border-slate-100 pt-2.5 dark:border-slate-800">
+          <div className="mt-2.5 border-t border-slate-100 pt-2.5 dark:border-slate-800">
             <div className="mb-1.5 px-1 text-[11px] font-bold uppercase tracking-wider text-slate-400">
               Tự chọn khoảng ngày
             </div>
@@ -217,7 +248,7 @@ export function DateRangeFilter({ mobile = false }: { mobile?: boolean }) {
                 setCustom({ from, to });
                 setOpen(false);
               }}
-              className="btn-3d btn-3d-blue mt-2.5 w-full py-1.5 text-xs disabled:opacity-50"
+              className="btn-3d btn-3d-blue mt-2.5 w-full py-2 text-xs font-bold disabled:opacity-50"
             >
               Áp dụng
             </button>
