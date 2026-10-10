@@ -366,32 +366,33 @@ function UsersPageContent() {
                       <StatusBadge status={u.isActive ? 'Đang chạy' : 'Hủy'} />
                     </td>
                     <td className={`${TD} text-center`}>
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-2.5">
                         <button
                           type="button"
                           onClick={() => handleOpenEdit(u)}
                           title="Sửa nhân viên"
-                          className="btn-3d-mini text-blue-600 hover:text-blue-700"
+                          className="btn-3d btn-3d-blue flex items-center gap-1.5 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          <PencilSimple size={16} weight="bold" />
+                          <PencilSimple size={14} weight="bold" /> Sửa
                         </button>
                         <button
                           type="button"
                           onClick={() => handleToggleLock(u)}
                           disabled={u.id === me?.id}
                           title={u.id === me?.id ? 'Không thể tự khóa tài khoản của mình' : u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-                          className="btn-3d-mini text-amber-600 hover:text-amber-700 disabled:opacity-40"
+                          className="btn-3d btn-3d-amber flex items-center gap-1.5 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          {u.isActive ? <LockSimple size={16} weight="bold" /> : <LockSimpleOpen size={16} weight="bold" />}
+                          {u.isActive ? <LockSimple size={14} weight="bold" /> : <LockSimpleOpen size={14} weight="bold" />}
+                          {u.isActive ? 'Khóa' : 'Mở khóa'}
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteTarget(u)}
                           disabled={u.id === me?.id}
                           title={u.id === me?.id ? 'Không thể tự xóa tài khoản của mình' : 'Xóa nhân viên'}
-                          className="btn-3d-mini text-rose-600 hover:text-rose-700 disabled:opacity-40"
+                          className="btn-3d btn-3d-red flex items-center gap-1.5 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                         >
-                          <Trash size={16} weight="bold" />
+                          <Trash size={14} weight="bold" /> Xóa
                         </button>
                       </div>
                     </td>
