@@ -4,6 +4,8 @@ import { useToast } from '@/features/xvip/toast';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
   FileXls,
+  LockSimple,
+  LockSimpleOpen,
   MagnifyingGlass,
   PencilSimple,
   Phone,
@@ -62,6 +64,7 @@ export default function UsersPage() {
 }
 
 function UsersPageContent() {
+  const { data: me } = useCurrentUser();
   const [page] = useState(1);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'STAFF'>('all');
@@ -149,6 +152,16 @@ function UsersPageContent() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Lỗi khi lưu tài khoản vào máy chủ.';
       showToast(`Lỗi: ${msg}`);
+    }
+  };
+
+  const handleToggleLock = async (u: User) => {
+    try {
+      await updateMutation.mutateAsync({ id: u.id, input: { isActive: !u.isActive } });
+      showToast(u.isActive ? `Đã khóa tài khoản "${u.fullName}".` : `Đã mở khóa tài khoản "${u.fullName}".`);
+      refetch();
+    } catch (err: unknown) {
+      showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không đổi được trạng thái tài khoản.'}`);
     }
   };
 
@@ -364,9 +377,19 @@ function UsersPageContent() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => handleToggleLock(u)}
+                          disabled={u.id === me?.id}
+                          title={u.id === me?.id ? 'Không thể tự khóa tài khoản của mình' : u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                          className="btn-3d-mini text-amber-600 hover:text-amber-700 disabled:opacity-40"
+                        >
+                          {u.isActive ? <LockSimple size={16} weight="bold" /> : <LockSimpleOpen size={16} weight="bold" />}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => setDeleteTarget(u)}
-                          title="Xóa nhân viên"
-                          className="btn-3d-mini text-rose-600 hover:text-rose-700"
+                          disabled={u.id === me?.id}
+                          title={u.id === me?.id ? 'Không thể tự xóa tài khoản của mình' : 'Xóa nhân viên'}
+                          className="btn-3d-mini text-rose-600 hover:text-rose-700 disabled:opacity-40"
                         >
                           <Trash size={16} weight="bold" />
                         </button>
@@ -475,6 +498,9 @@ function UsersPageContent() {
           <div className="space-y-4">
             <p className="text-sm text-slate-700">
               Bạn có chắc chắn muốn xóa nhân viên <strong className="text-slate-900">{deleteTarget.fullName}</strong> (@{deleteTarget.username})?
+            </p>
+            <p className="text-xs font-medium text-slate-500">
+              Tài khoản sẽ không đăng nhập được nữa. Các đơn hàng nhân viên này đã tạo vẫn được giữ nguyên.
             </p>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button

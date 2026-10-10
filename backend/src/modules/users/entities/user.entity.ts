@@ -62,6 +62,10 @@ export class User {
   @Column({ name: 'lastLoginAt', type: 'timestamp', nullable: true })
   lastLoginAt: Date | null;
 
+  /** Thời điểm xóa tài khoản (xóa mềm: giữ lại bản ghi để các đơn hàng cũ vẫn gắn với nhân viên) */
+  @Column({ name: 'deletedAt', type: 'timestamptz', nullable: true })
+  deletedAt: Date | null;
+
   @CreateDateColumn({ name: 'createdAt' })
   createdAt: Date;
 

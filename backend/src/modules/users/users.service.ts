@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { IsNull, Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
@@ -47,6 +47,7 @@ export class UsersService {
 
     const query = this.userRepository
       .createQueryBuilder('user')
+      .where('user.deletedAt IS NULL')
       .orderBy('user.username', 'ASC')
       .skip((page - 1) * limit)
       .take(limit);
@@ -63,7 +64,9 @@ export class UsersService {
   }
 
   async findOne(id: number): Promise<User> {
-    const user = await this.userRepository.findOne({ where: { id } });
+    const user = await this.userRepository.findOne({
+      where: { id, deletedAt: IsNull() },
+    });
     if (!user) {
       throw new NotFoundException(`Không tìm thấy tài khoản với ID "${id}".`);
     }
@@ -75,7 +78,7 @@ export class UsersService {
     id: number,
   ): Promise<Pick<User, 'id' | 'role' | 'isActive'> | null> {
     return this.userRepository.findOne({
-      where: { id },
+      where: { id, deletedAt: IsNull() },
       select: { id: true, role: true, isActive: true },
     });
   }
@@ -86,6 +89,7 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect(['user.passwordHash', 'user.refreshTokenHash'])
       .where('user.username = :username', { username })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -95,6 +99,7 @@ export class UsersService {
       .createQueryBuilder('user')
       .addSelect(['user.passwordHash', 'user.refreshTokenHash'])
       .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
       .getOne();
   }
 
@@ -128,6 +133,7 @@ export class UsersService {
   }
 
   private async assertUsernameAvailable(username: string): Promise<void> {
+    // Tài khoản đã xóa vẫn giữ username (đã đổi tên) nên cũng được tính là trùng
     const existing = await this.userRepository.findOne({ where: { username } });
     if (existing) {
       throw new ConflictException(`Tên đăng nhập "${username}" đã tồn tại.`);
@@ -152,19 +158,20 @@ export class UsersService {
     });
   }
 
+  /**
+   * Xóa mềm: tài khoản biến mất khỏi danh sách và không đăng nhập được nữa,
+   * nhưng bản ghi vẫn còn để các đơn hàng đã tạo giữ nguyên tên nhân viên.
+   * Tên đăng nhập / CCCD được nhả ra để có thể tạo lại tài khoản mới cùng SĐT.
+   */
   async remove(id: number): Promise<void> {
     const user = await this.findOne(id);
-    try {
-      await this.userRepository.remove(user);
-    } catch (error) {
-      // 23001 restrict_violation / 23503 foreign_key_violation (nhân viên đã có đơn hàng)
-      if (['23001', '23503'].includes((error as any)?.driverError?.code)) {
-        throw new ConflictException(
-          'Nhân viên đã có đơn hàng nên không thể xóa. Hãy khóa tài khoản thay vì xóa.',
-        );
-      }
-      throw error;
-    }
+    await this.userRepository.update(user.id, {
+      deletedAt: new Date(),
+      isActive: false,
+      refreshTokenHash: null,
+      username: user.username.slice(0, 35) + `#xoa${user.id}`,
+      citizenId: null,
+    });
   }
 
   async count(): Promise<number> {

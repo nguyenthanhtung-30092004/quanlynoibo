@@ -1293,10 +1293,6 @@ export default function TicketManagementPage() {
                       </label>
                     ))}
                   </div>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Số ghế và đầu/giữa/cuối độc lập: điền một trong hai tùy nhà
-                    xe (hoặc cả hai).
-                  </p>
                   {formErrors.seats && (
                     <span
                       role="alert"

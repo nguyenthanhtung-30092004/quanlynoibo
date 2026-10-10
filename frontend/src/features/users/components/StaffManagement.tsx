@@ -87,7 +87,7 @@ export function StaffManagement() {
   const confirmDelete = (user: User) =>
     modal.confirm({
       title: `Xóa tài khoản "${user.fullName}"?`,
-      content: 'Nhân viên đã có đơn hàng sẽ không xóa được. Khi đó hãy khóa tài khoản thay vì xóa.',
+      content: 'Tài khoản sẽ không đăng nhập được nữa. Các đơn hàng nhân viên này đã tạo vẫn được giữ nguyên.',
       okText: 'Xóa tài khoản',
       cancelText: 'Hủy',
       okButtonProps: { danger: true },
