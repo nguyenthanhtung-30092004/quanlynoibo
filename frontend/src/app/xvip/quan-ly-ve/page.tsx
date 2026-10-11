@@ -50,6 +50,7 @@ import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '@/features/orders/parse-order-text';
 
 import { Modal } from '@/features/xvip/Modal';
+import { handleArrowNav } from '@/features/xvip/arrow-nav';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
 import { Pagination } from '@/features/xvip/Pagination';
 import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
@@ -285,6 +286,29 @@ interface OrderFormState {
   staffId?: number;
 }
 
+/** Nội dung đơn dạng chữ từ form, điền tới đâu hiện tới đó, để xem, sửa và sao chép gửi đi nơi khác */
+function buildPreviewLines(f: OrderFormState): string[] {
+  const join = (parts: (string | false | undefined)[], sep = ' - ') =>
+    parts.filter(Boolean).join(sep);
+  const seats = Number(f.seatCount) || 0;
+  const zones = [
+    Number(f.seatFront) > 0 && `${Number(f.seatFront)} ghế đầu`,
+    Number(f.seatMiddle) > 0 && `${Number(f.seatMiddle)} ghế giữa`,
+    Number(f.seatBack) > 0 && `${Number(f.seatBack)} ghế cuối`,
+  ].filter(Boolean);
+  return [
+    join(
+      [f.departureTime, f.departureDate && formatDateVN(f.departureDate)],
+      ' ngày ',
+    ),
+    join([f.customerName.trim(), f.phone.trim()]),
+    f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
+    f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
+    seats > 0 && `${seats} ghế`,
+    zones.length > 0 && zones.join(' + '),
+  ].filter((line): line is string => !!line);
+}
+
 /** Lỗi từng ô trong form vé, hiện chữ đỏ ngay dưới ô đó */
 interface FormErrors {
   customerName?: string;
@@ -402,49 +426,64 @@ export default function TicketManagementPage() {
 
   const [formState, setFormState] = useState<OrderFormState>(defaultFormState);
 
-  // Ô dán nội dung đơn: đọc chữ rồi tự điền vào các ô của form
-  const [pasteText, setPasteText] = useState('');
-  const [pasteNote, setPasteNote] = useState('');
+  // Ô "Nội dung đơn": vừa hiện chữ từ form, vừa cho dán/sửa chữ để tự điền ngược vào form
+  const [boxText, setBoxText] = useState('');
+  // Nội dung form tương ứng với chữ người dùng vừa gõ, để không ghi đè chữ đang gõ
+  const ownText = useRef<string | null>(null);
+  const [boxVersion, setBoxVersion] = useState(0);
+  const generatedText = buildPreviewLines(formState).join('\n');
 
-  const applyPastedText = (text: string) => {
-    const parsed = parseOrderText(text, Number(getVnToday().slice(0, 4)));
-    const labels: Record<string, string> = {
-      departureTime: 'giờ đi',
-      departureDate: 'ngày khởi hành',
-      phone: 'số điện thoại',
-      customerName: 'tên khách',
-      pickupPoint: 'điểm đón',
-      dropoffPoint: 'điểm trả',
-      seatCount: 'số ghế',
-      seatFront: 'ghế đầu',
-      seatMiddle: 'ghế giữa',
-      seatBack: 'ghế cuối',
-    };
-    const found = Object.keys(parsed);
-    if (found.length === 0) {
-      setPasteNote('Không đọc được thông tin nào, bạn kiểm tra lại nội dung.');
-      return;
+  useEffect(() => {
+    if (ownText.current !== null && ownText.current === generatedText) return;
+    ownText.current = null;
+    setBoxText(generatedText);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [generatedText, boxVersion]);
+
+  // Ô nội dung tự cao theo số dòng để thấy hết chữ, không phải cuộn trong ô
+  const boxRef = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [boxText, isOpenModal]);
+
+  /** Mở form mới / vé khác: ô nội dung quay về hiện đúng theo form */
+  const resetBox = () => {
+    ownText.current = null;
+    setBoxVersion((v) => v + 1);
+  };
+
+  const handleBoxChange = (text: string) => {
+    const year = Number(getVnToday().slice(0, 4));
+    const prev = parseOrderText(boxText, year);
+    const next = parseOrderText(text, year);
+    // Dòng nào bị xóa khỏi ô chữ thì ô tương ứng trong form về trống
+    const cleared: Record<string, string | number> = {};
+    for (const k of Object.keys(prev)) {
+      if (!(k in next)) {
+        cleared[k] = k.startsWith('seat') ? 0 : '';
+      }
     }
-    setFormState((p) => ({ ...p, ...parsed }));
+    const merged = { ...formState, ...cleared, ...next };
+    setBoxText(text);
+    ownText.current = buildPreviewLines(merged).join('\n');
+    setFormState(merged);
     setFormErrors((er) => {
-      const next = { ...er };
-      if (parsed.departureTime) delete next.departureTime;
-      if (parsed.departureDate) delete next.departureDate;
-      if (parsed.phone) delete next.phone;
-      if (parsed.customerName) delete next.customerName;
-      if (parsed.seatCount || parsed.seatFront || parsed.seatMiddle || parsed.seatBack)
-        delete next.seats;
-      return next;
+      const out = { ...er };
+      if (next.departureTime) delete out.departureTime;
+      if (next.departureDate) delete out.departureDate;
+      if (next.phone) delete out.phone;
+      if (next.customerName) delete out.customerName;
+      if (next.seatCount || next.seatFront || next.seatMiddle || next.seatBack)
+        delete out.seats;
+      return out;
     });
-    setPasteText('');
-    setPasteNote(
-      `Đã điền: ${found.map((k) => labels[k]).join(', ')}. Tuyến, đối tác, loại hình và giá bạn chọn tiếp nhé.`,
-    );
   };
 
   const handleOpenCreate = () => {
-    setPasteText('');
-    setPasteNote('');
+    resetBox();
     setEditingId(null);
     setRebookFromId(null);
     setFormState(defaultFormState);
@@ -455,6 +494,7 @@ export default function TicketManagementPage() {
 
   /** Đặt lại: điền sẵn dữ liệu đơn cũ, ngày đi về hôm nay; lưu sẽ tạo đơn mới */
   const handleOpenRebook = (o: Order) => {
+    resetBox();
     setEditingId(null);
     setRebookFromId(o.id);
     setFormState({
@@ -485,6 +525,7 @@ export default function TicketManagementPage() {
   };
 
   const handleOpenEdit = (o: Order) => {
+    resetBox();
     setRebookFromId(null);
     setEditingId(o.id);
     setFormState({
@@ -514,36 +555,12 @@ export default function TicketManagementPage() {
     setIsOpenModal(true);
   };
 
-  /** Nội dung đơn dạng chữ, điền tới đâu hiện tới đó, để xem và sao chép gửi đi nơi khác */
-  const previewLines = (() => {
-    const join = (parts: (string | false | undefined)[], sep = ' - ') =>
-      parts.filter(Boolean).join(sep);
-    const f = formState;
-    const seats = Number(f.seatCount) || 0;
-    const zones = [
-      Number(f.seatFront) > 0 && `${Number(f.seatFront)} ghế đầu`,
-      Number(f.seatMiddle) > 0 && `${Number(f.seatMiddle)} ghế giữa`,
-      Number(f.seatBack) > 0 && `${Number(f.seatBack)} ghế cuối`,
-    ].filter(Boolean);
-    return [
-      join(
-        [f.departureTime, f.departureDate && formatDateVN(f.departureDate)],
-        ' ngày ',
-      ),
-      join([f.customerName.trim(), f.phone.trim()]),
-      f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
-      f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
-      seats > 0 && `${seats} ghế`,
-      zones.length > 0 && zones.join(' + '),
-    ].filter((line): line is string => !!line);
-  })();
-
   const handleCopyPreview = async () => {
-    if (previewLines.length === 0) {
+    const text = boxText.trim();
+    if (!text) {
       showToast('Chưa có nội dung để sao chép.', 'info');
       return;
     }
-    const text = previewLines.join('\n');
     try {
       await navigator.clipboard.writeText(text);
     } catch {
@@ -592,7 +609,8 @@ export default function TicketManagementPage() {
     else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean))
       errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
     if (!formState.routeId) errors.routeId = 'Vui lòng chọn tuyến đường.';
-    if (!formState.departureTime) errors.departureTime = 'Vui lòng chọn giờ đi.';
+    if (!formState.departureTime)
+      errors.departureTime = 'Vui lòng chọn giờ đi.';
     if (!formState.departureDate)
       errors.departureDate = 'Vui lòng chọn ngày khởi hành.';
     if (!formState.partner.trim()) errors.partner = 'Vui lòng nhập đối tác.';
@@ -1100,45 +1118,12 @@ export default function TicketManagementPage() {
           onClose={() => setIsOpenModal(false)}
           size="xl"
         >
-          <form onSubmit={handleSave} className="space-y-4" noValidate>
-            {!editingId && (
-              <div className="rounded-2xl border border-dashed border-blue-300 bg-blue-50/60 p-3.5 dark:border-blue-800 dark:bg-blue-950/30">
-                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-xs font-extrabold uppercase tracking-wide text-blue-800 dark:text-blue-300">
-                    Dán nội dung đơn để tự điền
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => applyPastedText(pasteText)}
-                    disabled={!pasteText.trim()}
-                    className="btn-3d btn-3d-blue px-3 py-1 text-xs disabled:opacity-50"
-                  >
-                    Điền vào form
-                  </button>
-                </div>
-                <textarea
-                  className="input-3d min-h-[4.5rem] resize-y p-3 font-mono text-sm"
-                  value={pasteText}
-                  onChange={(e) => {
-                    setPasteText(e.target.value);
-                    setPasteNote('');
-                  }}
-                  onPaste={(e) => {
-                    // Dán xong là điền luôn, khỏi bấm thêm nút
-                    const text = e.clipboardData.getData('text');
-                    if (!text.trim()) return;
-                    e.preventDefault();
-                    applyPastedText(text);
-                  }}
-                  placeholder={'VD:\n14h ngày 11/10\n0912345678 Lê Anh\nĐón: ks alacar\nTrả: đường tròn điềm\n2 ghế'}
-                />
-                {pasteNote && (
-                  <p className="mt-1.5 text-xs font-semibold text-blue-800 dark:text-blue-300">
-                    {pasteNote}
-                  </p>
-                )}
-              </div>
-            )}
+          <form
+            onSubmit={handleSave}
+            onKeyDown={(e) => handleArrowNav(e, e.currentTarget)}
+            className="space-y-4"
+            noValidate
+          >
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Cột trái: khách hàng + chuyến đi + ghi chú (ghi chú giãn cho bằng chiều cao cột phải) */}
               <div className="flex flex-col gap-4">
@@ -1229,7 +1214,10 @@ export default function TicketManagementPage() {
                           value={formState.routeId}
                           invalid={!!formErrors.routeId}
                           onChange={(rId) => {
-                            setFormErrors((er) => ({ ...er, routeId: undefined }));
+                            setFormErrors((er) => ({
+                              ...er,
+                              routeId: undefined,
+                            }));
                             const selRoute = activeRoutes.find(
                               (r) => r.id === rId,
                             );
@@ -1256,7 +1244,10 @@ export default function TicketManagementPage() {
                         invalid={!!formErrors.departureTime}
                         onChange={(v) => {
                           setFormState((p) => ({ ...p, departureTime: v }));
-                          setFormErrors((er) => ({ ...er, departureTime: undefined }));
+                          setFormErrors((er) => ({
+                            ...er,
+                            departureTime: undefined,
+                          }));
                         }}
                       />
                     </Field>
@@ -1271,7 +1262,10 @@ export default function TicketManagementPage() {
                         invalid={!!formErrors.departureDate}
                         onChange={(v) => {
                           setFormState((p) => ({ ...p, departureDate: v }));
-                          setFormErrors((er) => ({ ...er, departureDate: undefined }));
+                          setFormErrors((er) => ({
+                            ...er,
+                            departureDate: undefined,
+                          }));
                         }}
                       />
                     </Field>
@@ -1283,7 +1277,10 @@ export default function TicketManagementPage() {
                         invalid={!!formErrors.partner}
                         onChange={(v) => {
                           setFormState((p) => ({ ...p, partner: v }));
-                          setFormErrors((er) => ({ ...er, partner: undefined }));
+                          setFormErrors((er) => ({
+                            ...er,
+                            partner: undefined,
+                          }));
                         }}
                         maxLength={100}
                       />
@@ -1303,7 +1300,10 @@ export default function TicketManagementPage() {
                             ...p,
                             vehicleType: e.target.value,
                           }));
-                          setFormErrors((er) => ({ ...er, vehicleType: undefined }));
+                          setFormErrors((er) => ({
+                            ...er,
+                            vehicleType: undefined,
+                          }));
                         }}
                       >
                         {/* Ô trống ẩn: lúc chưa chọn hiện trống, mở danh sách chỉ thấy các loại hình */}
@@ -1473,29 +1473,33 @@ export default function TicketManagementPage() {
                   </div>
                 </Section>
 
-                <Section step={5} title="Nội dung đơn (để sao chép)">
-                  <div className="relative rounded-xl border border-dashed border-blue-300 bg-white p-3.5 pr-24 shadow-inner dark:border-blue-800 dark:bg-slate-900">
-                    {previewLines.length === 0 ? (
-                      <p className="text-sm text-slate-400">
-                        Điền thông tin bên trái, nội dung sẽ hiện ở đây.
-                      </p>
-                    ) : (
-                      <div className="space-y-1 font-mono text-sm font-semibold leading-relaxed text-slate-900 dark:text-slate-100">
-                        {previewLines.map((line, i) => (
-                          <div key={i} className="select-all break-words">
-                            {line}
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                <Section
+                  step={5}
+                  title="Nội dung đơn (dán vào đây để tự điền, hoặc sao chép)"
+                >
+                  <div className="relative rounded-xl border border-dashed border-blue-300 bg-white p-2.5 shadow-inner dark:border-blue-800 dark:bg-slate-900">
+                    <textarea
+                      ref={boxRef}
+                      className="input-3d min-h-[9rem] resize-none overflow-hidden p-3 pr-28 font-mono text-sm font-semibold leading-relaxed"
+                      value={boxText}
+                      onChange={(e) => handleBoxChange(e.target.value)}
+                      placeholder={
+                        'Dán tin nhắn vào đây, ví dụ:\n14h ngày 11/10\n0912345678 Lê Anh\nĐón: ks alacar\nTrả: đường tròn điềm\n2 ghế'
+                      }
+                      spellCheck={false}
+                    />
                     <button
                       type="button"
                       onClick={handleCopyPreview}
-                      className="btn-3d btn-3d-blue absolute right-2.5 top-2.5 flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                      className="btn-3d btn-3d-blue absolute flex items-center gap-1.5 px-3 py-1.5 text-xs"
+                      style={{ right: '1.1rem', top: '1.1rem' }}
                     >
                       <Copy size={14} weight="bold" /> Sao chép
                     </button>
                   </div>
+                  {/* <p className="mt-1.5 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                    Sửa chữ ở đây thì các ô bên trên đổi theo, và ngược lại. Tuyến, đối tác, loại hình, giá chọn ở các ô riêng.
+                  </p> */}
                 </Section>
               </div>
             </div>

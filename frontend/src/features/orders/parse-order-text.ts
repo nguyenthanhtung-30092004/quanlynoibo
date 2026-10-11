@@ -12,6 +12,12 @@ export interface ParsedOrderText {
   seatBack?: number;
 }
 
+/** "2 ghế", "1 ghế đầu", "1 đầu" (số đứng trước) */
+const SEAT_AFTER =
+  /(\d{1,2})\s*(?:(?:ghế|ghe|chỗ|cho)(?![\p{L}])(?:\s*(đầu|giữa|cuối)(?![\p{L}]))?|(đầu|giữa|cuối)(?![\p{L}]))/giu;
+/** "đầu 1", "cuối: 2" (số đứng sau) */
+const SEAT_BEFORE = /(?<![\p{L}])(đầu|giữa|cuối)\s*[:=]?\s*(\d{1,2})(?!\d)/giu;
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /**
@@ -78,13 +84,22 @@ export function parseOrderText(raw: string, currentYear: number): ParsedOrderTex
     else rest.push(line);
   }
 
-  // Số ghế: "2 ghế" là tổng, "1 ghế đầu / giữa / cuối" là theo vị trí
+  // Số ghế: "2 ghế" là tổng; "1 ghế đầu", "1 đầu", "đầu 1" là theo vị trí
   const zoneKey = { đầu: 'seatFront', giữa: 'seatMiddle', cuối: 'seatBack' } as const;
-  for (const m of rest.join('\n').matchAll(/(\d{1,2})\s*(?:ghế|ghe|chỗ|cho)(?:\s*(đầu|giữa|cuối))?/gi)) {
-    const n = Number(m[1]);
-    const zone = m[2]?.toLowerCase() as keyof typeof zoneKey | undefined;
-    if (zone) out[zoneKey[zone]] = n;
-    else out.seatCount = n;
+  // Dòng bắt đầu bằng tên vị trí ("đầu 2 giữa 1") thì số đứng sau; còn lại số đứng trước ("2 đầu 1 cuối")
+  for (const line of rest) {
+    if (/^(?:đầu|giữa|cuối)\s*[:=]?\s*\d/iu.test(line)) {
+      for (const m of line.matchAll(SEAT_BEFORE)) {
+        out[zoneKey[m[1].toLowerCase() as keyof typeof zoneKey]] = Number(m[2]);
+      }
+      continue;
+    }
+    for (const m of line.matchAll(SEAT_AFTER)) {
+      const n = Number(m[1]);
+      const zone = (m[2] ?? m[3])?.toLowerCase() as keyof typeof zoneKey | undefined;
+      if (zone) out[zoneKey[zone]] = n;
+      else out.seatCount = n;
+    }
   }
 
   // Tên khách: phần còn lại của dòng có số điện thoại (bỏ ký hiệu thừa)
@@ -93,10 +108,22 @@ export function parseOrderText(raw: string, currentYear: number): ParsedOrderTex
     const name = phoneLine
       .replace(/\u0000/g, ' ')
       .replace(/\[[^\]]*\]/g, ' ')
-      .replace(/(\d{1,2})\s*(?:ghế|ghe|chỗ|cho)(?:\s*(?:đầu|giữa|cuối))?/gi, ' ')
+      .replace(SEAT_AFTER, ' ').replace(SEAT_BEFORE, ' ')
       .replace(/\s+/g, ' ')
       .replace(/^[\s\-:,.;/|]+|[\s\-:,.;/|]+$/g, '');
     if (name) out.customerName = name;
+  } else {
+    // Không có số điện thoại: dòng chữ còn lại đầu tiên (không phải ngày giờ, ghế, đón/trả) là tên khách
+    const nameLine = rest
+      .map((l) =>
+        l
+          .replace(/\[[^\]]*\]/g, ' ')
+          .replace(SEAT_AFTER, ' ').replace(SEAT_BEFORE, ' ')
+          .replace(/\s+/g, ' ')
+          .replace(/^[\s\-:,.;/|+]+|[\s\-:,.;/|+]+$/g, ''),
+      )
+      .find((l) => /\p{L}{2,}/u.test(l));
+    if (nameLine) out.customerName = nameLine;
   }
 
   return out;

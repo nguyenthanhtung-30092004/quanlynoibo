@@ -44,10 +44,22 @@ Trả: Hạ Long
       phone: '0912345678',
       customerName: 'An',
     });
-    expect(parseOrderText('chào bạn', 2026)).toEqual({});
+    expect(parseOrderText('', 2026)).toEqual({});
+    expect(parseOrderText('chào bạn', 2026)).toEqual({ customerName: 'chào bạn' });
   });
 
   it('bỏ qua ngày giờ không hợp lệ', () => {
     expect(parseOrderText('32/13 25h', 2026)).toEqual({});
+  });
+
+  it('đọc số ghế theo vị trí viết gọn, không cần chữ "ghế"', () => {
+    expect(parseOrderText('2 đầu 1 cuối', 2026)).toEqual({ seatFront: 2, seatBack: 1 });
+    expect(parseOrderText('đầu 2 giữa 1', 2026)).toEqual({ seatFront: 2, seatMiddle: 1 });
+    expect(parseOrderText('0912345678 An\n2 đầu 1 cuối', 2026)).toEqual({
+      phone: '0912345678',
+      customerName: 'An',
+      seatFront: 2,
+      seatBack: 1,
+    });
   });
 });
