@@ -46,6 +46,8 @@ import { useToast } from '@/features/xvip/toast';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { formatDateVN } from '@/lib/format';
+import { getVnToday } from '@/lib/time';
+import { parseOrderText } from '@/features/orders/parse-order-text';
 
 import { Modal } from '@/features/xvip/Modal';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
@@ -400,7 +402,49 @@ export default function TicketManagementPage() {
 
   const [formState, setFormState] = useState<OrderFormState>(defaultFormState);
 
+  // Ô dán nội dung đơn: đọc chữ rồi tự điền vào các ô của form
+  const [pasteText, setPasteText] = useState('');
+  const [pasteNote, setPasteNote] = useState('');
+
+  const applyPastedText = (text: string) => {
+    const parsed = parseOrderText(text, Number(getVnToday().slice(0, 4)));
+    const labels: Record<string, string> = {
+      departureTime: 'giờ đi',
+      departureDate: 'ngày khởi hành',
+      phone: 'số điện thoại',
+      customerName: 'tên khách',
+      pickupPoint: 'điểm đón',
+      dropoffPoint: 'điểm trả',
+      seatCount: 'số ghế',
+      seatFront: 'ghế đầu',
+      seatMiddle: 'ghế giữa',
+      seatBack: 'ghế cuối',
+    };
+    const found = Object.keys(parsed);
+    if (found.length === 0) {
+      setPasteNote('Không đọc được thông tin nào, bạn kiểm tra lại nội dung.');
+      return;
+    }
+    setFormState((p) => ({ ...p, ...parsed }));
+    setFormErrors((er) => {
+      const next = { ...er };
+      if (parsed.departureTime) delete next.departureTime;
+      if (parsed.departureDate) delete next.departureDate;
+      if (parsed.phone) delete next.phone;
+      if (parsed.customerName) delete next.customerName;
+      if (parsed.seatCount || parsed.seatFront || parsed.seatMiddle || parsed.seatBack)
+        delete next.seats;
+      return next;
+    });
+    setPasteText('');
+    setPasteNote(
+      `Đã điền: ${found.map((k) => labels[k]).join(', ')}. Tuyến, đối tác, loại hình và giá bạn chọn tiếp nhé.`,
+    );
+  };
+
   const handleOpenCreate = () => {
+    setPasteText('');
+    setPasteNote('');
     setEditingId(null);
     setRebookFromId(null);
     setFormState(defaultFormState);
@@ -1057,6 +1101,44 @@ export default function TicketManagementPage() {
           size="xl"
         >
           <form onSubmit={handleSave} className="space-y-4" noValidate>
+            {!editingId && (
+              <div className="rounded-2xl border border-dashed border-blue-300 bg-blue-50/60 p-3.5 dark:border-blue-800 dark:bg-blue-950/30">
+                <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-xs font-extrabold uppercase tracking-wide text-blue-800 dark:text-blue-300">
+                    Dán nội dung đơn để tự điền
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => applyPastedText(pasteText)}
+                    disabled={!pasteText.trim()}
+                    className="btn-3d btn-3d-blue px-3 py-1 text-xs disabled:opacity-50"
+                  >
+                    Điền vào form
+                  </button>
+                </div>
+                <textarea
+                  className="input-3d min-h-[4.5rem] resize-y p-3 font-mono text-sm"
+                  value={pasteText}
+                  onChange={(e) => {
+                    setPasteText(e.target.value);
+                    setPasteNote('');
+                  }}
+                  onPaste={(e) => {
+                    // Dán xong là điền luôn, khỏi bấm thêm nút
+                    const text = e.clipboardData.getData('text');
+                    if (!text.trim()) return;
+                    e.preventDefault();
+                    applyPastedText(text);
+                  }}
+                  placeholder={'VD:\n14h ngày 11/10\n0912345678 Lê Anh\nĐón: ks alacar\nTrả: đường tròn điềm\n2 ghế'}
+                />
+                {pasteNote && (
+                  <p className="mt-1.5 text-xs font-semibold text-blue-800 dark:text-blue-300">
+                    {pasteNote}
+                  </p>
+                )}
+              </div>
+            )}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {/* Cột trái: khách hàng + chuyến đi + ghi chú (ghi chú giãn cho bằng chiều cao cột phải) */}
               <div className="flex flex-col gap-4">
