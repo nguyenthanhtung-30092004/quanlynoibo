@@ -8,7 +8,6 @@ import {
   FileXls,
   Medal,
   Percent,
-  Printer,
   Ticket,
   Trophy,
 } from '@phosphor-icons/react';
@@ -169,13 +168,6 @@ export default function StaffReportPage() {
                 <FileXls size={18} weight="bold" /> Xuất Excel
               </button>
             )}
-            <button
-              type="button"
-              onClick={() => window.print()}
-              className="btn-3d btn-3d-white flex items-center gap-2 px-4 py-2.5 text-sm"
-            >
-              <Printer size={18} weight="bold" /> In báo cáo
-            </button>
           </div>
         }
       >
@@ -253,9 +245,6 @@ export default function StaffReportPage() {
             </select>
           </label>
         </div>
-        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
-          Xuất Excel và in báo cáo theo đúng bộ lọc này.
-        </p>
       </Card>
 
       {/* 3D KPI Metrics Cards */}
