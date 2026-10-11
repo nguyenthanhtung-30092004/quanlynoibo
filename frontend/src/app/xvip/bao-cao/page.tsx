@@ -1,7 +1,7 @@
 'use client';
 
 import { useToast } from '@/features/xvip/toast';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ClipboardText,
   CurrencyCircleDollar,
@@ -11,7 +11,7 @@ import {
   Ticket,
   Trophy,
 } from '@phosphor-icons/react';
-import { useKpi } from '@/features/orders/hooks';
+import { useKpi, useOrders } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import type { OrderFilters } from '@/features/orders/types';
 import { useCurrentUser } from '@/features/auth/hooks';
@@ -19,7 +19,11 @@ import { useUsers } from '@/features/users/hooks';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { money } from '@/features/xvip/data';
-import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { Pagination } from '@/features/xvip/Pagination';
+import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
+import { formatDateVN } from '@/lib/format';
+import { SuggestInput } from '@/features/xvip/SuggestInput';
 import {
   BASIS_LABEL,
   DateRangeFilter,
@@ -29,8 +33,9 @@ import {
 
 export default function StaffReportPage() {
   const [staffFilter, setStaffFilter] = useState('all');
-  const [routeFilter, setRouteFilter] = useState('all');
-  const [partnerFilter, setPartnerFilter] = useState('all');
+  // Ô tuyến / đối tác cho gõ gợi ý: chỉ lọc khi chữ khớp đúng một mục trong danh sách
+  const [routeText, setRouteText] = useState('');
+  const [partnerText, setPartnerText] = useState('');
 
   // Khoảng ngày lấy từ nút ngày trên header; ở đây chỉ chọn lọc theo ngày đi hay ngày tạo vé
   const { range, basis, label: rangeLabel } = useDateFilter();
@@ -38,6 +43,18 @@ export default function StaffReportPage() {
 
   const { data: me } = useCurrentUser();
   const isAdmin = me?.role === 'ADMIN';
+  const { data: routeList = [] } = useActiveRoutes();
+  const { data: partnerList = [] } = usePartners();
+
+  const routeFilter = useMemo(() => {
+    const found = routeList.find((r) => r.name === routeText.trim());
+    return found ? String(found.id) : 'all';
+  }, [routeList, routeText]);
+  const partnerFilter = useMemo(() => {
+    const found = partnerList.find((p) => p.name === partnerText.trim());
+    return found ? found.name : 'all';
+  }, [partnerList, partnerText]);
+
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
     ...dates,
     staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : undefined,
@@ -46,9 +63,30 @@ export default function StaffReportPage() {
   });
   // API người dùng chỉ dành cho Admin
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
-  const { data: routeList = [] } = useActiveRoutes();
-  const { data: partnerList = [] } = usePartners();
   const showToast = useToast();
+
+  // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
+  const [ticketPage, setTicketPage] = useState(1);
+  const ticketFilters = useMemo<OrderFilters>(
+    () => ({
+      search: '',
+      staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
+      routeId: routeFilter === 'all' ? 'all' : Number(routeFilter),
+      partner: partnerFilter === 'all' ? undefined : partnerFilter,
+      dateFrom: null,
+      dateTo: null,
+      ...dates,
+      page: ticketPage,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isAdmin, staffFilter, routeFilter, partnerFilter, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage],
+  );
+  const { data: ticketData, isLoading: ticketsLoading } = useOrders(ticketFilters);
+  const ticketList = ticketData?.data ?? [];
+  const ticketTotal = ticketData?.total ?? 0;
+  useEffect(() => {
+    setTicketPage(1);
+  }, [staffFilter, routeFilter, partnerFilter, range, basis]);
 
   const staffList = useMemo(() => usersData?.data ?? [], [usersData]);
 
@@ -209,41 +247,29 @@ export default function StaffReportPage() {
             </label>
           )}
 
-          <label className="block min-w-48 sm:min-w-56 flex-1">
+          <div className="block min-w-48 sm:min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tuyến đường
             </span>
-            <select
-              className="input-3d"
-              value={routeFilter}
-              onChange={(e) => setRouteFilter(e.target.value)}
-            >
-              <option value="all">Tất cả tuyến</option>
-              {routeList.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <SuggestInput
+              options={routeList.map((r) => r.name)}
+              value={routeText}
+              onChange={setRouteText}
+              placeholder="Tất cả tuyến (gõ để tìm)"
+            />
+          </div>
 
-          <label className="block min-w-44 flex-1">
+          <div className="block min-w-44 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Đối tác
             </span>
-            <select
-              className="input-3d"
-              value={partnerFilter}
-              onChange={(e) => setPartnerFilter(e.target.value)}
-            >
-              <option value="all">Tất cả đối tác</option>
-              {partnerList.map((p) => (
-                <option key={p.id} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
+            <SuggestInput
+              options={partnerList.map((p) => p.name)}
+              value={partnerText}
+              onChange={setPartnerText}
+              placeholder="Tất cả đối tác (gõ để tìm)"
+            />
+          </div>
         </div>
       </Card>
 
@@ -550,6 +576,108 @@ export default function StaffReportPage() {
             </tbody>
           </table>
         </div>
+      </Card>
+
+      {/* Bảng vé: toàn bộ vé khớp bộ lọc (chọn nhân viên thì ra mọi vé của người đó) */}
+      <Card
+        title={`Danh sách vé (${ticketTotal.toLocaleString('vi-VN')})`}
+        className="mt-5 !p-0 overflow-hidden"
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className={TH}>STT</th>
+                <th className={TH}>Mã đơn</th>
+                <th className={TH}>Giờ xe</th>
+                <th className={TH}>Nhà xe</th>
+                <th className={TH}>Tuyến đường</th>
+                <th className={TH}>Khách hàng</th>
+                <th className={TH}>Số điện thoại</th>
+                <th className={`${TH} text-right`}>Giá bán</th>
+                <th className={`${TH} text-right`}>Hoa hồng</th>
+                <th className={TH}>NV tạo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ticketsLoading ? (
+                <tr>
+                  <td
+                    colSpan={10}
+                    className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
+                  >
+                    Đang tải danh sách vé...
+                  </td>
+                </tr>
+              ) : ticketList.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={10}
+                    className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
+                  >
+                    Không có vé nào khớp bộ lọc đã chọn.
+                  </td>
+                </tr>
+              ) : (
+                ticketList.map((t, i) => (
+                  <tr
+                    key={t.id}
+                    className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
+                      t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
+                    }`}
+                  >
+                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
+                      {(ticketPage - 1) * ORDERS_PAGE_SIZE + i + 1}
+                    </td>
+                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
+                      #{t.id}
+                      {t.cancelledAt && (
+                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          Đã hủy
+                        </span>
+                      )}
+                    </td>
+                    <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
+                      {t.departureTime}
+                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">
+                        {formatDateVN(t.departureDate)}
+                      </span>
+                    </td>
+                    <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
+                      {t.partner || 'XVIP'}
+                    </td>
+                    <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
+                      {t.route?.name || 'Tuyến liên tỉnh'}
+                    </td>
+                    <td className={`${TD} font-bold text-slate-900 dark:text-white`}>
+                      {t.customerName || 'Khách lẻ'}
+                    </td>
+                    <td className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}>
+                      {t.phone}
+                    </td>
+                    <td className={`${TD} ${NUM} text-slate-900 dark:text-white`}>
+                      {money(t.sellPrice)}đ
+                    </td>
+                    <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
+                      {money(t.commission)}đ
+                    </td>
+                    <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
+                      {t.staff?.fullName || 'NV'}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+        {!ticketsLoading && ticketTotal > 0 && (
+          <Pagination
+            page={ticketPage}
+            pageSize={ORDERS_PAGE_SIZE}
+            total={ticketTotal}
+            onChange={setTicketPage}
+          />
+        )}
       </Card>
     </>
   );

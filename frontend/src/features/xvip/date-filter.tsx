@@ -1,6 +1,14 @@
 'use client';
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import { CalendarBlank, CaretDown, Check } from '@phosphor-icons/react';
 import { formatDateVN } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
@@ -17,7 +25,7 @@ export type DateBasis = 'departure' | 'created';
 
 export const BASIS_LABEL: Record<DateBasis, string> = {
   created: 'Ngày tạo vé',
-  departure: 'Ngày đi',
+  departure: 'Ngày khởi hành',
 };
 
 /** Tham số ngày gửi lên API (đơn và KPI dùng chung tên) theo cơ sở đang chọn */
@@ -27,7 +35,8 @@ export function rangeParams(range: DateRange, basis: DateBasis) {
     : { dateFrom: range.from, dateTo: range.to };
 }
 
-type PresetKey = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom';
+type PresetKey =
+  'today' | 'yesterday' | '7d' | '30d' | 'month' | 'year' | 'custom';
 
 interface DateFilterValue {
   range: DateRange;
@@ -65,7 +74,10 @@ function presetRange(key: Exclude<PresetKey, 'custom'>): DateRange {
       return { from: `${today.slice(0, 7)}-01`, to: today };
     case 'year':
       // Cả năm (đến 31/12) để vé đặt trước cho các tháng sau vẫn hiện
-      return { from: `${today.slice(0, 4)}-01-01`, to: `${today.slice(0, 4)}-12-31` };
+      return {
+        from: `${today.slice(0, 4)}-01-01`,
+        to: `${today.slice(0, 4)}-12-31`,
+      };
   }
 }
 
@@ -81,7 +93,7 @@ const PRESETS: Array<{ key: Exclude<PresetKey, 'custom'>; label: string }> = [
 export function DateFilterProvider({ children }: { children: ReactNode }) {
   const [preset, setPresetKey] = useState<PresetKey>('today');
   const [range, setRange] = useState<DateRange>(() => presetRange('today'));
-  const [basis, setBasis] = useState<DateBasis>('departure');
+  const [basis, setBasis] = useState<DateBasis>('created');
 
   const value = useMemo<DateFilterValue>(() => {
     const text =
@@ -106,7 +118,11 @@ export function DateFilterProvider({ children }: { children: ReactNode }) {
     };
   }, [range, preset, basis]);
 
-  return <DateFilterContext.Provider value={value}>{children}</DateFilterContext.Provider>;
+  return (
+    <DateFilterContext.Provider value={value}>
+      {children}
+    </DateFilterContext.Provider>
+  );
 }
 
 export function useDateFilter(): DateFilterValue {
@@ -125,7 +141,8 @@ export function DateRangeFilter({
   className?: string;
   align?: 'left' | 'right';
 } = {}) {
-  const { range, preset, label, basis, setBasis, setPreset, setCustom } = useDateFilter();
+  const { range, preset, label, basis, setBasis, setPreset, setCustom } =
+    useDateFilter();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(range.from);
   const [to, setTo] = useState(range.to);
@@ -171,9 +188,18 @@ export function DateRangeFilter({
         className="input-3d flex h-[42px] w-full items-center justify-between gap-2 text-left font-normal cursor-pointer select-none"
       >
         <span className="flex items-center gap-2 truncate min-w-0">
-          <CalendarBlank size={17} weight="bold" className="shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
-          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">{BASIS_LABEL[basis]}:</span>
-          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">{label}</span>
+          <CalendarBlank
+            size={17}
+            weight="bold"
+            className="shrink-0 text-blue-600 dark:text-blue-400"
+            aria-hidden
+          />
+          <span className="text-xs font-bold text-slate-500 dark:text-slate-400 shrink-0">
+            {BASIS_LABEL[basis]}:
+          </span>
+          <span className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">
+            {label}
+          </span>
         </span>
         <CaretDown
           size={14}
@@ -217,7 +243,9 @@ export function DateRangeFilter({
                   }`}
                 >
                   <span>{p.label}</span>
-                  {preset === p.key && <Check size={14} weight="bold" aria-hidden />}
+                  {preset === p.key && (
+                    <Check size={14} weight="bold" aria-hidden />
+                  )}
                 </button>
               </li>
             ))}
@@ -260,9 +288,19 @@ export function DateRangeFilter({
 }
 
 /** Chọn lọc theo ngày xe khởi hành hay ngày tạo vé */
-export function BasisSwitch({ basis, onChange }: { basis: DateBasis; onChange: (b: DateBasis) => void }) {
+export function BasisSwitch({
+  basis,
+  onChange,
+}: {
+  basis: DateBasis;
+  onChange: (b: DateBasis) => void;
+}) {
   return (
-    <div role="radiogroup" aria-label="Lọc theo" className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800">
+    <div
+      role="radiogroup"
+      aria-label="Lọc theo"
+      className="grid grid-cols-2 gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800"
+    >
       {(Object.keys(BASIS_LABEL) as DateBasis[]).map((key) => (
         <button
           key={key}

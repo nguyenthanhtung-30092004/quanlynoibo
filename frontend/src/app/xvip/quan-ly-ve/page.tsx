@@ -376,8 +376,8 @@ export default function TicketManagementPage() {
       seatMiddle: 0,
       seatBack: 0,
       seatCount: 0,
-      departureTime: '13:00',
-      departureDate: todayStr,
+      departureTime: '',
+      departureDate: '',
       sellPrice: 0,
       costPrice: 0,
       deposit: 0,
@@ -387,7 +387,7 @@ export default function TicketManagementPage() {
       dropoffPoint: '',
       note: '',
     }),
-    [todayStr],
+    [],
   );
 
   const [formState, setFormState] = useState<OrderFormState>(defaultFormState);
@@ -534,6 +534,14 @@ export default function TicketManagementPage() {
     e.preventDefault();
     if (!formState.routeId) {
       showToast('Vui lòng chọn tuyến đường.');
+      return;
+    }
+    if (!formState.departureTime) {
+      showToast('Vui lòng chọn giờ đi.', 'error');
+      return;
+    }
+    if (!formState.departureDate) {
+      showToast('Vui lòng chọn ngày khởi hành.', 'error');
       return;
     }
     const errors: { customerName?: string; phone?: string; seats?: string } =
@@ -1159,6 +1167,7 @@ export default function TicketManagementPage() {
 
                     <Field label="Giờ đi" required>
                       <TimeInput
+                        placeholder="Chọn giờ đi"
                         value={formState.departureTime}
                         onChange={(v) =>
                           setFormState((p) => ({ ...p, departureTime: v }))
@@ -1169,6 +1178,7 @@ export default function TicketManagementPage() {
 
                     <Field label="Ngày khởi hành" required>
                       <DateInput
+                        placeholder="Chọn ngày khởi hành"
                         value={formState.departureDate}
                         onChange={(v) =>
                           setFormState((p) => ({ ...p, departureDate: v }))

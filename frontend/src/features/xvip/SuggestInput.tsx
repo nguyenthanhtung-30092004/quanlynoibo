@@ -40,10 +40,18 @@ export function SuggestInput({
     // Đang hiện đúng một giá trị trong danh sách thì cho xem lại toàn bộ
     if (!q || options.includes(value)) return options;
     const words = q.split(/\s+/);
-    return options.filter((o) => {
-      const n = fold(o);
-      return words.every((w) => n.includes(w));
-    });
+    // Khớp từ đầu tên xếp trước (gõ "hà nội" ra các tuyến "Hà Nội - ..." trước),
+    // rồi tới khớp đầu một từ, cuối cùng mới là chứa chuỗi ở giữa; trong cùng nhóm giữ thứ tự cũ
+    const rank = (n: string) => {
+      if (n.startsWith(q)) return 0;
+      if (n.includes(` ${q}`) || n.includes(`- ${q}`)) return 1;
+      return 2;
+    };
+    return options
+      .map((o, i) => ({ o, i, n: fold(o) }))
+      .filter(({ n }) => words.every((w) => n.includes(w)))
+      .sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i)
+      .map(({ o }) => o);
   }, [options, value]);
 
   useEffect(() => setActive(0), [value, open]);
