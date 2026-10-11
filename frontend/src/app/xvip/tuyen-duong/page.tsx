@@ -54,6 +54,28 @@ const EMPTY_DRAFT: RouteDraft = {
   isActive: true,
 };
 
+/** Viết hoa chữ cái đầu mỗi chữ: "hạ long" -> "Hạ Long" (giữ nguyên dấu, không dấu cũng được) */
+function titleCase(text: string) {
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toLocaleUpperCase('vi') + w.slice(1).toLocaleLowerCase('vi'))
+    .join(' ');
+}
+
+/** Tên hiển thị tự tạo từ hai điểm, rỗng nếu thiếu một trong hai */
+function autoRouteName(origin: string, destination: string) {
+  const o = titleCase(origin);
+  const d = titleCase(destination);
+  return o && d ? `${o} - ${d}` : '';
+}
+
+/** Tên đang là tên tự tạo (hoặc trống) thì tiếp tục tự đổi theo hai điểm; người dùng đã sửa tay thì giữ nguyên */
+function isAutoName(p: { name: string; origin: string; destination: string }) {
+  return !p.name || p.name === autoRouteName(p.origin, p.destination);
+}
+
 export default function RoutesPage() {
   const { data: me } = useCurrentUser();
   const { data: apiData, isLoading, refetch } = useRoutes();
@@ -119,18 +141,11 @@ export default function RoutesPage() {
     setIsOpenModal(true);
   };
 
-  const handleAutoFillName = (origin: string, dest: string) => {
-    if (origin && dest && (!draft.name || draft.name === `${draft.origin} - ${draft.destination}`)) {
-      return `${origin} - ${dest}`;
-    }
-    return draft.name;
-  };
-
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
     if (!draft.origin.trim() || !draft.destination.trim()) return;
 
-    const finalName = draft.name.trim() || `${draft.origin} - ${draft.destination}`;
+    const finalName = draft.name.trim() || autoRouteName(draft.origin, draft.destination);
 
     try {
       if (editingId) {
@@ -484,7 +499,7 @@ export default function RoutesPage() {
                     setDraft((p) => ({
                       ...p,
                       origin: newOrigin,
-                      name: handleAutoFillName(newOrigin, p.destination),
+                      name: isAutoName(p) ? autoRouteName(newOrigin, p.destination) : p.name,
                     }));
                   }}
                   placeholder="VD: Hà Nội"
@@ -502,7 +517,7 @@ export default function RoutesPage() {
                     setDraft((p) => ({
                       ...p,
                       destination: newDest,
-                      name: handleAutoFillName(p.origin, newDest),
+                      name: isAutoName(p) ? autoRouteName(p.origin, newDest) : p.name,
                     }));
                   }}
                   placeholder="VD: Cẩm Phả"
