@@ -18,6 +18,10 @@ export class Partner {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  /** Người tạo; nhân viên chỉ được sửa/xóa bản ghi của mình trong ngày tạo */
+  @Column({ name: 'createdById', type: 'int', nullable: true })
+  createdById: number | null;
+
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;
 

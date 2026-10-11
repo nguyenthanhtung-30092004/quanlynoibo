@@ -52,6 +52,17 @@ export class OrderFilterDto {
   @MaxLength(100)
   partner?: string;
 
+  @ApiPropertyOptional({ description: 'Lọc nhiều đối tác cùng lúc, tên cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  partners?: string[];
+
   @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD)' })
   @IsOptional()
   @Matches(DATE_RE, { message: 'dateFrom phải có dạng YYYY-MM-DD' })
@@ -113,6 +124,27 @@ export class KpiQueryDto {
   @IsString()
   @MaxLength(100)
   partner?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều tuyến cùng lúc, danh sách id cách nhau bằng dấu phẩy (VD: 1,4,7)' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean).map(Number) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  routeIds?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều đối tác cùng lúc, tên cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  partners?: string[];
 
   @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD); nếu có thì thay cho `date`' })
   @IsOptional()

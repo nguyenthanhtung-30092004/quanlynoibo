@@ -283,6 +283,18 @@ interface OrderFormState {
   staffId?: number;
 }
 
+/** Lỗi từng ô trong form vé, hiện chữ đỏ ngay dưới ô đó */
+interface FormErrors {
+  customerName?: string;
+  phone?: string;
+  routeId?: string;
+  departureTime?: string;
+  departureDate?: string;
+  partner?: string;
+  vehicleType?: string;
+  seats?: string;
+}
+
 export default function TicketManagementPage() {
   const [localFilters, setFilters] = useState<OrderFilters>({
     search: '',
@@ -350,11 +362,7 @@ export default function TicketManagementPage() {
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [historyOrderId, setHistoryOrderId] = useState<number | null>(null);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
-  const [formErrors, setFormErrors] = useState<{
-    customerName?: string;
-    phone?: string;
-    seats?: string;
-  }>({});
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   // Kênh tự động gửi cho khách ngay khi lưu vé mới
   const [autoSend, setAutoSend] = useState<Record<MessageChannel, boolean>>({
     SMS: false,
@@ -532,45 +540,30 @@ export default function TicketManagementPage() {
 
   const handleSave = async (e: FormEvent) => {
     e.preventDefault();
-    if (!formState.routeId) {
-      showToast('Vui lòng chọn tuyến đường.');
-      return;
-    }
-    if (!formState.departureTime) {
-      showToast('Vui lòng chọn giờ đi.', 'error');
-      return;
-    }
-    if (!formState.departureDate) {
-      showToast('Vui lòng chọn ngày khởi hành.', 'error');
-      return;
-    }
-    const errors: { customerName?: string; phone?: string; seats?: string } =
-      {};
+    const errors: FormErrors = {};
     if (!formState.customerName.trim())
       errors.customerName = 'Vui lòng nhập tên khách hàng.';
     const phoneClean = formState.phone.replace(/\s+/g, '');
     if (!phoneClean) errors.phone = 'Vui lòng nhập số điện thoại.';
     else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean))
       errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
+    if (!formState.routeId) errors.routeId = 'Vui lòng chọn tuyến đường.';
+    if (!formState.departureTime) errors.departureTime = 'Vui lòng chọn giờ đi.';
+    if (!formState.departureDate)
+      errors.departureDate = 'Vui lòng chọn ngày khởi hành.';
+    if (!formState.partner.trim()) errors.partner = 'Vui lòng nhập đối tác.';
+    if (!formState.vehicleType.trim())
+      errors.vehicleType = 'Vui lòng chọn loại hình.';
     const total = Number(formState.seatCount) || 0;
     const split =
       (Number(formState.seatFront) || 0) +
       (Number(formState.seatMiddle) || 0) +
       (Number(formState.seatBack) || 0);
-    // Số ghế và đầu/giữa/cuối độc lập: nhà xe nào chỉ cần một trong hai, chỉ cần có ít nhất một
+    // Điền số ghế, hoặc điền đầu/giữa/cuối; thiếu cả hai thì báo lỗi
     if (total + split < 1)
       errors.seats = 'Vui lòng nhập số ghế, hoặc ghế đầu/giữa/cuối.';
     setFormErrors(errors);
-    if (errors.customerName || errors.phone || errors.seats) {
-      // Hộp thoại che mất vùng trang bên dưới nên báo bằng toast nổi phía trên
-      showToast(
-        [errors.customerName, errors.phone, errors.seats].filter(
-          Boolean,
-        )[0] as string,
-        'error',
-      );
-      return;
-    }
+    if (Object.keys(errors).length > 0) return;
 
     const payload: CreateOrderInput = {
       customerName: formState.customerName.trim() || undefined,
@@ -1144,11 +1137,17 @@ export default function TicketManagementPage() {
                 <Section step={2} title="Chuyến đi">
                   <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                     <div className="sm:col-span-2">
-                      <Field label="Tuyến đường" required>
+                      <Field
+                        label="Tuyến đường"
+                        required
+                        error={formErrors.routeId}
+                      >
                         <RouteCombobox
                           routes={activeRoutes}
                           value={formState.routeId}
+                          invalid={!!formErrors.routeId}
                           onChange={(rId) => {
+                            setFormErrors((er) => ({ ...er, routeId: undefined }));
                             const selRoute = activeRoutes.find(
                               (r) => r.id === rId,
                             );
@@ -1165,49 +1164,65 @@ export default function TicketManagementPage() {
                       </Field>
                     </div>
 
-                    <Field label="Giờ đi" required>
+                    <Field
+                      label="Giờ đi"
+                      required
+                      error={formErrors.departureTime}
+                    >
                       <TimeInput
-                        placeholder="Chọn giờ đi"
                         value={formState.departureTime}
-                        onChange={(v) =>
-                          setFormState((p) => ({ ...p, departureTime: v }))
-                        }
-                        required
+                        invalid={!!formErrors.departureTime}
+                        onChange={(v) => {
+                          setFormState((p) => ({ ...p, departureTime: v }));
+                          setFormErrors((er) => ({ ...er, departureTime: undefined }));
+                        }}
                       />
                     </Field>
 
-                    <Field label="Ngày khởi hành" required>
+                    <Field
+                      label="Ngày khởi hành"
+                      required
+                      error={formErrors.departureDate}
+                    >
                       <DateInput
-                        placeholder="Chọn ngày khởi hành"
                         value={formState.departureDate}
-                        onChange={(v) =>
-                          setFormState((p) => ({ ...p, departureDate: v }))
-                        }
-                        required
+                        invalid={!!formErrors.departureDate}
+                        onChange={(v) => {
+                          setFormState((p) => ({ ...p, departureDate: v }));
+                          setFormErrors((er) => ({ ...er, departureDate: undefined }));
+                        }}
                       />
                     </Field>
 
-                    <Field label="Đối tác">
+                    <Field label="Đối tác" required error={formErrors.partner}>
                       <SuggestInput
                         options={partnerList.map((c) => c.name)}
                         value={formState.partner}
-                        onChange={(v) =>
-                          setFormState((p) => ({ ...p, partner: v }))
-                        }
+                        invalid={!!formErrors.partner}
+                        onChange={(v) => {
+                          setFormState((p) => ({ ...p, partner: v }));
+                          setFormErrors((er) => ({ ...er, partner: undefined }));
+                        }}
                         maxLength={100}
                       />
                     </Field>
 
-                    <Field label="Loại hình">
+                    <Field
+                      label="Loại hình"
+                      required
+                      error={formErrors.vehicleType}
+                    >
                       <select
-                        className="input-3d"
+                        className={`input-3d ${formErrors.vehicleType ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+                        aria-invalid={!!formErrors.vehicleType}
                         value={formState.vehicleType}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setFormState((p) => ({
                             ...p,
                             vehicleType: e.target.value,
-                          }))
-                        }
+                          }));
+                          setFormErrors((er) => ({ ...er, vehicleType: undefined }));
+                        }}
                       >
                         {/* Ô trống ẩn: lúc chưa chọn hiện trống, mở danh sách chỉ thấy các loại hình */}
                         <option value="" hidden disabled />

@@ -557,8 +557,16 @@ export class OrdersService {
     if (query.routeId !== undefined) {
       qb.andWhere('order.routeId = :routeId', { routeId: query.routeId });
     }
+    if (query.routeIds?.length) {
+      qb.andWhere('order.routeId IN (:...routeIds)', { routeIds: query.routeIds });
+    }
     if (query.partner?.trim()) {
       qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: query.partner.trim() });
+    }
+    if (query.partners?.length) {
+      qb.andWhere('LOWER(order.partner) IN (:...partners)', {
+        partners: query.partners.map((p) => p.toLowerCase()),
+      });
     }
     if (actor.role !== UserRole.ADMIN) {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
@@ -1016,6 +1024,11 @@ export class OrdersService {
     }
     if (filter.partner?.trim()) {
       qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: filter.partner.trim() });
+    }
+    if (filter.partners?.length) {
+      qb.andWhere('LOWER(order.partner) IN (:...partners)', {
+        partners: filter.partners.map((p) => p.toLowerCase()),
+      });
     }
     if (filter.search?.trim()) {
       qb.andWhere(

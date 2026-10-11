@@ -35,8 +35,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/xvip', label: 'Tổng quan', icon: SquaresFour, adminOnly: true },
   { href: '/xvip/quan-ly-ve', label: 'Quản lý vé / Đơn', icon: Ticket },
-  { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake, adminOnly: true },
-  { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin, adminOnly: true },
+  { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake },
+  { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },
   { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle, adminOnly: true },
   { href: '/xvip/cong-no', label: 'Công nợ', icon: Wallet, adminOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },

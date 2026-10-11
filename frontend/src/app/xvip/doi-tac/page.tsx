@@ -29,7 +29,6 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export default function PartnersPage() {
   const { data: me } = useCurrentUser();
-  const isAdmin = me?.role === 'ADMIN';
 
   const { data: partners = [], isLoading, isError, error } = usePartners();
   const createMutation = useCreatePartner();
@@ -103,7 +102,7 @@ export default function PartnersPage() {
     <>
       <PageTitle
         actions={
-          isAdmin ? (
+          me ? (
             <button
               type="button"
               onClick={openCreate}
@@ -144,7 +143,7 @@ export default function PartnersPage() {
                 <th className={TH}>STT</th>
                 <th className={TH}>Tên đối tác</th>
                 <th className={TH}>Ghi chú</th>
-                {isAdmin && <th className={`${TH} text-center`}>Thao tác</th>}
+                <th className={`${TH} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -181,8 +180,8 @@ export default function PartnersPage() {
                     <td className={`${TD} max-w-[420px] whitespace-normal text-slate-600 dark:text-slate-300`}>
                       {p.note || <span className="text-slate-400">—</span>}
                     </td>
-                    {isAdmin && (
-                      <td className={`${TD} text-center`}>
+                    <td className={`${TD} text-center`}>
+                      {p.canEdit ? (
                         <div className="flex items-center justify-center gap-2">
                           <button
                             type="button"
@@ -201,8 +200,10 @@ export default function PartnersPage() {
                             <Trash size={16} weight="bold" />
                           </button>
                         </div>
-                      </td>
-                    )}
+                      ) : (
+                        <span className="text-slate-400" title="Chỉ sửa được trong ngày tạo, hoặc nhờ Admin">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

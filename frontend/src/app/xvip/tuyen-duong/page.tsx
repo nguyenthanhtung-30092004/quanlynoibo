@@ -56,7 +56,6 @@ const EMPTY_DRAFT: RouteDraft = {
 
 export default function RoutesPage() {
   const { data: me } = useCurrentUser();
-  const isAdmin = me?.role === 'ADMIN';
   const { data: apiData, isLoading, refetch } = useRoutes();
   const createMutation = useCreateRoute();
   const updateMutation = useUpdateRoute();
@@ -182,7 +181,7 @@ export default function RoutesPage() {
       <PageTitle
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
-            {isAdmin && (
+            {me && (
             <button
               type="button"
               onClick={handleOpenCreate}
@@ -393,7 +392,7 @@ export default function RoutesPage() {
                         >
                           <Eye size={16} weight="bold" />
                         </button>
-                        {isAdmin && (
+                        {route.canEdit && (
                           <>
                         <button
                           type="button"

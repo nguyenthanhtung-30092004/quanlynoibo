@@ -22,10 +22,22 @@ function filterParams(filters: OrderFilters) {
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
     routeIds: filters.routeIds?.length ? filters.routeIds.join(',') : undefined,
     partner: filters.partner || undefined,
+    partners: filters.partners?.length ? filters.partners.join(',') : undefined,
     dateFrom: filters.dateFrom ?? undefined,
     dateTo: filters.dateTo ?? undefined,
     departureFrom: filters.departureFrom ?? undefined,
     departureTo: filters.departureTo ?? undefined,
+  };
+}
+
+/** Danh sách tuyến / đối tác gửi lên dưới dạng chuỗi cách nhau bằng dấu phẩy */
+function kpiQuery(date?: string, range?: KpiRange) {
+  const { routeIds, partners, ...rest } = range ?? {};
+  return {
+    date,
+    ...rest,
+    routeIds: routeIds?.length ? routeIds.join(',') : undefined,
+    partners: partners?.length ? partners.join(',') : undefined,
   };
 }
 
@@ -80,15 +92,15 @@ export const ordersApi = {
     ),
 
   kpi: (date?: string, range?: KpiRange) =>
-    api<ApiResponse<Kpi>>('orders/kpi', { query: { date, ...range } }).then((res) => res.data),
+    api<ApiResponse<Kpi>>('orders/kpi', { query: kpiQuery(date, range) }).then((res) => res.data),
 
   activity: () =>
     api<ApiResponse<OrderActivity[]>>('orders/activity').then((res) => res.data),
 
   debts: (range?: KpiRange) =>
-    api<ApiResponse<PartnerDebt[]>>('orders/debts', { query: { ...range } }).then((res) => res.data),
+    api<ApiResponse<PartnerDebt[]>>('orders/debts', { query: kpiQuery(undefined, range) }).then((res) => res.data),
 
-  exportDebts: (range?: KpiRange) => apiDownload('orders/debts/export', { ...range }),
+  exportDebts: (range?: KpiRange) => apiDownload('orders/debts/export', kpiQuery(undefined, range)),
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),

@@ -72,6 +72,8 @@ export interface OrderFilters {
   routeIds?: number[];
   /** Tên đối tác; bỏ trống = tất cả */
   partner?: string;
+  /** Lọc nhiều đối tác cùng lúc (tên); rỗng = không lọc */
+  partners?: string[];
   /** YYYY-MM-DD, theo ngày vào sổ (giờ VN) */
   dateFrom: string | null;
   dateTo: string | null;
@@ -116,6 +118,8 @@ export interface KpiRange {
   staffId?: number;
   routeId?: number;
   partner?: string;
+  routeIds?: number[];
+  partners?: string[];
 }
 
 export interface KpiSummary {

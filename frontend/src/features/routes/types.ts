@@ -5,6 +5,8 @@ export interface Route {
   destination: string;
   defaultPrice?: number;
   isActive: boolean;
+  /** Người đang xem có được sửa/xóa không (Admin, hoặc nhân viên tạo trong hôm nay) */
+  canEdit?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
+import { assertCanModify, canModifyOwnToday } from '../shared/own-today.js';
 import { CreateRouteDto } from './dto/create-route.dto.js';
 import { QueryRoutesDto } from './dto/query-routes.dto.js';
 import { UpdateRouteDto } from './dto/update-route.dto.js';
@@ -19,7 +21,12 @@ export class RoutesService {
     private readonly repo: Repository<Route>,
   ) {}
 
-  async create(dto: CreateRouteDto) {
+  /** Gắn cờ canEdit theo người đang xem để giao diện biết có hiện nút sửa/xóa không */
+  withPermission<T extends Route>(route: T, actor: JwtPayload) {
+    return { ...route, canEdit: canModifyOwnToday(route, actor) };
+  }
+
+  async create(dto: CreateRouteDto, actor: JwtPayload) {
     await this.assertNameFree(dto.name);
     return this.repo.save(
       this.repo.create({
@@ -28,6 +35,7 @@ export class RoutesService {
         destination: dto.destination,
         defaultPrice: dto.defaultPrice ?? 0,
         isActive: dto.isActive ?? true,
+        createdById: actor.sub,
       }),
     );
   }
@@ -58,8 +66,9 @@ export class RoutesService {
     return route;
   }
 
-  async update(id: number, dto: UpdateRouteDto) {
+  async update(id: number, dto: UpdateRouteDto, actor: JwtPayload) {
     const route = await this.findOne(id);
+    assertCanModify(route, actor, 'tuyến đường');
     if (dto.name !== undefined && dto.name !== route.name) {
       await this.assertNameFree(dto.name, id);
     }
@@ -71,8 +80,9 @@ export class RoutesService {
     return this.repo.save(route);
   }
 
-  async remove(id: number) {
+  async remove(id: number, actor: JwtPayload) {
     const route = await this.findOne(id);
+    assertCanModify(route, actor, 'tuyến đường');
     try {
       await this.repo.remove(route);
     } catch (err) {

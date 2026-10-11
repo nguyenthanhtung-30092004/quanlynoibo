@@ -2,21 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MagnifyingGlass } from '@phosphor-icons/react';
+import { fold, rankMatches } from './search-rank';
 
 interface RouteOption {
   id: number;
   name: string;
   defaultPrice?: number;
 }
-
-/** Bỏ dấu và chữ hoa để gõ "ha noi" vẫn ra "Hà Nội" */
-const fold = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/gi, 'd')
-    .toLowerCase()
-    .trim();
 
 const money = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
@@ -30,12 +22,14 @@ export function RouteCombobox({
   value,
   onChange,
   placeholder = '',
+  invalid = false,
 }: {
   routes: RouteOption[];
   /** id tuyến đang chọn, 0 nếu chưa chọn */
   value: number;
   onChange: (id: number) => void;
   placeholder?: string;
+  invalid?: boolean;
 }) {
   const selected = routes.find((r) => r.id === value);
   const [text, setText] = useState(selected?.name ?? '');
@@ -53,11 +47,7 @@ export function RouteCombobox({
     const q = fold(text);
     // Đang hiện đúng tên tuyến đã chọn thì cho xem lại toàn bộ danh sách
     if (!q || (selected && text === selected.name)) return routes;
-    const words = q.split(/\s+/);
-    return routes.filter((r) => {
-      const n = fold(r.name);
-      return words.every((w) => n.includes(w));
-    });
+    return rankMatches(routes, q, (r) => r.name);
   }, [routes, text, selected]);
 
   useEffect(() => setActive(0), [text, open]);
@@ -96,7 +86,8 @@ export function RouteCombobox({
         aria-hidden
       />
       <input
-        className="input-3d pl-9"
+        className={`input-3d pl-9 ${invalid ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+        aria-invalid={invalid}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"

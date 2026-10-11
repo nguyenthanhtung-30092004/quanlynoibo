@@ -10,6 +10,7 @@ import {
   Percent,
   Ticket,
   Trophy,
+  X,
 } from '@phosphor-icons/react';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
@@ -23,19 +24,49 @@ import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { Pagination } from '@/features/xvip/Pagination';
 import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
 import { formatDateVN } from '@/lib/format';
-import { SuggestInput } from '@/features/xvip/SuggestInput';
+import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import {
-  BASIS_LABEL,
   DateRangeFilter,
   rangeParams,
   useDateFilter,
 } from '@/features/xvip/date-filter';
 
+/** Thẻ nhỏ cho một mục đang lọc, bấm × để bỏ */
+function FilterChip({
+  label,
+  tone,
+  onRemove,
+}: {
+  label: string;
+  tone: 'blue' | 'amber';
+  onRemove: () => void;
+}) {
+  const color =
+    tone === 'blue'
+      ? 'border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-800 dark:bg-blue-950/60 dark:text-blue-200'
+      : 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200';
+  return (
+    <span
+      className={`inline-flex max-w-full items-center gap-1.5 rounded-full border py-1 pl-3 pr-1.5 text-xs font-bold ${color}`}
+    >
+      <span className="truncate">{label}</span>
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Bỏ ${label}`}
+        className="flex size-4 shrink-0 items-center justify-center rounded-full hover:bg-black/10 dark:hover:bg-white/15"
+      >
+        <X size={10} weight="bold" />
+      </button>
+    </span>
+  );
+}
+
 export default function StaffReportPage() {
   const [staffFilter, setStaffFilter] = useState('all');
-  // Ô tuyến / đối tác cho gõ gợi ý: chỉ lọc khi chữ khớp đúng một mục trong danh sách
-  const [routeText, setRouteText] = useState('');
-  const [partnerText, setPartnerText] = useState('');
+  // Tuyến / đối tác chọn nhiều bằng ô tích; không chọn gì = tất cả
+  const [routeIds, setRouteIds] = useState<number[]>([]);
+  const [partnerIds, setPartnerIds] = useState<number[]>([]);
 
   // Khoảng ngày lấy từ nút ngày trên header; ở đây chỉ chọn lọc theo ngày đi hay ngày tạo vé
   const { range, basis, label: rangeLabel } = useDateFilter();
@@ -46,20 +77,17 @@ export default function StaffReportPage() {
   const { data: routeList = [] } = useActiveRoutes();
   const { data: partnerList = [] } = usePartners();
 
-  const routeFilter = useMemo(() => {
-    const found = routeList.find((r) => r.name === routeText.trim());
-    return found ? String(found.id) : 'all';
-  }, [routeList, routeText]);
-  const partnerFilter = useMemo(() => {
-    const found = partnerList.find((p) => p.name === partnerText.trim());
-    return found ? found.name : 'all';
-  }, [partnerList, partnerText]);
+  const partnerNames = useMemo(
+    () =>
+      partnerList.filter((p) => partnerIds.includes(p.id)).map((p) => p.name),
+    [partnerList, partnerIds],
+  );
 
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
     ...dates,
     staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : undefined,
-    routeId: routeFilter === 'all' ? undefined : Number(routeFilter),
-    partner: partnerFilter === 'all' ? undefined : partnerFilter,
+    routeIds,
+    partners: partnerNames,
   });
   // API người dùng chỉ dành cho Admin
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
@@ -71,22 +99,23 @@ export default function StaffReportPage() {
     () => ({
       search: '',
       staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
-      routeId: routeFilter === 'all' ? 'all' : Number(routeFilter),
-      partner: partnerFilter === 'all' ? undefined : partnerFilter,
+      routeId: 'all',
+      routeIds,
+      partners: partnerNames,
       dateFrom: null,
       dateTo: null,
       ...dates,
       page: ticketPage,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isAdmin, staffFilter, routeFilter, partnerFilter, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage],
+    [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage],
   );
   const { data: ticketData, isLoading: ticketsLoading } = useOrders(ticketFilters);
   const ticketList = ticketData?.data ?? [];
   const ticketTotal = ticketData?.total ?? 0;
   useEffect(() => {
     setTicketPage(1);
-  }, [staffFilter, routeFilter, partnerFilter, range, basis]);
+  }, [staffFilter, routeIds, partnerNames, range, basis]);
 
   const staffList = useMemo(() => usersData?.data ?? [], [usersData]);
 
@@ -115,32 +144,6 @@ export default function StaffReportPage() {
       commission: s.commission,
     }));
   }, [kpiData, isAdmin, me]);
-
-  // Mô tả bộ lọc đang chọn, in ở đầu bản in
-  const filterSummary = useMemo(() => {
-    const parts = [`${BASIS_LABEL[basis]}: ${rangeLabel}`];
-    if (isAdmin && staffFilter !== 'all') {
-      parts.push(
-        `Nhân viên: ${staffList.find((s) => String(s.id) === staffFilter)?.fullName ?? ''}`,
-      );
-    }
-    if (routeFilter !== 'all') {
-      parts.push(
-        `Tuyến: ${routeList.find((r) => String(r.id) === routeFilter)?.name ?? ''}`,
-      );
-    }
-    if (partnerFilter !== 'all') parts.push(`Đối tác: ${partnerFilter}`);
-    return parts.join(' · ');
-  }, [
-    basis,
-    rangeLabel,
-    isAdmin,
-    staffFilter,
-    staffList,
-    routeFilter,
-    routeList,
-    partnerFilter,
-  ]);
 
   const totalOrders = useMemo(
     () => filteredStaff.reduce((acc, s) => acc + s.orders, 0),
@@ -172,8 +175,9 @@ export default function StaffReportPage() {
       const filters: OrderFilters = {
         search: '',
         staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
-        routeId: routeFilter === 'all' ? 'all' : Number(routeFilter),
-        partner: partnerFilter === 'all' ? undefined : partnerFilter,
+        routeId: 'all',
+        routeIds,
+        partners: partnerNames,
         dateFrom: null,
         dateTo: null,
         ...dates,
@@ -212,11 +216,6 @@ export default function StaffReportPage() {
         Báo cáo hiệu suất &amp; Doanh số nhân viên
       </PageTitle>
 
-      {/* Chỉ hiện khi in: ghi rõ nội dung đã lọc */}
-      <p className="mb-4 hidden text-sm font-semibold text-slate-700 print:block">
-        Bộ lọc: {filterSummary}
-      </p>
-
       {/* 3D Filter Bar */}
       <Card className="print:hidden">
         <div className="flex flex-wrap items-end gap-3.5">
@@ -251,11 +250,12 @@ export default function StaffReportPage() {
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Tuyến đường
             </span>
-            <SuggestInput
-              options={routeList.map((r) => r.name)}
-              value={routeText}
-              onChange={setRouteText}
-              placeholder="Tất cả tuyến (gõ để tìm)"
+            <MultiCheckSelect
+              options={routeList.map((r) => ({ value: r.id, label: r.name }))}
+              value={routeIds}
+              onChange={setRouteIds}
+              allLabel="Tất cả tuyến"
+              searchPlaceholder="Tìm tuyến..."
             />
           </div>
 
@@ -263,14 +263,57 @@ export default function StaffReportPage() {
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Đối tác
             </span>
-            <SuggestInput
-              options={partnerList.map((p) => p.name)}
-              value={partnerText}
-              onChange={setPartnerText}
-              placeholder="Tất cả đối tác (gõ để tìm)"
+            <MultiCheckSelect
+              options={partnerList.map((p) => ({ value: p.id, label: p.name }))}
+              value={partnerIds}
+              onChange={setPartnerIds}
+              allLabel="Tất cả đối tác"
+              searchPlaceholder="Tìm đối tác..."
             />
           </div>
         </div>
+
+        {(routeIds.length > 0 || partnerIds.length > 0) && (
+          <div className="mt-3.5 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3 dark:border-slate-700">
+            <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+              Đang lọc:
+            </span>
+            {routeList
+              .filter((r) => routeIds.includes(r.id))
+              .map((r) => (
+                <FilterChip
+                  key={`r${r.id}`}
+                  tone="blue"
+                  label={r.name}
+                  onRemove={() =>
+                    setRouteIds((prev) => prev.filter((x) => x !== r.id))
+                  }
+                />
+              ))}
+            {partnerList
+              .filter((p) => partnerIds.includes(p.id))
+              .map((p) => (
+                <FilterChip
+                  key={`p${p.id}`}
+                  tone="amber"
+                  label={p.name}
+                  onRemove={() =>
+                    setPartnerIds((prev) => prev.filter((x) => x !== p.id))
+                  }
+                />
+              ))}
+            <button
+              type="button"
+              className="ml-auto text-xs font-bold text-slate-500 hover:text-rose-600 hover:underline dark:text-slate-400"
+              onClick={() => {
+                setRouteIds([]);
+                setPartnerIds([]);
+              }}
+            >
+              Xóa lọc tuyến &amp; đối tác
+            </button>
+          </div>
+        )}
       </Card>
 
       {/* 3D KPI Metrics Cards */}

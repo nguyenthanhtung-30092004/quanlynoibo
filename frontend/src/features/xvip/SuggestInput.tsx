@@ -2,15 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MagnifyingGlass } from '@phosphor-icons/react';
-
-/** Bỏ dấu và chữ hoa để gõ "ha hai" vẫn ra "Hà Hải" */
-const fold = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/gi, 'd')
-    .toLowerCase()
-    .trim();
+import { fold, rankMatches } from './search-rank';
 
 /**
  * Ô nhập có gợi ý: gõ để lọc danh sách (không phân biệt dấu), bấm hoặc Enter
@@ -23,12 +15,14 @@ export function SuggestInput({
   onChange,
   placeholder,
   maxLength,
+  invalid = false,
 }: {
   options: string[];
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   maxLength?: number;
+  invalid?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -39,19 +33,7 @@ export function SuggestInput({
     const q = fold(value);
     // Đang hiện đúng một giá trị trong danh sách thì cho xem lại toàn bộ
     if (!q || options.includes(value)) return options;
-    const words = q.split(/\s+/);
-    // Khớp từ đầu tên xếp trước (gõ "hà nội" ra các tuyến "Hà Nội - ..." trước),
-    // rồi tới khớp đầu một từ, cuối cùng mới là chứa chuỗi ở giữa; trong cùng nhóm giữ thứ tự cũ
-    const rank = (n: string) => {
-      if (n.startsWith(q)) return 0;
-      if (n.includes(` ${q}`) || n.includes(`- ${q}`)) return 1;
-      return 2;
-    };
-    return options
-      .map((o, i) => ({ o, i, n: fold(o) }))
-      .filter(({ n }) => words.every((w) => n.includes(w)))
-      .sort((a, b) => rank(a.n) - rank(b.n) || a.i - b.i)
-      .map(({ o }) => o);
+    return rankMatches(options, q, (o) => o);
   }, [options, value]);
 
   useEffect(() => setActive(0), [value, open]);
@@ -84,7 +66,8 @@ export function SuggestInput({
         aria-hidden
       />
       <input
-        className="input-3d pl-9"
+        className={`input-3d pl-9 ${invalid ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+        aria-invalid={invalid}
         role="combobox"
         aria-expanded={open}
         aria-autocomplete="list"

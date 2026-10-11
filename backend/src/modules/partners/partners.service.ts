@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
+import { assertCanModify, canModifyOwnToday } from '../shared/own-today.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
 import { QueryPartnersDto } from './dto/query-partners.dto.js';
 import { UpdatePartnerDto } from './dto/update-partner.dto.js';
@@ -19,10 +21,15 @@ export class PartnersService {
     private readonly repo: Repository<Partner>,
   ) {}
 
-  async create(dto: CreatePartnerDto) {
+  /** Gắn cờ canEdit theo người đang xem để giao diện biết có hiện nút sửa/xóa không */
+  withPermission<T extends Partner>(partner: T, actor: JwtPayload) {
+    return { ...partner, canEdit: canModifyOwnToday(partner, actor) };
+  }
+
+  async create(dto: CreatePartnerDto, actor: JwtPayload) {
     await this.assertNameFree(dto.name);
     return this.repo.save(
-      this.repo.create({ name: dto.name, note: dto.note || null }),
+      this.repo.create({ name: dto.name, note: dto.note || null, createdById: actor.sub }),
     );
   }
 
@@ -48,8 +55,9 @@ export class PartnersService {
     return partner;
   }
 
-  async update(id: number, dto: UpdatePartnerDto) {
+  async update(id: number, dto: UpdatePartnerDto, actor: JwtPayload) {
     const partner = await this.findOne(id);
+    assertCanModify(partner, actor, 'đối tác');
     if (dto.name !== undefined && dto.name !== partner.name) {
       await this.assertNameFree(dto.name, id);
     }
@@ -58,8 +66,9 @@ export class PartnersService {
     return this.repo.save(partner);
   }
 
-  async remove(id: number) {
+  async remove(id: number, actor: JwtPayload) {
     const partner = await this.findOne(id);
+    assertCanModify(partner, actor, 'đối tác');
     await this.repo.remove(partner);
   }
 

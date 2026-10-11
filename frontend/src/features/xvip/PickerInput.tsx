@@ -21,6 +21,7 @@ interface BaseProps {
   value: string;
   onChange: (value: string) => void;
   required?: boolean;
+  invalid?: boolean;
   placeholder?: string;
 }
 
@@ -34,12 +35,14 @@ function PickerShell({
   display,
   placeholder,
   icon,
+  invalid,
   children,
 }: {
   value: string;
   display: string;
   placeholder: string;
   icon: ReactNode;
+  invalid?: boolean;
   children: (close: () => void) => ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -106,7 +109,7 @@ function PickerShell({
         aria-haspopup="dialog"
         aria-expanded={open}
         className={`input-3d flex min-h-[46px] items-center justify-between gap-3 px-4 py-2.5 text-left text-[15px] ${
-          open ? '!border-blue-600 !shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : ''
+          open ? '!border-blue-600 !shadow-[0_0_0_3px_rgba(37,99,235,0.2)]' : invalid ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
         } ${display ? '' : 'text-slate-400'}`}
       >
         <span className="truncate font-medium">{display || placeholder}</span>
@@ -235,12 +238,14 @@ export function DateInput({
   value,
   onChange,
   min,
+  invalid,
 }: BaseProps & { min?: string }) {
   return (
     <PickerShell
       value={value}
       placeholder={placeholder}
       display={formatDate(value)}
+      invalid={invalid}
       icon={<CalendarBlank size={18} weight="duotone" />}
     >
       {(close) => (
@@ -324,12 +329,13 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
   );
 }
 
-export function TimeInput({ placeholder = '', value, onChange }: BaseProps) {
+export function TimeInput({ placeholder = '', value, onChange, invalid }: BaseProps) {
   return (
     <PickerShell
       value={value}
       placeholder={placeholder}
       display={value}
+      invalid={invalid}
       icon={<Clock size={18} weight="duotone" />}
     >
       {(close) => <TimeColumns value={value} onChange={onChange} close={close} />}
