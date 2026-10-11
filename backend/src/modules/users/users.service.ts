@@ -12,7 +12,7 @@ import { UpdateUserDto } from './dto/update-user.dto.js';
 import { User, UserRole } from './entities/user.entity.js';
 
 /** Mật khẩu khởi tạo khi Admin tạo nhân viên mà không nhập mật khẩu */
-const DEFAULT_STAFF_PASSWORD = 'nhanvienxvip123';
+const DEFAULT_STAFF_PASSWORD = '123456';
 
 @Injectable()
 export class UsersService {

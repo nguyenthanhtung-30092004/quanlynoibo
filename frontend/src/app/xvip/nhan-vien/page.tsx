@@ -437,7 +437,7 @@ function UsersPageContent() {
 
             {!editingUser && (
               <p className="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 dark:bg-blue-950/40 dark:text-blue-300">
-                Mật khẩu đăng nhập mặc định: <span className="font-mono">nhanvienxvip123</span>
+                Mật khẩu đăng nhập mặc định: <span className="font-mono">123456</span>
               </p>
             )}
 
