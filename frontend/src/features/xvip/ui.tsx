@@ -90,5 +90,5 @@ export function StatusBadge({ status }: { status: TicketStatus | string }) {
 }
 
 export const TH = 'whitespace-nowrap bg-slate-100/80 dark:bg-slate-800/80 px-4 py-3 text-left text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700';
-export const TD = 'whitespace-nowrap border-t border-slate-100 dark:border-slate-800 px-4 py-3 text-sm text-slate-800 dark:text-slate-200';
+export const TD = 'whitespace-nowrap border-t border-slate-300 dark:border-slate-600 px-4 py-3 text-sm text-slate-800 dark:text-slate-200';
 export const NUM = 'tnum text-right font-semibold';
