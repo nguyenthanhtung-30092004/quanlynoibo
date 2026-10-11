@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
-import { IsNotEmpty, IsOptional, IsString, Length } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
+import { IsInt, IsNotEmpty, IsOptional, IsString, Length, Max, Min } from 'class-validator';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
@@ -19,4 +19,12 @@ export class CreatePartnerDto {
   @IsString()
   @Length(0, 1000, { message: 'Ghi chú không được dài quá 1000 ký tự' })
   note?: string;
+
+  @ApiPropertyOptional({ example: 20000, description: 'Hoa hồng mỗi vé (VNĐ); chỉ Admin được đặt' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Hoa hồng mỗi vé phải là số nguyên' })
+  @Min(0, { message: 'Hoa hồng mỗi vé không được âm' })
+  @Max(100000000)
+  commissionPerSeat?: number;
 }

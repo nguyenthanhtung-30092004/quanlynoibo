@@ -18,6 +18,10 @@ export class Partner {
   @Column({ type: 'text', nullable: true })
   note: string | null;
 
+  /** Hoa hồng (VNĐ) cho mỗi vé của nhà xe này; chỉ Admin được xem và sửa. 0 = chưa đặt */
+  @Column({ name: 'commissionPerSeat', type: 'int', default: 0 })
+  commissionPerSeat: number;
+
   /** Người tạo; nhân viên chỉ được sửa/xóa bản ghi của mình trong ngày tạo */
   @Column({ name: 'createdById', type: 'int', nullable: true })
   createdById: number | null;

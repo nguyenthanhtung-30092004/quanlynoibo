@@ -148,6 +148,10 @@ export class Order {
   @Column({ name: 'cancelledAt', type: 'timestamptz', nullable: true })
   cancelledAt: Date | null;
 
+  /** Lý do hủy vé do người hủy nhập */
+  @Column({ name: 'cancelReason', type: 'varchar', length: 500, nullable: true })
+  cancelReason: string | null;
+
   @Index()
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;

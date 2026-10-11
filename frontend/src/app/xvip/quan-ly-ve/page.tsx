@@ -33,6 +33,7 @@ import {
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
+import { partnersApi } from '@/features/partners/api';
 import { useActiveStaff } from '@/features/users/hooks';
 import { useCurrentUser } from '@/features/auth/hooks';
 import {
@@ -309,6 +310,15 @@ function buildPreviewLines(f: OrderFormState): string[] {
   ].filter((line): line is string => !!line);
 }
 
+/** Lý do hủy hay gặp, bấm để điền nhanh vào ô lý do */
+const CANCEL_REASONS = [
+  'Khách không đi nữa',
+  'Khách đổi giờ / ngày',
+  'Nhập nhầm vé',
+  'Nhà xe hết chỗ',
+  'Khách không liên lạc được',
+];
+
 /** Lỗi từng ô trong form vé, hiện chữ đỏ ngay dưới ô đó */
 interface FormErrors {
   customerName?: string;
@@ -386,6 +396,8 @@ export default function TicketManagementPage() {
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelError, setCancelError] = useState('');
   const [historyOrderId, setHistoryOrderId] = useState<number | null>(null);
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
@@ -449,8 +461,44 @@ export default function TicketManagementPage() {
     el.style.height = `${el.scrollHeight}px`;
   }, [boxText, isOpenModal]);
 
+  // Hoa hồng tự tính = hoa hồng mỗi vé của nhà xe x số vé; chỉ chạy lại khi đổi nhà xe hoặc số vé
+  const lastQuoteKey = useRef<string | null>(null);
+  const quoteTickets =
+    Number(formState.seatCount) > 0
+      ? Number(formState.seatCount)
+      : (Number(formState.seatFront) || 0) +
+        (Number(formState.seatMiddle) || 0) +
+        (Number(formState.seatBack) || 0);
+  useEffect(() => {
+    if (!isOpenModal) return;
+    const key = `${formState.partner.trim().toLowerCase()}|${quoteTickets}`;
+    // Sửa vé cũ: lần đầu mở chỉ ghi nhớ, không ghi đè hoa hồng đã lưu
+    if (editingId && lastQuoteKey.current === null) {
+      lastQuoteKey.current = key;
+      return;
+    }
+    if (key === lastQuoteKey.current) return;
+    lastQuoteKey.current = key;
+    if (!formState.partner.trim() || quoteTickets < 1) return;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => {
+      partnersApi
+        .commissionQuote(formState.partner, quoteTickets, ctrl.signal)
+        .then((commission) => {
+          if (commission !== null) setFormState((p) => ({ ...p, commission }));
+        })
+        .catch(() => {});
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      ctrl.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpenModal, editingId, formState.partner, quoteTickets]);
+
   /** Mở form mới / vé khác: ô nội dung quay về hiện đúng theo form */
   const resetBox = () => {
+    lastQuoteKey.current = null;
     ownText.current = null;
     setBoxVersion((v) => v + 1);
   };
@@ -676,10 +724,21 @@ export default function TicketManagementPage() {
     }
   };
 
+  const openCancel = (o: Order) => {
+    setCancelReason('');
+    setCancelError('');
+    setCancelTarget(o);
+  };
+
   const handleCancel = async () => {
     if (!cancelTarget) return;
+    const reason = cancelReason.trim();
+    if (!reason) {
+      setCancelError('Vui lòng nhập lý do hủy vé.');
+      return;
+    }
     try {
-      await cancelMutation.mutateAsync(cancelTarget.id);
+      await cancelMutation.mutateAsync({ id: cancelTarget.id, reason });
       showToast(
         `Đã hủy vé #${cancelTarget.id}. Vé không còn tính vào doanh thu.`,
       );
@@ -1072,7 +1131,7 @@ export default function TicketManagementPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setCancelTarget(t)}
+                              onClick={() => openCancel(t)}
                               title="Hủy vé (khách không đặt nữa)"
                               className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                             >
@@ -1627,9 +1686,14 @@ export default function TicketManagementPage() {
         >
           <div className="space-y-4">
             {detailOrder.cancelledAt && (
-              <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                Đơn đã hủy lúc {formatDateVN(detailOrder.cancelledAt)}
-              </p>
+              <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                <p>Đơn đã hủy lúc {formatDateVN(detailOrder.cancelledAt)}</p>
+                {detailOrder.cancelReason && (
+                  <p className="mt-0.5 font-semibold">
+                    Lý do: {detailOrder.cancelReason}
+                  </p>
+                )}
+              </div>
             )}
             <DetailGroup title="Khách hàng">
               <DetailRow
@@ -1738,17 +1802,61 @@ export default function TicketManagementPage() {
         <Modal title="Hủy vé" onClose={() => setCancelTarget(null)}>
           <div className="space-y-4">
             <p className="text-sm text-slate-700 dark:text-slate-300">
-              Khách{' '}
-              <strong className="text-slate-900 dark:text-white">
-                {cancelTarget.customerName || cancelTarget.phone}
-              </strong>{' '}
-              không đặt nữa? Vé{' '}
+              Hủy vé{' '}
               <strong className="text-slate-900 dark:text-white">
                 #{cancelTarget.id}
               </strong>{' '}
-              sẽ được đánh dấu <strong>Đã hủy</strong>, vẫn lưu lại trong danh
-              sách nhưng không tính vào doanh thu và không sửa được nữa.
+              của khách{' '}
+              <strong className="text-slate-900 dark:text-white">
+                {cancelTarget.customerName || cancelTarget.phone}
+              </strong>
+              . Vé vẫn lưu trong danh sách nhưng không tính vào doanh thu và
+              không sửa được nữa.
             </p>
+            <div>
+              <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
+                Lý do hủy <span className="text-red-500">*</span>
+              </span>
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {CANCEL_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => {
+                      setCancelReason(r);
+                      setCancelError('');
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs font-bold transition-colors ${
+                      cancelReason === r
+                        ? 'border-rose-400 bg-rose-100 text-rose-800 dark:border-rose-700 dark:bg-rose-950 dark:text-rose-200'
+                        : 'border-slate-200 bg-white text-slate-600 hover:bg-rose-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <textarea
+                className={`input-3d min-h-[5rem] resize-y p-3 ${cancelError ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+                value={cancelReason}
+                onChange={(e) => {
+                  setCancelReason(e.target.value);
+                  setCancelError('');
+                }}
+                maxLength={500}
+                placeholder="Chọn nhanh ở trên hoặc nhập lý do hủy..."
+                aria-invalid={!!cancelError}
+                autoFocus
+              />
+              {cancelError && (
+                <span
+                  role="alert"
+                  className="mt-1.5 block text-xs font-semibold text-red-600 dark:text-red-400"
+                >
+                  {cancelError}
+                </span>
+              )}
+            </div>
             <div className="flex items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"

@@ -18,7 +18,11 @@ export class OrdersSchemaGuard implements OnModuleInit {
       `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "seatMiddle" integer NOT NULL DEFAULT 0`,
       `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "seatBack" integer NOT NULL DEFAULT 0`,
       `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "cancelledAt" timestamptz`,
+      `ALTER TABLE "orders" ADD COLUMN IF NOT EXISTS "cancelReason" varchar(500)`,
       `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "deletedAt" timestamptz`,
+      `ALTER TABLE "routes" ADD COLUMN IF NOT EXISTS "createdById" integer`,
+      `ALTER TABLE "partners" ADD COLUMN IF NOT EXISTS "createdById" integer`,
+      `ALTER TABLE "partners" ADD COLUMN IF NOT EXISTS "commissionPerSeat" integer NOT NULL DEFAULT 0`,
       `CREATE INDEX IF NOT EXISTS "IDX_orders_createdBy_createdAt" ON "orders" ("createdById", "createdAt")`,
       `CREATE TABLE IF NOT EXISTS "order_history" (
         "id" SERIAL PRIMARY KEY,

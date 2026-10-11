@@ -369,13 +369,16 @@ export class OrdersService {
   }
 
   /** Hủy vé (khách không đặt nữa): giữ lại đơn nhưng không tính vào doanh thu */
-  async cancel(id: number, actor: JwtPayload) {
+  async cancel(id: number, actor: JwtPayload, reason?: string) {
     const order = await this.findEntity(id, actor);
     if (order.cancelledAt) {
       throw new BadRequestException('Vé này đã được hủy trước đó.');
     }
-    await this.orderRepository.update(order.id, { cancelledAt: new Date() });
-    await this.record(order.id, 'CANCEL', actor, { summary: 'Hủy vé (khách không đặt nữa)' });
+    const why = reason?.trim() || null;
+    await this.orderRepository.update(order.id, { cancelledAt: new Date(), cancelReason: why });
+    await this.record(order.id, 'CANCEL', actor, {
+      summary: why ? `Hủy vé: ${why}`.slice(0, 250) : 'Hủy vé (khách không đặt nữa)',
+    });
     return this.findOne(order.id, actor);
   }
 
@@ -1076,6 +1079,7 @@ export class OrdersService {
         departureDate: order.departureDate,
       }),
       cancelledAt: order.cancelledAt,
+      cancelReason: order.cancelReason,
       createdAt: order.createdAt,
       updatedAt: order.updatedAt,
     };

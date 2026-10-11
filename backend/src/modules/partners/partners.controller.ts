@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  DefaultValuePipe,
   Delete,
   Get,
   HttpCode,
@@ -45,6 +46,19 @@ export class PartnersController {
       total: result.total,
       page: result.page,
       limit: result.limit,
+    };
+  }
+
+  /** Hoa hồng gợi ý cho form nhập vé (mọi người dùng; không trả mức hoa hồng mỗi vé) */
+  @Get('commission-quote')
+  async commissionQuote(
+    @Query('name') name = '',
+    @Query('seats', new DefaultValuePipe(0), ParseIntPipe) seats: number,
+  ) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Tính hoa hồng thành công',
+      data: await this.partnersService.commissionQuote(name, seats),
     };
   }
 

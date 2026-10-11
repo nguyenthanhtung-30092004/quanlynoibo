@@ -8,13 +8,15 @@ import type { Partner } from '@/features/partners/types';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { money } from '@/features/xvip/data';
 
 interface Draft {
   name: string;
   note: string;
+  commissionPerSeat: number;
 }
 
-const EMPTY: Draft = { name: '', note: '' };
+const EMPTY: Draft = { name: '', note: '', commissionPerSeat: 0 };
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
@@ -29,6 +31,9 @@ function Field({ label, required, children }: { label: string; required?: boolea
 
 export default function PartnersPage() {
   const { data: me } = useCurrentUser();
+  // Hoa hồng mỗi vé chỉ Admin được xem và sửa
+  const isAdmin = me?.role === 'ADMIN';
+  const columnCount = isAdmin ? 5 : 4;
 
   const { data: partners = [], isLoading, isError, error } = usePartners();
   const createMutation = useCreatePartner();
@@ -58,7 +63,7 @@ export default function PartnersPage() {
 
   const openEdit = (p: Partner) => {
     setEditingId(p.id);
-    setDraft({ name: p.name, note: p.note ?? '' });
+    setDraft({ name: p.name, note: p.note ?? '', commissionPerSeat: p.commissionPerSeat ?? 0 });
     setIsOpenModal(true);
   };
 
@@ -69,7 +74,11 @@ export default function PartnersPage() {
       showToast('Vui lòng nhập tên đối tác.');
       return;
     }
-    const input = { name, note: draft.note.trim() };
+    const input = {
+      name,
+      note: draft.note.trim(),
+      ...(isAdmin ? { commissionPerSeat: draft.commissionPerSeat } : {}),
+    };
 
     try {
       if (editingId) {
@@ -143,25 +152,26 @@ export default function PartnersPage() {
                 <th className={TH}>STT</th>
                 <th className={TH}>Tên đối tác</th>
                 <th className={TH}>Ghi chú</th>
+                {isAdmin && <th className={`${TH} text-right`}>Hoa hồng / vé</th>}
                 <th className={`${TH} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={4} className="animate-pulse p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400">
+                  <td colSpan={columnCount} className="animate-pulse p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400">
                     Đang tải danh sách đối tác…
                   </td>
                 </tr>
               ) : isError ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-sm font-semibold text-red-600">
+                  <td colSpan={columnCount} className="p-8 text-center text-sm font-semibold text-red-600">
                     {error instanceof Error ? error.message : 'Không tải được danh sách đối tác.'}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={columnCount} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {partners.length === 0 ? 'Chưa có đối tác nào.' : 'Không tìm thấy đối tác phù hợp.'}
                   </td>
                 </tr>
@@ -180,6 +190,11 @@ export default function PartnersPage() {
                     <td className={`${TD} max-w-[420px] whitespace-normal text-slate-600 dark:text-slate-300`}>
                       {p.note || <span className="text-slate-400">—</span>}
                     </td>
+                    {isAdmin && (
+                      <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
+                        {p.commissionPerSeat ? `${money(p.commissionPerSeat)}đ` : <span className="font-normal text-slate-400">Chưa đặt</span>}
+                      </td>
+                    )}
                     <td className={`${TD} text-center`}>
                       {p.canEdit ? (
                         <div className="flex items-center justify-center gap-2">
@@ -225,6 +240,22 @@ export default function PartnersPage() {
                 autoFocus
               />
             </Field>
+            {isAdmin && (
+              <Field label="Hoa hồng mỗi vé (VNĐ)">
+                <input
+                  className="input-3d font-bold"
+                  type="number"
+                  min={0}
+                  step={1000}
+                  value={draft.commissionPerSeat || ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, commissionPerSeat: Math.max(0, Number(e.target.value) || 0) }))}
+                  placeholder="VD: 20000 (để trống nếu chưa có)"
+                />
+                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                  Khi nhập vé của nhà xe này, hoa hồng tự tính = mức này x số ghế. Nhân viên không thấy mục này.
+                </span>
+              </Field>
+            )}
             <Field label="Ghi chú">
               <textarea
                 className="input-3d"

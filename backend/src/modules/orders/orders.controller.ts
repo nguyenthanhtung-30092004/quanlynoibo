@@ -23,6 +23,7 @@ import {
 } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
+import { CancelOrderDto } from './dto/cancel-order.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import {
   KpiQueryDto,
@@ -177,12 +178,13 @@ export class OrdersController {
   @HttpCode(HttpStatus.OK)
   async cancel(
     @Param('id', ParseIntPipe) id: number,
+    @Body() dto: CancelOrderDto,
     @CurrentUser() user: JwtPayload,
   ) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Đã hủy vé',
-      data: await this.ordersService.cancel(id, user),
+      data: await this.ordersService.cancel(id, user, dto.reason),
     };
   }
 

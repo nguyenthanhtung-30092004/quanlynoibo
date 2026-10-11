@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { assertCanModify, canModifyOwnToday } from '../shared/own-today.js';
+import { UserRole } from '../users/entities/user.entity.js';
 import { CreatePartnerDto } from './dto/create-partner.dto.js';
 import { QueryPartnersDto } from './dto/query-partners.dto.js';
 import { UpdatePartnerDto } from './dto/update-partner.dto.js';
@@ -23,13 +24,24 @@ export class PartnersService {
 
   /** Gắn cờ canEdit theo người đang xem để giao diện biết có hiện nút sửa/xóa không */
   withPermission<T extends Partner>(partner: T, actor: JwtPayload) {
-    return { ...partner, canEdit: canModifyOwnToday(partner, actor) };
+    // Hoa hồng mỗi vé chỉ Admin được xem: nhân viên không nhận trường này
+    const { commissionPerSeat, ...rest } = partner;
+    return {
+      ...rest,
+      ...(actor.role === UserRole.ADMIN ? { commissionPerSeat } : {}),
+      canEdit: canModifyOwnToday(partner, actor),
+    };
   }
 
   async create(dto: CreatePartnerDto, actor: JwtPayload) {
     await this.assertNameFree(dto.name);
     return this.repo.save(
-      this.repo.create({ name: dto.name, note: dto.note || null, createdById: actor.sub }),
+      this.repo.create({
+        name: dto.name,
+        note: dto.note || null,
+        commissionPerSeat: actor.role === UserRole.ADMIN ? (dto.commissionPerSeat ?? 0) : 0,
+        createdById: actor.sub,
+      }),
     );
   }
 
@@ -49,6 +61,21 @@ export class PartnersService {
     return { items, total, page, limit };
   }
 
+  /**
+   * Hoa hồng gợi ý cho một vé = hoa hồng mỗi vé của nhà xe x số vé.
+   * Trả null nếu nhà xe chưa có hoặc chưa đặt mức hoa hồng; không lộ mức mỗi vé cho nhân viên.
+   */
+  async commissionQuote(name: string, seats: number) {
+    const key = name.trim();
+    if (!key || seats < 1) return { commission: null };
+    const partner = await this.repo
+      .createQueryBuilder('p')
+      .where('LOWER(p.name) = LOWER(:name)', { name: key })
+      .getOne();
+    if (!partner || partner.commissionPerSeat <= 0) return { commission: null };
+    return { commission: partner.commissionPerSeat * seats };
+  }
+
   async findOne(id: number) {
     const partner = await this.repo.findOne({ where: { id } });
     if (!partner) throw new NotFoundException('Không tìm thấy đối tác.');
@@ -63,6 +90,9 @@ export class PartnersService {
     }
     if (dto.name !== undefined) partner.name = dto.name;
     if (dto.note !== undefined) partner.note = dto.note || null;
+    if (dto.commissionPerSeat !== undefined && actor.role === UserRole.ADMIN) {
+      partner.commissionPerSeat = dto.commissionPerSeat;
+    }
     return this.repo.save(partner);
   }
 

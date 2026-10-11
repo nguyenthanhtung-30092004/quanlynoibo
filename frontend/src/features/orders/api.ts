@@ -69,8 +69,8 @@ export const ordersApi = {
       body: input,
     }).then((res) => res.data),
 
-  cancel: (id: number) =>
-    api<ApiResponse<Order>>(`orders/${id}/cancel`, { method: 'POST' }).then(
+  cancel: (id: number, reason: string) =>
+    api<ApiResponse<Order>>(`orders/${id}/cancel`, { method: 'POST', body: { reason } }).then(
       (res) => res.data,
     ),
 

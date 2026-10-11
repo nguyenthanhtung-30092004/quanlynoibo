@@ -60,6 +60,8 @@ export interface Order {
   smsContent: string;
   /** Thời điểm hủy vé; null = còn hiệu lực */
   cancelledAt: string | null;
+  /** Lý do hủy do người hủy nhập */
+  cancelReason?: string | null;
   createdAt: string;
   updatedAt: string;
 }
