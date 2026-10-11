@@ -1810,8 +1810,6 @@ export default function TicketManagementPage() {
               <strong className="text-slate-900 dark:text-white">
                 {cancelTarget.customerName || cancelTarget.phone}
               </strong>
-              . Vé vẫn lưu trong danh sách nhưng không tính vào doanh thu và
-              không sửa được nữa.
             </p>
             <div>
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">

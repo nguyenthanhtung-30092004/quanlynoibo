@@ -426,13 +426,26 @@ export class OrdersService {
     return { order: await this.findOne(order.id, actor), dryRun };
   }
 
+  /**
+   * Nhân viên không được thấy các lần chỉnh sửa (UPDATE) do Admin thực hiện;
+   * vẫn thấy chỉnh sửa của nhân viên khác và mọi thao tác còn lại (tạo, hủy, gửi tin).
+   */
+  private hideAdminEdits(qb: SelectQueryBuilder<OrderHistory>, actor: JwtPayload) {
+    if (actor.role === UserRole.ADMIN) return;
+    qb.andWhere(
+      `NOT (h.action = 'UPDATE' AND h.actorId IN (SELECT adm.id FROM users adm WHERE adm.role = :adminRole))`,
+      { adminRole: UserRole.ADMIN },
+    );
+  }
+
   /** Lịch sử thao tác của một đơn (mới nhất trước); nhân viên chỉ xem được đơn của mình */
   async history(id: number, actor: JwtPayload) {
     await this.findEntity(id, actor);
-    return this.historyRepository.find({
-      where: { orderId: id },
-      order: { createdAt: 'DESC', id: 'DESC' },
-    });
+    const qb = this.historyRepository
+      .createQueryBuilder('h')
+      .where('h.orderId = :id', { id });
+    this.hideAdminEdits(qb, actor);
+    return qb.orderBy('h.createdAt', 'DESC').addOrderBy('h.id', 'DESC').getMany();
   }
 
   /**
@@ -448,6 +461,7 @@ export class OrdersService {
     if (actor.role !== UserRole.ADMIN) {
       qb.andWhere('o.createdById = :uid', { uid: actor.sub });
     }
+    this.hideAdminEdits(qb, actor);
     const rows = await qb.orderBy('h.createdAt', 'DESC').addOrderBy('h.id', 'DESC').limit(limit).getMany();
     if (rows.length === 0) return [];
 
