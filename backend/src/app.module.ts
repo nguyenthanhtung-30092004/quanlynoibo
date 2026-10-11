@@ -13,6 +13,7 @@ import { OrdersModule } from './modules/orders/orders.module.js';
 import { PartnersModule } from './modules/partners/partners.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { RoutesModule } from './modules/routes/routes.module.js';
+import { SettingsModule } from './modules/settings/settings.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 
 @Module({
@@ -40,6 +41,7 @@ import { UsersModule } from './modules/users/users.module.js';
     CarriersModule,
     PartnersModule,
     RoutesModule,
+    SettingsModule,
     RealtimeModule,
   ],
   controllers: [AppController],

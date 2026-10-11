@@ -19,6 +19,7 @@ import {
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/cn';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
+import { useSettings } from '@/features/settings/hooks';
 import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
@@ -206,6 +207,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function XvipShell({ children }: { children: ReactNode }) {
+  const { data: settings } = useSettings();
   const [open, setOpen] = useState(false);
   return (
     <ThemeProvider>
@@ -247,7 +249,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
               <div className="hidden items-center gap-2 sm:flex">
                 <div className="size-2.5 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.8)]" />
                 <span className="font-extrabold tracking-tight text-slate-800 dark:text-white text-sm">
-                  CÔNG TY TNHH TM &amp; DV XVIP
+                  {settings?.companyName ?? 'CÔNG TY TNHH TM & DV XVIP'}
                 </span>
               </div>
 

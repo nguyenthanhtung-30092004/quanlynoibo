@@ -463,6 +463,8 @@ export default function TicketManagementPage() {
 
   // Hoa hồng tự tính = hoa hồng mỗi vé của nhà xe x số vé; chỉ chạy lại khi đổi nhà xe hoặc số vé
   const lastQuoteKey = useRef<string | null>(null);
+  // Ghi chú nhỏ dưới ô Hoa hồng cho biết đã tự tính chưa, hay vì sao chưa tính được
+  const [quoteNote, setQuoteNote] = useState('');
   const quoteTickets =
     Number(formState.seatCount) > 0
       ? Number(formState.seatCount)
@@ -482,17 +484,31 @@ export default function TicketManagementPage() {
     // Xóa hết ghế thì hoa hồng cũng về trống, không giữ số của lần chọn ghế trước
     if (quoteTickets < 1) {
       setFormState((p) => (p.commission ? { ...p, commission: 0 } : p));
+      setQuoteNote('');
       return;
     }
-    if (!formState.partner.trim()) return;
+    if (!formState.partner.trim()) {
+      setQuoteNote('');
+      return;
+    }
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       partnersApi
         .commissionQuote(formState.partner, quoteTickets, ctrl.signal)
         .then((commission) => {
-          if (commission !== null) setFormState((p) => ({ ...p, commission }));
+          if (commission !== null) {
+            setFormState((p) => ({ ...p, commission }));
+            setQuoteNote(`Tự tính theo nhà xe x ${quoteTickets} vé`);
+          } else {
+            setQuoteNote('Nhà xe này chưa có mức hoa hồng mỗi vé, bạn nhập tay');
+          }
         })
-        .catch(() => {});
+        .catch((err) => {
+          if (ctrl.signal.aborted) return;
+          setQuoteNote(
+            `Không tự tính được hoa hồng${err instanceof Error ? ` (${err.message})` : ''}, bạn nhập tay`,
+          );
+        });
     }, 300);
     return () => {
       clearTimeout(timer);
@@ -504,6 +520,7 @@ export default function TicketManagementPage() {
   /** Mở form mới / vé khác: ô nội dung quay về hiện đúng theo form */
   const resetBox = () => {
     lastQuoteKey.current = null;
+    setQuoteNote('');
     ownText.current = null;
     setBoxVersion((v) => v + 1);
   };
@@ -1533,10 +1550,16 @@ export default function TicketManagementPage() {
                       <MoneyInput
                         className="input-3d font-bold text-red-600 dark:text-red-400"
                         value={formState.commission}
-                        onChange={(n) =>
-                          setFormState((p) => ({ ...p, commission: n }))
-                        }
+                        onChange={(n) => {
+                          setFormState((p) => ({ ...p, commission: n }));
+                          setQuoteNote('');
+                        }}
                       />
+                      {quoteNote && (
+                        <span className="mt-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          {quoteNote}
+                        </span>
+                      )}
                     </Field>
                   </div>
                 </Section>

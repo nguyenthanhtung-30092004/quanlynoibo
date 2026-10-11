@@ -35,6 +35,11 @@ export class OrdersSchemaGuard implements OnModuleInit {
         "createdAt" timestamptz NOT NULL DEFAULT now()
       )`,
       `CREATE INDEX IF NOT EXISTS "IDX_order_history_orderId" ON "order_history" ("orderId")`,
+      `CREATE TABLE IF NOT EXISTS "app_settings" (
+        "key" varchar(50) PRIMARY KEY,
+        "value" text NOT NULL DEFAULT '',
+        "updatedAt" timestamptz NOT NULL DEFAULT now()
+      )`,
     ];
     try {
       for (const sql of statements) await this.dataSource.query(sql);

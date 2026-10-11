@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import {
   ChatCircleText,
   Database,
@@ -9,6 +9,7 @@ import {
   Sparkle,
 } from '@phosphor-icons/react';
 import { useToast } from '@/features/xvip/toast';
+import { useSettings, useUpdateSettings } from '@/features/settings/hooks';
 import { Card, PageTitle } from '@/features/xvip/ui';
 
 export default function SettingsPage() {
@@ -32,6 +33,27 @@ export default function SettingsPage() {
 
   const showToast = useToast();
 
+  // Cài đặt lưu trên máy chủ: vào lại hay đổi máy vẫn thấy đúng giá trị đã lưu
+  const { data: saved } = useSettings();
+  const updateSettings = useUpdateSettings();
+  useEffect(() => {
+    if (!saved) return;
+    setCompanyName(saved.companyName);
+    setHotline(saved.hotline);
+    setAddress(saved.address);
+    setEmail(saved.email);
+    setSmsTemplate(saved.smsTemplate);
+  }, [saved]);
+
+  const save = async (input: Parameters<typeof updateSettings.mutateAsync>[0], okMessage: string) => {
+    try {
+      await updateSettings.mutateAsync(input);
+      showToast(okMessage);
+    } catch (err: unknown) {
+      showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không lưu được cài đặt.'}`);
+    }
+  };
+
   const samplePreview = smsTemplate
     .replace('{tenKhach}', 'Nguyễn Văn An')
     .replace('{sdt}', '0983 456 789')
@@ -43,17 +65,12 @@ export default function SettingsPage() {
 
   const handleSaveCompany = (e: FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('xvip_company_name', companyName);
-    localStorage.setItem('xvip_company_hotline', hotline);
-    localStorage.setItem('xvip_company_address', address);
-    localStorage.setItem('xvip_company_email', email);
-    showToast('Đã lưu thông tin cấu hình công ty thành công!');
+    void save({ companyName, hotline, address, email }, 'Đã lưu thông tin cấu hình công ty thành công!');
   };
 
   const handleSaveTemplate = (e: FormEvent) => {
     e.preventDefault();
-    localStorage.setItem('xvip_sms_template', smsTemplate);
-    showToast('Đã lưu mẫu tin nhắn SMS / Zalo 1-chạm thành công!');
+    void save({ smsTemplate }, 'Đã lưu mẫu tin nhắn SMS / Zalo 1-chạm thành công!');
   };
 
   const handleChangePassword = async (e: FormEvent) => {
@@ -89,7 +106,12 @@ export default function SettingsPage() {
         actions={
           <button
             type="button"
-            onClick={() => showToast('Tất cả cấu hình hệ thống đã được lưu vào bộ nhớ!')}
+            onClick={() =>
+              void save(
+                { companyName, hotline, address, email, smsTemplate },
+                'Đã lưu toàn bộ cấu hình hệ thống!',
+              )
+            }
             className="btn-3d btn-3d-blue flex items-center gap-2 px-5 py-2.5 text-sm"
           >
             <FloppyDisk size={18} weight="bold" /> Lưu toàn bộ cấu hình
