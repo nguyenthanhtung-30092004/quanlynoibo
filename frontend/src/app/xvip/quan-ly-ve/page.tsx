@@ -613,6 +613,9 @@ export default function TicketManagementPage() {
       errors.departureTime = 'Vui lòng chọn giờ đi.';
     if (!formState.departureDate)
       errors.departureDate = 'Vui lòng chọn ngày khởi hành.';
+    else if (!editingId && formState.departureDate < getVnToday())
+      // Vé mới không được đặt cho ngày đã qua (kể cả khi dán nội dung vào ô chữ)
+      errors.departureDate = 'Ngày khởi hành không được trước hôm nay.';
     if (!formState.partner.trim()) errors.partner = 'Vui lòng nhập đối tác.';
     if (!formState.vehicleType.trim())
       errors.vehicleType = 'Vui lòng chọn loại hình.';
@@ -1258,6 +1261,7 @@ export default function TicketManagementPage() {
                       error={formErrors.departureDate}
                     >
                       <DateInput
+                        min={getVnToday()}
                         value={formState.departureDate}
                         invalid={!!formErrors.departureDate}
                         onChange={(v) => {

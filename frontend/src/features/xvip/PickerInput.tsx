@@ -209,7 +209,7 @@ function Calendar({
                     ? 'cursor-not-allowed text-slate-300 dark:text-slate-700'
                     : `font-semibold hover:bg-blue-50 dark:hover:bg-slate-800 ${
                         inMonth ? 'text-slate-800 dark:text-slate-100' : 'text-slate-300 dark:text-slate-600'
-                      } ${isToday ? 'ring-2 ring-inset ring-amber-400' : ''}`
+                      } ${isToday ? 'bg-amber-50 font-black ring-2 ring-inset ring-amber-400 dark:bg-amber-900/20' : ''}`
               }`}
             >
               {d.getDate()}
