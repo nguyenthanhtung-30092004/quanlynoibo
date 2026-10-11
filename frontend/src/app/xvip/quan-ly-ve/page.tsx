@@ -479,7 +479,12 @@ export default function TicketManagementPage() {
     }
     if (key === lastQuoteKey.current) return;
     lastQuoteKey.current = key;
-    if (!formState.partner.trim() || quoteTickets < 1) return;
+    // Xóa hết ghế thì hoa hồng cũng về trống, không giữ số của lần chọn ghế trước
+    if (quoteTickets < 1) {
+      setFormState((p) => (p.commission ? { ...p, commission: 0 } : p));
+      return;
+    }
+    if (!formState.partner.trim()) return;
     const ctrl = new AbortController();
     const timer = setTimeout(() => {
       partnersApi
