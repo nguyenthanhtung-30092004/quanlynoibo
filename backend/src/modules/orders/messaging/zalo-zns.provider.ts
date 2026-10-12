@@ -6,12 +6,13 @@ import {
   type MessageProvider,
   type OutgoingMessage,
 } from './message.types.js';
+import { ZaloTokenService } from './zalo-token.service.js';
 
-const ENDPOINT = 'https://rest.esms.vn/MainService.svc/json/Send_zns_bulk_v4_post_json/';
+const ENDPOINT = 'https://business.openapi.zalo.me/message/template';
 
 type ParamKey = keyof OutgoingMessage['params'];
 
-/** Tên tham số trong ESMS_ZALO_PARAMS -> giá trị lấy từ đơn */
+/** Giá trị lấy từ đơn, dùng trong ZALO_TEMPLATE_PARAMS */
 const PARAM_ALIAS: Record<string, ParamKey> = {
   customer_name: 'customerName',
   route: 'route',
@@ -19,94 +20,87 @@ const PARAM_ALIAS: Record<string, ParamKey> = {
   departure_date: 'departureDate',
 };
 
-const ERROR_HINT: Record<string, string> = {
-  '101': 'sai ApiKey hoặc SecretKey',
-  '789': 'mẫu tin (TempID) chưa được cấu hình cho tài khoản eSMS này',
+const DEFAULT_PARAMS =
+  'customer_name=customer_name,route=route,departure_time=departure_time,departure_date=departure_date';
+
+const ERROR_HINT: Record<number, string> = {
+  [-124]: 'access token không hợp lệ hoặc đã hết hạn',
 };
 
 /**
- * Gửi tin Zalo ZNS qua eSMS (https://developers.esms.vn), nên KHÔNG phải tự làm
- * mới access token của Zalo.
+ * Gửi tin Zalo ZNS thẳng qua API Zalo (https://business.openapi.zalo.me/message/template),
+ * gửi theo số điện thoại, khách không cần quan tâm OA.
  *
- * Điều kiện: Official Account (OA) đã liên kết với eSMS và mẫu ZNS đã được duyệt.
+ * Điều kiện: OA đã xác thực, tài khoản ZBA có tiền, mẫu ZNS đã duyệt, ứng dụng đã liên kết OA.
  *
  * Biến môi trường:
- *  - ESMS_API_KEY, ESMS_SECRET_KEY  (dùng chung với SMS)
- *  - ESMS_ZALO_OAID    ID của Zalo OA
- *  - ESMS_ZALO_TEMPID  ID mẫu ZNS đã duyệt
- *  - ESMS_ZALO_PARAMS  thứ tự các biến trong mẫu, ngăn cách bằng dấu phẩy. Chọn trong:
- *                      customer_name, route, departure_time, departure_date
- *                      (mặc định: customer_name,route,departure_time,departure_date)
- *  - ESMS_SANDBOX      true = thử nghiệm, không gửi thật và không tính phí
- *
- * ZNS chỉ gửi theo mẫu đã duyệt, không gửi chữ tự do. Mã 100 chỉ xác nhận eSMS đã
- * NHẬN yêu cầu, chưa chắc Zalo đã chuyển tới khách.
+ *  - ZALO_APP_ID, ZALO_APP_SECRET  khóa ứng dụng ở developers.zalo.me
+ *  - ZALO_REFRESH_TOKEN            refresh token cấp lần đầu (sau đó hệ thống tự lưu cặp mới)
+ *  - ZALO_TEMPLATE_ID              ID mẫu ZNS đã duyệt
+ *  - ZALO_TEMPLATE_PARAMS          "tên biến trong mẫu=giá trị lấy từ đơn", ngăn cách bằng dấu phẩy.
+ *                                  Giá trị chọn trong: customer_name, route, departure_time,
+ *                                  departure_date (mặc định: mỗi biến trùng tên với giá trị)
+ *  - ZALO_SANDBOX                  true = chế độ development, không tính phí, chỉ gửi được cho
+ *                                  quản trị viên của OA
  */
 @Injectable()
 export class ZaloZnsProvider implements MessageProvider {
   readonly channel = MessageChannel.ZALO;
 
-  constructor(private readonly config: ConfigService) {}
+  constructor(
+    private readonly config: ConfigService,
+    private readonly tokens: ZaloTokenService,
+  ) {}
 
   isConfigured(): boolean {
-    return (
-      !!this.config.get<string>('ESMS_API_KEY') &&
-      !!this.config.get<string>('ESMS_SECRET_KEY') &&
-      !!this.config.get<string>('ESMS_ZALO_OAID') &&
-      !!this.config.get<string>('ESMS_ZALO_TEMPID')
-    );
+    return this.tokens.hasCredentials() && !!this.config.get<string>('ZALO_TEMPLATE_ID');
   }
 
   async send({ phone, params }: OutgoingMessage): Promise<void> {
-    const order = (
-      this.config.get<string>('ESMS_ZALO_PARAMS') ??
-      'customer_name,route,departure_time,departure_date'
-    )
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-
-    const values = order.map((name) => {
-      const key = PARAM_ALIAS[name];
-      if (!key) {
+    const templateData: Record<string, string> = {};
+    for (const pair of (this.config.get<string>('ZALO_TEMPLATE_PARAMS') || DEFAULT_PARAMS).split(',')) {
+      if (!pair.trim()) continue;
+      const [name, alias] = pair.split('=').map((s) => s.trim());
+      const key = PARAM_ALIAS[alias];
+      if (!name || !key) {
         throw new BadGatewayException(
-          `ESMS_ZALO_PARAMS có tên không hợp lệ: "${name}". Chỉ dùng: ${Object.keys(PARAM_ALIAS).join(', ')}.`,
+          `ZALO_TEMPLATE_PARAMS có mục không hợp lệ: "${pair.trim()}". Dạng đúng: tên_biến=giá_trị, giá trị chỉ dùng: ${Object.keys(PARAM_ALIAS).join(', ')}.`,
         );
       }
-      return params[key];
-    });
+      templateData[name] = params[key];
+    }
 
     const body: Record<string, unknown> = {
-      ApiKey: this.config.getOrThrow<string>('ESMS_API_KEY'),
-      SecretKey: this.config.getOrThrow<string>('ESMS_SECRET_KEY'),
-      OAID: this.config.getOrThrow<string>('ESMS_ZALO_OAID'),
-      TempID: this.config.getOrThrow<string>('ESMS_ZALO_TEMPID'),
-      Data: [{ Phone: toInternationalPhone(phone), Params: values }],
+      phone: toInternationalPhone(phone),
+      template_id: this.config.getOrThrow<string>('ZALO_TEMPLATE_ID').trim(),
+      template_data: templateData,
     };
-    if (this.config.get<string>('ESMS_SANDBOX') === 'true') body.Sandbox = '1';
+    if (this.config.get<string>('ZALO_SANDBOX') === 'true') body.mode = 'development';
+
+    const accessToken = await this.tokens.getAccessToken();
 
     let res: Response;
     try {
       res = await fetch(ENDPOINT, {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: { 'content-type': 'application/json', access_token: accessToken },
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(15_000),
       });
     } catch {
-      throw new BadGatewayException('Không kết nối được eSMS. Vui lòng thử lại sau.');
+      throw new BadGatewayException('Không kết nối được Zalo. Vui lòng thử lại sau.');
     }
 
     const json = (await res.json().catch(() => null)) as {
-      CodeResult?: string;
-      ErrorMessage?: string;
+      error?: number;
+      message?: string;
     } | null;
-    const code = json?.CodeResult;
 
-    if (!res.ok || code !== '100') {
-      const reason = (code && ERROR_HINT[code]) || json?.ErrorMessage;
+    if (!res.ok || json?.error !== 0) {
+      const code = json?.error;
+      const reason = (code !== undefined && ERROR_HINT[code]) || json?.message;
       throw new BadGatewayException(
-        `Gửi Zalo qua eSMS thất bại (mã ${code ?? res.status})${reason ? `: ${reason}` : ''}.`,
+        `Gửi Zalo thất bại (mã ${code ?? res.status})${reason ? `: ${reason}` : ''}.`,
       );
     }
   }
