@@ -892,7 +892,7 @@ export default function TicketManagementPage() {
                     page: 1,
                   }))
                 }
-                placeholder="Tên khách hàng, số điện thoại, điểm đón..."
+                placeholder="Mã đơn (XV116), tên khách, số điện thoại, điểm đón..."
               />
             </span>
           </label>

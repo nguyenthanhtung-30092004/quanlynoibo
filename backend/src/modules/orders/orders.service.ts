@@ -1057,9 +1057,15 @@ export class OrdersService {
       });
     }
     if (filter.search?.trim()) {
+      const keyword = filter.search.trim();
+      // Mã đơn hiển thị là XV<id> (ví dụ XV116): gõ đúng dạng đó thì tìm thêm theo id
+      const orderCode = /^xv\s*(\d{1,9})$/i.exec(keyword);
       qb.andWhere(
-        `(order.customerName ILIKE :q OR order.phone ILIKE :q OR route.name ILIKE :q OR order.vehicleType ILIKE :q OR order.partner ILIKE :q OR order.pickupPoint ILIKE :q OR order.dropoffPoint ILIKE :q OR order.note ILIKE :q)`,
-        { q: `%${this.escapeLike(filter.search.trim())}%` },
+        `(order.customerName ILIKE :q OR order.phone ILIKE :q OR route.name ILIKE :q OR order.vehicleType ILIKE :q OR order.partner ILIKE :q OR order.pickupPoint ILIKE :q OR order.dropoffPoint ILIKE :q OR order.note ILIKE :q${orderCode ? ' OR order.id = :orderId' : ''})`,
+        {
+          q: `%${this.escapeLike(keyword)}%`,
+          ...(orderCode ? { orderId: Number(orderCode[1]) } : {}),
+        },
       );
     }
     return qb;
