@@ -32,6 +32,7 @@ const MAX_PARAM_LENGTH = 30;
 
 const ERROR_HINT: Record<number, string> = {
   [-124]: 'access token không hợp lệ hoặc đã hết hạn',
+  [-118]: 'số điện thoại này không có Zalo',
 };
 
 /**
