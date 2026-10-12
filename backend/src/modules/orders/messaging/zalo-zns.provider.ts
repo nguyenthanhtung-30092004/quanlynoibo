@@ -18,10 +18,17 @@ const PARAM_ALIAS: Record<string, ParamKey> = {
   route: 'route',
   departure_time: 'departureTime',
   departure_date: 'departureDate',
+  booking_code: 'bookingCode',
+  pickup_point: 'pickupPoint',
+  dropoff_point: 'dropoffPoint',
+  seat_count: 'seatCount',
 };
 
 const DEFAULT_PARAMS =
   'customer_name=customer_name,route=route,departure_time=departure_time,departure_date=departure_date';
+
+/** Mỗi tham số của mẫu ZNS tối đa 30 ký tự và không được để trống */
+const MAX_PARAM_LENGTH = 30;
 
 const ERROR_HINT: Record<number, string> = {
   [-124]: 'access token không hợp lệ hoặc đã hết hạn',
@@ -39,7 +46,8 @@ const ERROR_HINT: Record<number, string> = {
  *  - ZALO_TEMPLATE_ID              ID mẫu ZNS đã duyệt
  *  - ZALO_TEMPLATE_PARAMS          "tên biến trong mẫu=giá trị lấy từ đơn", ngăn cách bằng dấu phẩy.
  *                                  Giá trị chọn trong: customer_name, route, departure_time,
- *                                  departure_date (mặc định: mỗi biến trùng tên với giá trị)
+ *                                  departure_date, booking_code, pickup_point, dropoff_point,
+ *                                  seat_count
  *  - ZALO_SANDBOX                  true = chế độ development, không tính phí, chỉ gửi được cho
  *                                  quản trị viên của OA
  */
@@ -67,7 +75,7 @@ export class ZaloZnsProvider implements MessageProvider {
           `ZALO_TEMPLATE_PARAMS có mục không hợp lệ: "${pair.trim()}". Dạng đúng: tên_biến=giá_trị, giá trị chỉ dùng: ${Object.keys(PARAM_ALIAS).join(', ')}.`,
         );
       }
-      templateData[name] = params[key];
+      templateData[name] = (params[key] || '-').trim().slice(0, MAX_PARAM_LENGTH) || '-';
     }
 
     const body: Record<string, unknown> = {

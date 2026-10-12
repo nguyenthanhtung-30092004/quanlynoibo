@@ -16,6 +16,12 @@ export interface OutgoingMessage {
     departureTime: string;
     /** DD/MM/YYYY */
     departureDate: string;
+    /** Mã đặt xe, ví dụ XV142 */
+    bookingCode: string;
+    pickupPoint: string;
+    dropoffPoint: string;
+    /** Số vé (ghế) của đơn */
+    seatCount: string;
   };
 }
 

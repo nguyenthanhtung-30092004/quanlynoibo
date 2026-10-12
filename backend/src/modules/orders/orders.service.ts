@@ -408,6 +408,10 @@ export class OrdersService {
         route: order.route.name,
         departureTime: order.departureTime,
         departureDate: `${day}/${month}/${year}`,
+        bookingCode: `XV${order.id}`,
+        pickupPoint: order.pickupPoint ?? '',
+        dropoffPoint: order.dropoffPoint ?? '',
+        seatCount: String(order.seatCount),
       },
     });
 
