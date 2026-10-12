@@ -558,7 +558,8 @@ export default function TicketManagementPage() {
     setRebookFromId(null);
     setFormState(defaultFormState);
     setFormErrors({});
-    setAutoSend({ SMS: false, ZALO: false });
+    // Vé mới: mặc định gửi Zalo cho khách (nhân viên bỏ tích nếu không muốn gửi)
+    setAutoSend({ SMS: false, ZALO: true });
     setIsOpenModal(true);
   };
 
@@ -590,11 +591,12 @@ export default function TicketManagementPage() {
       staffId: isAdmin ? o.staff?.id : undefined,
     });
     setFormErrors({});
-    setAutoSend({ SMS: false, ZALO: false });
+    // Đặt lại cũng là tạo vé mới nên mặc định gửi Zalo như vé mới
+    setAutoSend({ SMS: false, ZALO: true });
     setIsOpenModal(true);
   };
 
-  const handleOpenEdit = (o: Order) => {
+  const handleOpenEdit =(o: Order) => {
     resetBox();
     setRebookFromId(null);
     setEditingId(o.id);
