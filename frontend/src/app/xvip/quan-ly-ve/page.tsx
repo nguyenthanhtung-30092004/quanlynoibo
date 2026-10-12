@@ -46,7 +46,7 @@ import {
 import { useToast } from '@/features/xvip/toast';
 import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { formatDateVN } from '@/lib/format';
+import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '@/features/orders/parse-order-text';
 
@@ -734,7 +734,7 @@ export default function TicketManagementPage() {
           staffId: isAdmin ? formState.staffId : undefined,
         });
         const base = rebookFromId
-          ? `Đã đặt lại đơn #${rebookFromId} thành đơn mới thành công!`
+          ? `Đã đặt lại đơn ${formatOrderCode(rebookFromId)} thành đơn mới thành công!`
           : 'Đã thêm mới đơn vé vào cơ sở dữ liệu thành công!';
         showToast(`${base}${await sendSelectedChannels(created.id)}`);
       }
@@ -762,7 +762,7 @@ export default function TicketManagementPage() {
     try {
       await cancelMutation.mutateAsync({ id: cancelTarget.id, reason });
       showToast(
-        `Đã hủy vé #${cancelTarget.id}. Vé không còn tính vào doanh thu.`,
+        `Đã hủy vé ${formatOrderCode(cancelTarget.id)}. Vé không còn tính vào doanh thu.`,
       );
       refetch();
     } catch (err: unknown) {
@@ -776,7 +776,7 @@ export default function TicketManagementPage() {
     if (!deleteTarget) return;
     try {
       await deleteMutation.mutateAsync(deleteTarget.id);
-      showToast(`Đã xóa đơn vé #${deleteTarget.id} khỏi hệ thống.`);
+      showToast(`Đã xóa đơn vé ${formatOrderCode(deleteTarget.id)} khỏi hệ thống.`);
       refetch();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Có lỗi khi xóa đơn vé.';
@@ -1049,7 +1049,7 @@ export default function TicketManagementPage() {
                     <td
                       className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}
                     >
-                      #{t.id}
+                      {formatOrderCode(t.id)}
                       {t.cancelledAt && (
                         <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                           Đã hủy
@@ -1194,9 +1194,9 @@ export default function TicketManagementPage() {
         <Modal
           title={
             editingId
-              ? `Cập nhật đơn vé #${editingId}`
+              ? `Cập nhật đơn vé ${formatOrderCode(editingId)}`
               : rebookFromId
-                ? `Đặt lại đơn #${rebookFromId} (tạo đơn mới)`
+                ? `Đặt lại đơn ${formatOrderCode(rebookFromId)} (tạo đơn mới)`
                 : 'Thêm vé / Đơn đặt xe mới'
           }
           onClose={() => setIsOpenModal(false)}
@@ -1709,7 +1709,7 @@ export default function TicketManagementPage() {
       {/* Chi tiết đơn (bấm vào dòng) */}
       {detailOrder && (
         <Modal
-          title={`Chi tiết đơn #${detailOrder.id}`}
+          title={`Chi tiết đơn ${formatOrderCode(detailOrder.id)}`}
           onClose={() => setDetailOrder(null)}
         >
           <div className="space-y-4">
@@ -1832,7 +1832,7 @@ export default function TicketManagementPage() {
             <p className="text-sm text-slate-700 dark:text-slate-300">
               Hủy vé{' '}
               <strong className="text-slate-900 dark:text-white">
-                #{cancelTarget.id}
+                {formatOrderCode(cancelTarget.id)}
               </strong>{' '}
               của khách{' '}
               <strong className="text-slate-900 dark:text-white">
@@ -1911,7 +1911,7 @@ export default function TicketManagementPage() {
             <p className="text-sm text-slate-700 dark:text-slate-300">
               Bạn có chắc chắn muốn xóa đơn vé{' '}
               <strong className="text-slate-900 dark:text-white">
-                #{deleteTarget.id}
+                {formatOrderCode(deleteTarget.id)}
               </strong>{' '}
               của khách hàng{' '}
               <strong className="text-slate-900 dark:text-white">

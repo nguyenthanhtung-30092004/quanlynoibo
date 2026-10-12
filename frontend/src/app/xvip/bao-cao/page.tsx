@@ -23,7 +23,7 @@ import { money } from '@/features/xvip/data';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { Pagination } from '@/features/xvip/Pagination';
 import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
-import { formatDateVN } from '@/lib/format';
+import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import {
   DateRangeFilter,
@@ -673,7 +673,7 @@ export default function StaffReportPage() {
                       {(ticketPage - 1) * ORDERS_PAGE_SIZE + i + 1}
                     </td>
                     <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
-                      #{t.id}
+                      {formatOrderCode(t.id)}
                       {t.cancelledAt && (
                         <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                           Đã hủy

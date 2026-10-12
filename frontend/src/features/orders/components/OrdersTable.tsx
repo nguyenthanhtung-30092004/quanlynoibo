@@ -17,7 +17,7 @@ import { useCurrentUser } from '@/features/auth/hooks';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { useActiveStaff } from '@/features/users/hooks';
 import { ApiError } from '@/lib/api-client';
-import { formatDateTimeShort, formatVND } from '@/lib/format';
+import { formatDateTimeShort, formatOrderCode, formatVND } from '@/lib/format';
 import { getVnToday, isOrderingLocked } from '@/lib/time';
 import { useUiStore } from '@/stores/ui-store';
 import { ORDERS_PAGE_SIZE } from '../constants';
@@ -129,7 +129,7 @@ export function OrdersTable() {
 
   const confirmDelete = (o: Order) => {
     modal.confirm({
-      title: `Xóa đơn hàng #${o.id}?`,
+      title: `Xóa đơn hàng ${formatOrderCode(o.id)}?`,
       content: `Khách hàng: ${o.customerName || o.phone} (${o.route?.name}). Hành động này không thể hoàn tác.`,
       okText: 'Xóa đơn',
       cancelText: 'Hủy',

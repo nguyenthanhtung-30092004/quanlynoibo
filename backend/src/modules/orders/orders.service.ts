@@ -395,6 +395,11 @@ export class OrdersService {
   async sendMessage(id: number, channel: MessageChannel, actor: JwtPayload) {
     const order = await this.findEntity(id, actor);
     const [year, month, day] = order.departureDate.split('-');
+    // Số vé: lấy tổng nếu có, không thì cộng ghế đầu + giữa + cuối (giống cách giao diện tính)
+    const seats =
+      order.seatCount > 0
+        ? order.seatCount
+        : order.seatFront + order.seatMiddle + order.seatBack;
 
     const { dryRun, referentId } = await this.messaging.send(channel, {
       phone: order.phone,
@@ -411,7 +416,7 @@ export class OrdersService {
         bookingCode: `XV${order.id}`,
         pickupPoint: order.pickupPoint ?? '',
         dropoffPoint: order.dropoffPoint ?? '',
-        seatCount: String(order.seatCount),
+        seatCount: seats > 0 ? String(seats) : '',
       },
     });
 

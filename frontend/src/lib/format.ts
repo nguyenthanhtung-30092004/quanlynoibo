@@ -7,6 +7,11 @@ export function formatVND(amount: number): string {
   return vndFormatter.format(amount);
 }
 
+/** Mã đơn hiển thị cho người dùng và gửi cho khách: 142 -> 'XV142' */
+export function formatOrderCode(id: number): string {
+  return `XV${id}`;
+}
+
 /** 'YYYY-MM-DD' -> 'DD/MM/YYYY' */
 export function formatDateVN(date: string): string {
   const [year, month, day] = date.split('-');

@@ -18,7 +18,7 @@ import { useUsers } from '@/features/users/hooks';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
-import { formatDateVN } from '@/lib/format';
+import { formatDateVN, formatOrderCode } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
@@ -378,7 +378,7 @@ function OverviewContent() {
                   <tr key={t.id} className="hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors">
                     <td className={TD}>{i + 1}</td>
                     <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
-                      #{t.id}
+                      {formatOrderCode(t.id)}
                     </td>
                     <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
                       {t.departureTime}

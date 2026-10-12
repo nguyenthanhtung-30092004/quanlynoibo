@@ -3,7 +3,7 @@
 import { ArrowRight, ClockCounterClockwise, PaperPlaneTilt, PencilSimple, PlusCircle, XCircle } from '@phosphor-icons/react';
 import { Modal } from '@/features/xvip/Modal';
 import { money } from '@/features/xvip/data';
-import { formatDateVN } from '@/lib/format';
+import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { useOrderHistory } from '../hooks';
 import type { OrderHistoryAction } from '../types';
 
@@ -42,7 +42,7 @@ export function OrderHistoryModal({ orderId, onClose }: { orderId: number; onClo
   const { data, isLoading, isError } = useOrderHistory(orderId);
 
   return (
-    <Modal title={`Lịch sử đơn #${orderId}`} onClose={onClose}>
+    <Modal title={`Lịch sử đơn ${formatOrderCode(orderId)}`} onClose={onClose}>
       {isLoading ? (
         <p className="py-6 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải lịch sử...</p>
       ) : isError ? (
