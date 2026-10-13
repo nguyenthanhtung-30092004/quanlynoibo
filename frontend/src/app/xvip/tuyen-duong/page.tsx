@@ -99,8 +99,10 @@ export default function RoutesPage() {
   }, [apiData]);
 
   const filtered = useMemo(() => {
+    const idQuery = search.trim().replace(/^#/, '');
     return routesList.filter((r) => {
       const matchSearch =
+        (idQuery !== '' && String(r.id) === idQuery) ||
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.origin.toLowerCase().includes(search.toLowerCase()) ||
         r.destination.toLowerCase().includes(search.toLowerCase());
