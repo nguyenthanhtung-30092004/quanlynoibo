@@ -389,25 +389,25 @@ export default function StaffReportPage() {
       </Card>
 
       {/* 3D KPI Metrics Cards */}
-      <div className={`mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div
           style={{
             boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #6b21a8, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-purple-600 to-purple-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+          className="group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-purple-600 to-purple-700 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
         >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <ClipboardText size={26} weight="fill" />
+          <span className="flex size-10 sm:size-11 xl:size-10 2xl:size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <ClipboardText size={22} weight="fill" />
           </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
+          <div className="min-w-0 flex-1">
+            <div className="break-words text-xs font-semibold uppercase tracking-wider text-white/80 leading-tight">
               Tổng số đơn
             </div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+            <div className="tnum whitespace-nowrap text-lg sm:text-xl xl:text-lg 2xl:text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight my-0.5">
               {totalOrders.toLocaleString('vi-VN')} đơn
             </div>
-            <div className="text-[11px] font-medium text-white/90">
+            <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
               Mỗi đơn có thể gồm nhiều vé
             </div>
           </div>
@@ -418,43 +418,42 @@ export default function StaffReportPage() {
             boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #1d4ed8, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-blue-600 to-blue-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+          className="group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-blue-600 to-blue-700 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
         >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <Ticket size={26} weight="fill" />
+          <span className="flex size-10 sm:size-11 xl:size-10 2xl:size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <Ticket size={22} weight="fill" />
           </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
+          <div className="min-w-0 flex-1">
+            <div className="break-words text-xs font-semibold uppercase tracking-wider text-white/80 leading-tight">
               Tổng vé bán ra
             </div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+            <div className="tnum whitespace-nowrap text-lg sm:text-xl xl:text-lg 2xl:text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight my-0.5">
               {totalTickets.toLocaleString('vi-VN')} vé
             </div>
-            <div className="text-[11px] font-medium text-white/90">
+            <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
               Tính theo số ghế của từng đơn
             </div>
           </div>
         </div>
-
 
         <div
           style={{
             boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #0f766e, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-teal-600 to-teal-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+          className="group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-teal-600 to-teal-700 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
         >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <HandCoins size={26} weight="fill" />
+          <span className="flex size-10 sm:size-11 xl:size-10 2xl:size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <HandCoins size={22} weight="fill" />
           </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
-              Tổng tiền đã cọc
+          <div className="min-w-0 flex-1">
+            <div className="break-words text-xs font-semibold uppercase tracking-wider text-white/80 leading-tight">
+              Đã cọc xvip
             </div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+            <div className="tnum whitespace-nowrap text-lg sm:text-xl xl:text-lg 2xl:text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight my-0.5">
               {money(totalDeposit)}đ
             </div>
-            <div className="text-[11px] font-medium text-white/90">
+            <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
               Khách đã đặt cọc trước
             </div>
           </div>
@@ -465,19 +464,19 @@ export default function StaffReportPage() {
             boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #b45309, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+          className="group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
         >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <Percent size={26} weight="fill" />
+          <span className="flex size-10 sm:size-11 xl:size-10 2xl:size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <Percent size={22} weight="fill" />
           </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
+          <div className="min-w-0 flex-1">
+            <div className="break-words text-xs font-semibold uppercase tracking-wider text-white/80 leading-tight">
               Doanh số
             </div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+            <div className="tnum whitespace-nowrap text-lg sm:text-xl xl:text-lg 2xl:text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight my-0.5">
               {money(totalCommission)}đ
             </div>
-            <div className="text-[11px] font-medium text-white/90">
+            <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
               Lợi nhuận gộp từ đơn vé
             </div>
           </div>
