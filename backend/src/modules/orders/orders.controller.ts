@@ -138,6 +138,17 @@ export class OrdersController {
     });
   }
 
+  /** Danh sách đối tác không có trong danh sách trên các đơn còn hiệu lực (chỉ Admin) */
+  @Get('unlisted-partners')
+  @Roles(UserRole.ADMIN)
+  async unlistedPartners() {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy danh sách đối tác không có trong danh sách thành công',
+      data: await this.ordersService.unlistedPartners(),
+    };
+  }
+
   /** Nhập đơn từ file Excel (chỉ Admin), file gửi dạng multipart trường "file" */
   @Post('import')
   @Roles(UserRole.ADMIN)

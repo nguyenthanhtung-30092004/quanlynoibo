@@ -175,8 +175,8 @@ export interface OrderHistoryEntry {
   createdAt: string;
 }
 
-/** Công nợ gộp theo đối tác trong khoảng lọc */
-export interface PartnerDebt {
+/** Dòng công nợ gộp theo một đối tác chuẩn */
+export interface PartnerDebtItem {
   partner: string;
   orders: number;
   tickets: number;
@@ -184,6 +184,24 @@ export interface PartnerDebt {
   commission: number;
   /** Giá nhập: số tiền phải trả nhà xe */
   cost: number;
+}
+
+/** Thông tin các đơn đối tác ngoài danh sách bị loại */
+export interface PartnerDebtExcluded {
+  orders: number;
+  partners: string[];
+}
+
+/** Công nợ gộp theo đối tác trong khoảng lọc kèm các đơn bị loại ngoài danh sách */
+export interface PartnerDebt {
+  items: PartnerDebtItem[];
+  excluded: PartnerDebtExcluded;
+}
+
+/** Đối tác ngoài danh sách trên các đơn còn hiệu lực */
+export interface UnlistedPartnerInfo {
+  partner: string;
+  orders: number;
 }
 
 /** Một hoạt động trên đơn, hiện trong chuông thông báo */

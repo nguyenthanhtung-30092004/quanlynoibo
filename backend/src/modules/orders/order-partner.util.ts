@@ -19,3 +19,61 @@ export function matchCanonicalPartner(
   const matched = partners.find((p) => p.name.trim().toLowerCase() === needle);
   return matched ? matched.name : undefined;
 }
+
+export interface HasPartner {
+  partner?: string | null;
+}
+
+/**
+ * Lọc danh sách đơn hoặc đối tượng có trường partner:
+ * - Đơn không có đối tác (rỗng / chỉ khoảng trắng / null / undefined) -> giữ lại (hợp lệ).
+ * - Đơn có đối tác khớp bảng đối tác -> giữ lại.
+ * - Đơn có đối tác khác rỗng nhưng không khớp bảng đối tác -> bị loại.
+ * Trả về { valid: T[], excluded: T[] }.
+ */
+export function filterOrdersByPartner<T extends HasPartner>(
+  orders: T[],
+  partners: PartnerLike[],
+): { valid: T[]; excluded: T[] } {
+  const valid: T[] = [];
+  const excluded: T[] = [];
+  for (const o of orders) {
+    const canonical = matchCanonicalPartner(o.partner, partners);
+    if (canonical !== undefined) {
+      valid.push(o);
+    } else {
+      excluded.push(o);
+    }
+  }
+  return { valid, excluded };
+}
+
+export interface UnlistedPartnerSummary {
+  partner: string;
+  orders: number;
+}
+
+/**
+ * Tìm và thống kê các tên đối tác trên đơn không khớp bảng đối tác.
+ * - Gom theo tên không phân biệt hoa thường.
+ * - Sắp xếp theo số đơn giảm dần.
+ */
+export function findUnlistedPartners<T extends HasPartner>(
+  orders: T[],
+  partners: PartnerLike[],
+): UnlistedPartnerSummary[] {
+  const map = new Map<string, { partner: string; orders: number }>();
+  for (const o of orders) {
+    if (matchCanonicalPartner(o.partner, partners) === undefined) {
+      const raw = o.partner!.trim();
+      const key = raw.toLowerCase();
+      const existing = map.get(key);
+      if (existing) {
+        existing.orders += 1;
+      } else {
+        map.set(key, { partner: raw, orders: 1 });
+      }
+    }
+  }
+  return [...map.values()].sort((a, b) => b.orders - a.orders);
+}

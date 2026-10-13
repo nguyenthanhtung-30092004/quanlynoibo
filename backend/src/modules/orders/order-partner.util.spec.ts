@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { matchCanonicalPartner } from './order-partner.util.js';
+import {
+  filterOrdersByPartner,
+  findUnlistedPartners,
+  matchCanonicalPartner,
+} from './order-partner.util.js';
 
 describe('matchCanonicalPartner', () => {
   const partners = [
@@ -31,5 +35,63 @@ describe('matchCanonicalPartner', () => {
     expect(matchCanonicalPartner('Cửa Ông 1', partners)).toBeUndefined();
     expect(matchCanonicalPartner('Nhà xe lạ', partners)).toBeUndefined();
     expect(matchCanonicalPartner('Sao', partners)).toBeUndefined();
+  });
+});
+
+describe('filterOrdersByPartner', () => {
+  const partners = [
+    { name: 'Sao Việt' },
+    { name: 'Cửa Ông' },
+  ];
+
+  it('giữ lại đơn không có đối tác và đơn khớp bảng đối tác, loại đơn đối tác lạ', () => {
+    const orders = [
+      { id: 1, partner: null },
+      { id: 2, partner: '' },
+      { id: 3, partner: '   ' },
+      { id: 4, partner: 'Sao Việt' },
+      { id: 5, partner: 'sao việt' },
+      { id: 6, partner: '  CỬA ÔNG  ' },
+      { id: 7, partner: 'Sao Việt 1' },
+      { id: 8, partner: 'Nhà xe lạ' },
+    ];
+
+    const { valid, excluded } = filterOrdersByPartner(orders, partners);
+
+    expect(valid.map((o) => o.id)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(excluded.map((o) => o.id)).toEqual([7, 8]);
+  });
+});
+
+describe('findUnlistedPartners', () => {
+  const partners = [
+    { name: 'Sao Việt' },
+    { name: 'Cửa Ông' },
+  ];
+
+  it('gom nhóm đối tác lạ không phân biệt hoa thường và sắp theo số đơn giảm dần', () => {
+    const orders = [
+      { id: 1, partner: 'Sao Việt 1' },
+      { id: 2, partner: 'sao việt 1' },
+      { id: 3, partner: '  SAO VIỆT 1  ' },
+      { id: 4, partner: 'Cửa Ông 1' },
+      { id: 5, partner: 'Sao Việt' }, // Hợp lệ, không tính
+      { id: 6, partner: null }, // Rỗng, không tính
+    ];
+
+    const unlisted = findUnlistedPartners(orders, partners);
+
+    expect(unlisted).toEqual([
+      { partner: 'Sao Việt 1', orders: 3 },
+      { partner: 'Cửa Ông 1', orders: 1 },
+    ]);
+  });
+
+  it('trả về mảng rỗng nếu không có đối tác lạ', () => {
+    const orders = [
+      { id: 1, partner: 'Sao Việt' },
+      { id: 2, partner: null },
+    ];
+    expect(findUnlistedPartners(orders, partners)).toEqual([]);
   });
 });

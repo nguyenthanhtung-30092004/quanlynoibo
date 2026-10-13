@@ -8,6 +8,7 @@ import {
   Receipt,
   Scales,
   Bus,
+  WarningCircle,
 } from '@phosphor-icons/react';
 import { usePartners } from '@/features/partners/hooks';
 import { useDebts } from '@/features/orders/hooks';
@@ -43,7 +44,8 @@ export default function DebtPage() {
 
   // Tính toán công nợ thực tế cho từng đối tác từ danh sách đơn hàng
   const debtList = useMemo(() => {
-    const byName = new Map((debtData ?? []).map((d) => [d.partner.toLowerCase(), d]));
+    const items = debtData?.items ?? [];
+    const byName = new Map(items.map((d) => [d.partner.toLowerCase(), d]));
     return carriers.map((c) => {
       const d = byName.get(c.name.toLowerCase());
       const totalTickets = d?.tickets ?? 0;
@@ -224,6 +226,17 @@ export default function DebtPage() {
           </div>
         </div>
       </div>
+ 
+      {/* Ghi chú các đơn thuộc đối tác không có trong danh sách bị loại */}
+      {debtData?.excluded && debtData.excluded.orders > 0 && (
+        <div className="mt-5 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-sm font-medium text-amber-900 shadow-[0_2px_0_#fcd34d] dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <WarningCircle size={20} weight="fill" className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div>
+            Có <strong>{debtData.excluded.orders}</strong> đơn thuộc đối tác không có trong danh sách
+            {debtData.excluded.partners.length > 0 && ` (tên ${debtData.excluded.partners.join(', ')})`} nên không được tính.
+          </div>
+        </div>
+      )}
 
       {/* 3D Table List */}
       <Card className="mt-5 !p-0 overflow-hidden">

@@ -20,6 +20,7 @@ import {
   Repeat,
   Trash,
   XCircle,
+  WarningCircle,
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
 import {
@@ -30,6 +31,7 @@ import {
   useDeleteOrder,
   useCancelOrder,
   useImportOrders,
+  useUnlistedPartners,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -355,6 +357,7 @@ export default function TicketManagementPage() {
   const isAdmin = me?.role === 'ADMIN';
   // Danh sách nhân viên chỉ Admin được xem (backend trả 403 cho nhân viên)
   const { data: activeStaff = [] } = useActiveStaff(isAdmin);
+  const { data: unlistedPartners = [] } = useUnlistedPartners(isAdmin);
 
   // Các ô lọc chỉ gợi ý tuyến / đối tác có đơn trong khoảng ngày đang xem; chọn nhân viên thì
   // thu hẹp tiếp theo đơn của người đó. Đang tìm kiếm thì tìm trong tất cả vé nên không thu hẹp.
@@ -921,6 +924,36 @@ export default function TicketManagementPage() {
       >
         Quản lý vé &amp; Đơn đặt xe
       </PageTitle>
+
+      {/* Cảnh báo đối tác không có trong danh sách (chỉ Admin) */}
+      {isAdmin && unlistedPartners.length > 0 && (
+        <div className="mb-4 flex items-start gap-3 rounded-2xl border border-amber-300 bg-amber-50/90 p-4 text-sm font-medium text-amber-900 shadow-[0_2px_0_#fcd34d] dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-200">
+          <WarningCircle size={20} weight="fill" className="shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div>
+            Có <strong>{unlistedPartners.length}</strong> đối tác không có trong danh sách:{' '}
+            {unlistedPartners.map((u, i) => (
+              <span key={u.partner}>
+                {i > 0 && ', '}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilters((prev) => ({
+                      ...prev,
+                      search: u.partner,
+                      page: 1,
+                    }))
+                  }
+                  className="font-bold underline decoration-amber-400 underline-offset-2 hover:text-amber-950 dark:hover:text-amber-100"
+                  title={`Bấm để tìm kiếm vé của "${u.partner}"`}
+                >
+                  {u.partner} ({u.orders} đơn)
+                </button>
+              </span>
+            ))}
+            . Tìm theo tên ở ô tìm kiếm của Quản lý vé và sửa lại đối tác.
+          </div>
+        </div>
+      )}
 
       {/* Bộ lọc 3D dập chìm */}
       <Card>

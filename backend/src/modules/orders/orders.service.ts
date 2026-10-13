@@ -39,7 +39,12 @@ import {
   parseOrderWorkbook,
   type ImportRow,
 } from './order-import.parser.js';
-import { matchCanonicalPartner } from './order-partner.util.js';
+import {
+  filterOrdersByPartner,
+  findUnlistedPartners,
+  matchCanonicalPartner,
+  type UnlistedPartnerSummary,
+} from './order-partner.util.js';
 
 /** Kết quả nhập Excel: số đơn đã nạp, trùng đã bỏ qua và các dòng lỗi */
 export interface ImportResult {
@@ -785,15 +790,31 @@ export class OrdersService {
   /** Công nợ theo đối tác trong khoảng lọc: số đơn, vé, thu hộ, hoa hồng giữ, giá nhập phải trả. Vé hủy không tính */
   async debts(query: KpiQueryDto, actor: JwtPayload) {
     const { orders } = await this.kpiOrders(query, actor);
+    const partners = await this.partnerRepository.find({ select: { name: true } });
     const groups = new Map<
       string,
       { partner: string; orders: number; tickets: number; revenue: number; commission: number; cost: number }
     >();
+    let excludedOrders = 0;
+    const excludedPartnersMap = new Map<string, string>();
+
     for (const o of orders) {
-      const name = o.partner?.trim();
-      if (!name) continue;
-      const key = name.toLowerCase();
-      const g = groups.get(key) ?? { partner: name, orders: 0, tickets: 0, revenue: 0, commission: 0, cost: 0 };
+      const canonical = matchCanonicalPartner(o.partner, partners);
+      if (canonical === null) {
+        // Đơn không có đối tác (rỗng) -> không thuộc công nợ đối tác nào, không tính vào excluded
+        continue;
+      }
+      if (canonical === undefined) {
+        // Đối tác lạ (ngoài danh sách) -> loại khỏi công nợ, ghi nhận vào excluded
+        excludedOrders += 1;
+        const raw = o.partner?.trim();
+        if (raw && !excludedPartnersMap.has(raw.toLowerCase())) {
+          excludedPartnersMap.set(raw.toLowerCase(), raw);
+        }
+        continue;
+      }
+      const key = canonical.toLowerCase();
+      const g = groups.get(key) ?? { partner: canonical, orders: 0, tickets: 0, revenue: 0, commission: 0, cost: 0 };
       g.orders += 1;
       g.tickets += this.ticketsOf(o);
       g.revenue += o.sellPrice;
@@ -802,12 +823,18 @@ export class OrdersService {
       g.cost += o.costPrice || o.sellPrice - o.commission || 0;
       groups.set(key, g);
     }
-    return [...groups.values()].sort((a, b) => b.cost - a.cost);
+    return {
+      items: [...groups.values()].sort((a, b) => b.cost - a.cost),
+      excluded: {
+        orders: excludedOrders,
+        partners: [...excludedPartnersMap.values()],
+      },
+    };
   }
 
   /** Xuất bảng công nợ đối tác (đúng bộ lọc) ra Excel */
   async exportDebts(query: KpiQueryDto, actor: JwtPayload) {
-    const rows = await this.debts(query, actor);
+    const { items, excluded } = await this.debts(query, actor);
     const workbook = new ExcelJS.Workbook();
     workbook.created = new Date();
     const sheet = workbook.addWorksheet('Công nợ đối tác', {
@@ -854,7 +881,7 @@ export class OrdersService {
     head.height = 28;
 
     const thin = { style: 'thin', color: { argb: 'FFCBD5E1' } } as const;
-    rows.forEach((r, idx) => {
+    items.forEach((r, idx) => {
       const row = sheet.getRow(4 + idx);
       const values = [idx + 1, this.neutralizeFormula(r.partner), r.orders, r.tickets, r.revenue, r.commission, r.cost];
       values.forEach((v, i) => {
@@ -866,8 +893,8 @@ export class OrdersService {
       });
     });
 
-    const totalRow = sheet.getRow(4 + rows.length);
-    const sumBy = (pick: (r: (typeof rows)[number]) => number) => rows.reduce((t, r) => t + pick(r), 0);
+    const totalRow = sheet.getRow(4 + items.length);
+    const sumBy = (pick: (r: (typeof items)[number]) => number) => items.reduce((t, r) => t + pick(r), 0);
     const totals = [null, 'TỔNG', sumBy((r) => r.orders), sumBy((r) => r.tickets), sumBy((r) => r.revenue), sumBy((r) => r.commission), sumBy((r) => r.cost)];
     totals.forEach((v, i) => {
       const cell = totalRow.getCell(i + 1);
@@ -877,15 +904,31 @@ export class OrdersService {
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFE9A8' } };
       cell.alignment = { horizontal: cols[i].align, vertical: 'middle' };
     });
+
+    if (excluded.orders > 0) {
+      const noteRowIdx = 5 + items.length;
+      sheet.mergeCells(noteRowIdx, 1, noteRowIdx, cols.length);
+      const noteCell = sheet.getCell(noteRowIdx, 1);
+      const namesStr = excluded.partners.length > 0 ? ` (tên ${excluded.partners.join(', ')})` : '';
+      noteCell.value = `Có ${excluded.orders} đơn thuộc đối tác không có trong danh sách${namesStr} nên không được tính.`;
+      noteCell.font = { italic: true, color: { argb: 'FFB91C1C' } };
+      noteCell.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
+      sheet.getRow(noteRowIdx).height = 22;
+    }
+
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
   /** Xuất danh sách (đã lọc) ra file Excel, cột theo sổ "Nhật ký" */
   async exportExcel(filter: OrderFilterDto, actor: JwtPayload) {
-    const orders = await this.buildListQuery(filter, actor)
+    const rawOrders = await this.buildListQuery(filter, actor)
       .orderBy('order.createdAt', 'DESC')
       .take(EXPORT_LIMIT)
       .getMany();
+
+    const partners = await this.partnerRepository.find({ select: { name: true } });
+    const { valid: orders, excluded } = filterOrdersByPartner(rawOrders, partners);
+    const excludedCount = excluded.length;
 
     const exporter = await this.userRepository.findOne({
       where: { id: actor.sub },
@@ -980,6 +1023,7 @@ export class OrdersService {
     info.value =
       `Xuất lúc ${stamp}  •  Người xuất: ${exporter?.fullName ?? actor.username}  •  ` +
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
+      (excludedCount > 0 ? `, ${excludedCount} đơn bị loại vì đối tác không có trong danh sách` : '') +
       (cancelledCount > 0 ? '  (vé đã hủy tô đỏ và không tính vào dòng TỔNG)' : '');
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
     info.fill = solid('FFE0EAFF');
@@ -1311,5 +1355,19 @@ export class OrdersService {
   /** Chặn công thức Excel (CSV/formula injection) trong ô do người dùng nhập */
   private neutralizeFormula(value: string): string {
     return /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  }
+
+  /** Danh sách đối tác lạ trên đơn còn hiệu lực không khớp bảng đối tác (chỉ Admin) */
+  async unlistedPartners(): Promise<UnlistedPartnerSummary[]> {
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .where('order.cancelledAt IS NULL')
+      .andWhere('order.partner IS NOT NULL')
+      .andWhere("TRIM(order.partner) != ''")
+      .select(['order.id', 'order.partner'])
+      .getMany();
+
+    const partners = await this.partnerRepository.find({ select: { name: true } });
+    return findUnlistedPartners(orders, partners);
   }
 }

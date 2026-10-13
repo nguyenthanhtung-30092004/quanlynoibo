@@ -135,6 +135,14 @@ export function useDebts(range?: KpiRange) {
   });
 }
 
+export function useUnlistedPartners(enabled = true) {
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'unlisted-partners'],
+    queryFn: () => ordersApi.unlistedPartners(),
+    enabled,
+  });
+}
+
 export function useExportOrders() {
   return useMutation({
     mutationFn: async (filters: OrderFilters) => {
