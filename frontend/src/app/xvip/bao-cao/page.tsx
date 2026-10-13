@@ -206,10 +206,22 @@ export default function StaffReportPage() {
     [filteredStaff],
   );
 
-  const sortedStaff = useMemo(
-    () => [...filteredStaff].sort((a, b) => b.tickets - a.tickets),
-    [filteredStaff],
-  );
+  // Bảng xếp hạng: Admin xem số liệu đầy đủ theo bộ lọc; nhân viên xem thứ hạng của mọi người
+  // nhưng chỉ có số đơn và vé (số liệu thẻ KPI phía trên vẫn là của riêng mình)
+  const sortedStaff = useMemo(() => {
+    if (!isAdmin) {
+      return (kpiData?.ranking ?? []).map((r) => ({
+        id: r.staffId,
+        name: r.fullName,
+        orders: r.total,
+        tickets: r.seats,
+        revenue: 0,
+        commission: 0,
+        deposit: 0,
+      }));
+    }
+    return [...filteredStaff].sort((a, b) => b.tickets - a.tickets);
+  }, [isAdmin, kpiData, filteredStaff]);
 
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
   const podium = kpiData?.leaderboard ?? [];
@@ -579,8 +591,12 @@ export default function StaffReportPage() {
                 {isAdmin && (
                   <th className={`${TH} text-right`}>Tổng doanh thu vé</th>
                 )}
-                <th className={`${TH} text-right`}>Tiền đã cọc</th>
-                <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
+                {isAdmin && (
+                  <>
+                    <th className={`${TH} text-right`}>Tiền đã cọc</th>
+                    <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
+                  </>
+                )}
                 {isAdmin && (
                   <th className={`${TH} text-right`}>Giá trị TB / vé</th>
                 )}
@@ -590,7 +606,7 @@ export default function StaffReportPage() {
               {kpiLoading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 6}
+                    colSpan={isAdmin ? 8 : 4}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
@@ -599,7 +615,7 @@ export default function StaffReportPage() {
               ) : sortedStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 6}
+                    colSpan={isAdmin ? 8 : 4}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có dữ liệu nào khớp bộ lọc đã chọn.
@@ -614,7 +630,9 @@ export default function StaffReportPage() {
                   return (
                     <tr
                       key={staff.id || staff.name}
-                      className="hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors"
+                      className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
+                        !isAdmin && staff.id === me?.id ? 'bg-blue-50 dark:bg-blue-950/40' : ''
+                      }`}
                     >
                       <td className={`${TD} font-black text-center`}>
                         {index === 0 ? (
@@ -642,6 +660,11 @@ export default function StaffReportPage() {
                             <span className="font-extrabold text-slate-900 dark:text-white">
                               {staff.name}
                             </span>
+                            {!isAdmin && staff.id === me?.id && (
+                              <span className="ml-2 rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-extrabold uppercase text-white">
+                                Bạn
+                              </span>
+                            )}
                           </div>
                         </div>
                       </td>
@@ -662,16 +685,20 @@ export default function StaffReportPage() {
                           {money(staff.revenue)}đ
                         </td>
                       )}
-                      <td
-                        className={`${TD} text-right font-bold text-teal-700 dark:text-teal-400 tnum`}
-                      >
-                        {money(staff.deposit)}đ
-                      </td>
-                      <td
-                        className={`${TD} text-right font-black text-emerald-600 dark:text-emerald-400 tnum`}
-                      >
-                        {money(staff.commission)}đ
-                      </td>
+                      {isAdmin && (
+                        <>
+                          <td
+                            className={`${TD} text-right font-bold text-teal-700 dark:text-teal-400 tnum`}
+                          >
+                            {money(staff.deposit)}đ
+                          </td>
+                          <td
+                            className={`${TD} text-right font-black text-emerald-600 dark:text-emerald-400 tnum`}
+                          >
+                            {money(staff.commission)}đ
+                          </td>
+                        </>
+                      )}
                       {isAdmin && (
                         <td
                           className={`${TD} text-right font-semibold text-slate-600 dark:text-slate-300 tnum`}

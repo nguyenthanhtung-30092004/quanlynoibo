@@ -23,6 +23,7 @@ import {
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
 import {
+  useKpiFilterOptions,
   useOrders,
   useCreateOrder,
   useUpdateOrder,
@@ -354,6 +355,61 @@ export default function TicketManagementPage() {
   const isAdmin = me?.role === 'ADMIN';
   // Danh sách nhân viên chỉ Admin được xem (backend trả 403 cho nhân viên)
   const { data: activeStaff = [] } = useActiveStaff(isAdmin);
+
+  // Các ô lọc chỉ gợi ý mục có đơn trong khoảng ngày đang xem; chọn nhân viên thì tuyến / đối tác
+  // thu hẹp theo đơn của người đó. Đang tìm kiếm thì tìm trong tất cả vé nên không thu hẹp.
+  const staffSelected = typeof filters.staffId === 'number';
+  const { data: filterOptions } = useKpiFilterOptions(
+    {
+      ...rangeParams(range, basis),
+      staffId: staffSelected ? (filters.staffId as number) : undefined,
+    },
+    isAdmin && !searching,
+  );
+  const staffOptions = useMemo(() => {
+    if (!filterOptions) return activeStaff;
+    const ids = new Set(filterOptions.staffIds);
+    return activeStaff.filter((u) => ids.has(u.id));
+  }, [activeStaff, filterOptions]);
+  const routeFilterOptions = useMemo(() => {
+    if (!staffSelected || !filterOptions) return activeRoutes;
+    const ids = new Set(filterOptions.routeIds);
+    return activeRoutes.filter((r) => ids.has(r.id));
+  }, [staffSelected, filterOptions, activeRoutes]);
+  const partnerFilterOptions = useMemo(() => {
+    if (!staffSelected || !filterOptions) return partnerList;
+    const names = new Set(filterOptions.partners.map((n) => n.toLowerCase()));
+    return partnerList.filter((p) => names.has(p.name.trim().toLowerCase()));
+  }, [staffSelected, filterOptions, partnerList]);
+
+  // Đổi ngày / nhân viên mà mục đang chọn không còn trong gợi ý thì bỏ chọn mục đó
+  useEffect(() => {
+    if (!filterOptions) return;
+    setFilters((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      if (typeof prev.staffId === 'number' && !filterOptions.staffIds.includes(prev.staffId)) {
+        next.staffId = ALL;
+        next.routeIds = [];
+        next.partner = undefined;
+        changed = true;
+      } else if (typeof prev.staffId === 'number') {
+        const keepRoutes = (prev.routeIds ?? []).filter((id) => filterOptions.routeIds.includes(id));
+        if (keepRoutes.length !== (prev.routeIds ?? []).length) {
+          next.routeIds = keepRoutes;
+          changed = true;
+        }
+        if (
+          prev.partner &&
+          !filterOptions.partners.some((n) => n.toLowerCase() === prev.partner!.trim().toLowerCase())
+        ) {
+          next.partner = undefined;
+          changed = true;
+        }
+      }
+      return changed ? { ...next, page: 1 } : prev;
+    });
+  }, [filterOptions]);
 
   const createMutation = useCreateOrder();
   const updateMutation = useUpdateOrder();
@@ -886,13 +942,16 @@ export default function TicketManagementPage() {
                 Nhân viên
               </span>
               <OptionFilterInput
-                options={activeStaff.map((s) => ({ value: String(s.id), label: s.fullName }))}
+                options={staffOptions.map((s) => ({ value: String(s.id), label: s.fullName }))}
                 value={filters.staffId === ALL ? '' : String(filters.staffId)}
                 allLabel="Tất cả nhân viên"
                 onChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
                     staffId: v === '' ? ALL : Number(v),
+                    // Đổi nhân viên thì bỏ tuyến / đối tác đang chọn vì người mới có thể không có
+                    routeIds: [],
+                    partner: undefined,
                     page: 1,
                   }))
                 }
@@ -905,7 +964,7 @@ export default function TicketManagementPage() {
               Tuyến đường
             </span>
             <MultiCheckSelect
-              options={activeRoutes.map((r) => ({
+              options={routeFilterOptions.map((r) => ({
                 value: r.id,
                 label: r.name,
               }))}
@@ -923,7 +982,7 @@ export default function TicketManagementPage() {
               Đối tác
             </span>
             <OptionFilterInput
-              options={partnerList.map((p) => ({ value: p.name, label: p.name }))}
+              options={partnerFilterOptions.map((p) => ({ value: p.name, label: p.name }))}
               value={filters.partner ?? ''}
               allLabel="Tất cả đối tác"
               onChange={(v) =>

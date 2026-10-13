@@ -627,6 +627,7 @@ export class OrdersService {
       Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent'> & {
         date: string;
         leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+        ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
@@ -644,15 +645,16 @@ export class OrdersService {
     for (const o of scoped) {
       ranking.set(o.createdById, [...(ranking.get(o.createdById) ?? []), o]);
     }
-    result.leaderboard = [...ranking.entries()]
+    // Xếp hạng đầy đủ mọi nhân viên (chỉ số đơn / vé) để nhân viên biết vị trí của mình
+    result.ranking = [...ranking.entries()]
       .map(([staffId, list]) => ({
         staffId,
         fullName: list[0].createdBy?.fullName ?? '',
         total: list.length,
         seats: sum(list, (o) => this.ticketsOf(o)),
       }))
-      .sort((a, b) => b.seats - a.seats)
-      .slice(0, 3);
+      .sort((a, b) => b.seats - a.seats || b.total - a.total);
+    result.leaderboard = result.ranking.slice(0, 3);
 
     if (isAdmin) {
       const groups = new Map<number, Order[]>();

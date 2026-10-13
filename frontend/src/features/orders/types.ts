@@ -142,6 +142,8 @@ export interface Kpi extends KpiSummary {
   date: string;
   /** Top nhân viên toàn hệ thống (mọi vai trò đều nhận), chỉ gồm số đơn / vé */
   leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+  /** Xếp hạng đầy đủ mọi nhân viên, chỉ gồm số đơn / vé (không lộ doanh thu hay hoa hồng) */
+  ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
 }
