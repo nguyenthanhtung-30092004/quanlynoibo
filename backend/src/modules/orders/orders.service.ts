@@ -631,18 +631,19 @@ export class OrdersService {
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
-        byRoute: Array<{ routeId: number; total: number; revenue?: number }>;
-        byPartner?: Array<{ partner: string; total: number; commission: number }>;
+        byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number }>;
+        byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
       } = { date, ...summarize(orders), byRoute: [] };
 
-    // Số vé và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
+    // Số đơn, số vé (ghế) và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
     if (isAdmin) {
-      const partnerGroups = new Map<string, { partner: string; total: number; commission: number }>();
+      const partnerGroups = new Map<string, { partner: string; total: number; seats: number; commission: number }>();
       for (const o of orders) {
         const name = o.partner?.trim() || 'XVIP';
         const key = name.toLowerCase();
-        const row = partnerGroups.get(key) ?? { partner: name, total: 0, commission: 0 };
+        const row = partnerGroups.get(key) ?? { partner: name, total: 0, seats: 0, commission: 0 };
         row.total += 1;
+        row.seats += this.ticketsOf(o);
         row.commission += o.commission;
         partnerGroups.set(key, row);
       }
@@ -651,11 +652,12 @@ export class OrdersService {
       );
     }
 
-    // Số vé và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
-    const routeMap = new Map<number, { total: number; revenue: number }>();
+    // Số đơn, số vé (ghế) và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
+    const routeMap = new Map<number, { total: number; seats: number; revenue: number }>();
     for (const o of orders) {
-      const cur = routeMap.get(o.routeId) ?? { total: 0, revenue: 0 };
+      const cur = routeMap.get(o.routeId) ?? { total: 0, seats: 0, revenue: 0 };
       cur.total += 1;
+      cur.seats += this.ticketsOf(o);
       cur.revenue += o.sellPrice || 0;
       routeMap.set(o.routeId, cur);
     }
@@ -663,6 +665,7 @@ export class OrdersService {
       .map(([routeId, stat]) => ({
         routeId,
         total: stat.total,
+        seats: stat.seats,
         ...(isAdmin ? { revenue: stat.revenue } : {}),
       }))
       .sort((a, b) => b.total - a.total);
@@ -1120,6 +1123,9 @@ export class OrdersService {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
 
+    if (filter.activeOnly) {
+      qb.andWhere('order.cancelledAt IS NULL');
+    }
     if (filter.routeId !== undefined) {
       qb.andWhere('order.routeId = :routeId', { routeId: filter.routeId });
     }

@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -62,6 +63,12 @@ export class OrderFilterDto {
   @IsString({ each: true })
   @MaxLength(100, { each: true })
   partners?: string[];
+
+  @ApiPropertyOptional({ description: 'true = bỏ vé đã hủy (khớp cách các báo cáo KPI đếm)' })
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : value))
+  @IsBoolean()
+  activeOnly?: boolean;
 
   @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD)' })
   @IsOptional()

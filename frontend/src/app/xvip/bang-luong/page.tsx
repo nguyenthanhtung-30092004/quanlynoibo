@@ -67,10 +67,19 @@ export default function PayrollPage() {
 
   const rows = useMemo(() => {
     if (!data || !config) return [];
-    return data.staff.map((s) => {
-      const entry = entries[s.id] ?? s.entry;
-      return { staff: s, entry, result: computePayroll({ config, daysInMonth: data.daysInMonth, daily: s.daily, entry }) };
-    });
+    return data.staff
+      .map((s) => {
+        const entry = entries[s.id] ?? s.entry;
+        return { staff: s, entry, result: computePayroll({ config, daysInMonth: data.daysInMonth, daily: s.daily, entry }) };
+      })
+      .sort((a, b) => {
+        const levelA = a.entry?.level ?? 0;
+        const levelB = b.entry?.level ?? 0;
+        if (levelB !== levelA) {
+          return levelB - levelA;
+        }
+        return a.staff.fullName.localeCompare(b.staff.fullName, 'vi');
+      });
   }, [data, config, entries]);
 
   const totals = useMemo(

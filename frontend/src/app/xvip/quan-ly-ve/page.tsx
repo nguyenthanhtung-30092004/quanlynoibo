@@ -356,15 +356,15 @@ export default function TicketManagementPage() {
   // Danh sách nhân viên chỉ Admin được xem (backend trả 403 cho nhân viên)
   const { data: activeStaff = [] } = useActiveStaff(isAdmin);
 
-  // Các ô lọc chỉ gợi ý mục có đơn trong khoảng ngày đang xem; chọn nhân viên thì tuyến / đối tác
-  // thu hẹp theo đơn của người đó. Đang tìm kiếm thì tìm trong tất cả vé nên không thu hẹp.
+  // Các ô lọc chỉ gợi ý tuyến / đối tác có đơn trong khoảng ngày đang xem; chọn nhân viên thì
+  // thu hẹp tiếp theo đơn của người đó. Đang tìm kiếm thì tìm trong tất cả vé nên không thu hẹp.
   const staffSelected = typeof filters.staffId === 'number';
   const { data: filterOptions } = useKpiFilterOptions(
     {
       ...rangeParams(range, basis),
       staffId: staffSelected ? (filters.staffId as number) : undefined,
     },
-    isAdmin && !searching,
+    !searching,
   );
   const staffOptions = useMemo(() => {
     if (!filterOptions) return activeStaff;
@@ -372,15 +372,15 @@ export default function TicketManagementPage() {
     return activeStaff.filter((u) => ids.has(u.id));
   }, [activeStaff, filterOptions]);
   const routeFilterOptions = useMemo(() => {
-    if (!staffSelected || !filterOptions) return activeRoutes;
+    if (!filterOptions) return activeRoutes;
     const ids = new Set(filterOptions.routeIds);
     return activeRoutes.filter((r) => ids.has(r.id));
-  }, [staffSelected, filterOptions, activeRoutes]);
+  }, [filterOptions, activeRoutes]);
   const partnerFilterOptions = useMemo(() => {
-    if (!staffSelected || !filterOptions) return partnerList;
+    if (!filterOptions) return partnerList;
     const names = new Set(filterOptions.partners.map((n) => n.toLowerCase()));
     return partnerList.filter((p) => names.has(p.name.trim().toLowerCase()));
-  }, [staffSelected, filterOptions, partnerList]);
+  }, [filterOptions, partnerList]);
 
   // Đổi ngày / nhân viên mà mục đang chọn không còn trong gợi ý thì bỏ chọn mục đó
   useEffect(() => {
@@ -393,7 +393,7 @@ export default function TicketManagementPage() {
         next.routeIds = [];
         next.partner = undefined;
         changed = true;
-      } else if (typeof prev.staffId === 'number') {
+      } else {
         const keepRoutes = (prev.routeIds ?? []).filter((id) => filterOptions.routeIds.includes(id));
         if (keepRoutes.length !== (prev.routeIds ?? []).length) {
           next.routeIds = keepRoutes;

@@ -74,6 +74,8 @@ export interface OrderFilters {
   routeId: number | 'all';
   /** Lọc nhiều tuyến cùng lúc; rỗng = không lọc theo nhiều tuyến */
   routeIds?: number[];
+  /** true = bỏ vé đã hủy, để số dòng khớp số đơn của KPI */
+  activeOnly?: boolean;
   /** Tên đối tác; bỏ trống = tất cả */
   partner?: string;
   /** Lọc nhiều đối tác cùng lúc (tên); rỗng = không lọc */
@@ -146,10 +148,10 @@ export interface Kpi extends KpiSummary {
   ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
-  /** Số vé và doanh thu theo tuyến, nhiều nhất trước */
-  byRoute?: Array<{ routeId: number; total: number; revenue?: number }>;
+  /** Số đơn (total), số vé (seats) và doanh thu theo tuyến, nhiều đơn nhất trước */
+  byRoute?: Array<{ routeId: number; total: number; seats: number; revenue?: number }>;
   /** Chỉ có với Admin: số vé và hoa hồng theo đối tác, nhiều hoa hồng nhất trước */
-  byPartner?: Array<{ partner: string; total: number; commission: number }>;
+  byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
 }
 
 export type OrderHistoryAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE';

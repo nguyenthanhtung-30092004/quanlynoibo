@@ -42,6 +42,7 @@ function OverviewContent() {
     search: '',
     staffId: 'all',
     routeId: 'all',
+    activeOnly: true,
     dateFrom: null,
     dateTo: null,
     ...dates,
@@ -58,7 +59,8 @@ function OverviewContent() {
   const routes = useMemo(() => routesData?.data ?? [], [routesData]);
 
   // Thống kê chỉ số thật
-  const totalTickets = kpiData?.total ?? orders.length;
+  const totalOrders = kpiData?.total ?? orders.length;
+  const totalTickets = kpiData?.seats ?? 0;
   const totalCommission = kpiData?.commission ?? orders.reduce((sum, o) => sum + (o.commission || 0), 0);
   const totalStaffCount = activeStaffList.length > 0 ? activeStaffList.length : (usersData?.total ?? 1);
   const smsSentCount = kpiData?.smsSent ?? orders.filter((o) => o.smsSent).length;
@@ -67,7 +69,7 @@ function OverviewContent() {
     {
       label: 'Tổng vé',
       value: `${totalTickets.toLocaleString('vi-VN')} vé`,
-      note: totalTickets > 0 ? 'Dữ liệu vận hành trực tiếp' : 'Hệ thống sẵn sàng lên đơn',
+      note: totalOrders > 0 ? `${totalOrders.toLocaleString('vi-VN')} đơn · mỗi đơn có thể nhiều vé` : 'Hệ thống sẵn sàng lên đơn',
       color: 'from-blue-600 to-blue-700',
       borderBottom: '#1d4ed8',
     },
@@ -101,11 +103,12 @@ function OverviewContent() {
   const routeStats = useMemo(() => {
     const nameById = new Map(routes.map((r) => [r.id, r.name]));
     const rows = (kpiData?.byRoute ?? [])
-      .filter((r) => (r.revenue !== undefined ? r.revenue > 0 : r.total > 0))
+      .filter((r) => r.total > 0)
       .map((r) => ({
         id: r.routeId,
         name: nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`,
-        count: r.total,
+        orders: r.total,
+        count: r.seats,
         revenue: r.revenue,
       }));
     const total = rows.reduce((sum, r) => sum + r.count, 0);
@@ -140,14 +143,15 @@ function OverviewContent() {
             staffId: u.id,
             fullName: u.fullName,
             total: stats?.total ?? 0,
+            seats: stats?.seats ?? 0,
             commission: stats?.commission ?? 0,
           };
         })
-        .sort((a, b) => b.total - a.total || b.commission - a.commission);
+        .sort((a, b) => b.seats - a.seats || b.total - a.total || b.commission - a.commission);
     }
 
     if (kpiData?.byStaff && kpiData.byStaff.length > 0) {
-      return [...kpiData.byStaff].sort((a, b) => b.total - a.total || b.commission - a.commission);
+      return [...kpiData.byStaff].sort((a, b) => b.seats - a.seats || b.total - a.total || b.commission - a.commission);
     }
 
     const staffUsers = usersData?.data?.filter((u) => u.role === 'STAFF') ?? [];
@@ -158,10 +162,11 @@ function OverviewContent() {
           staffId: u.id,
           fullName: u.fullName,
           total: matchOrders.length,
+          seats: matchOrders.reduce((sum, o) => sum + (o.tickets || 0), 0),
           commission: matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0),
         };
       })
-      .sort((a, b) => b.total - a.total || b.commission - a.commission);
+      .sort((a, b) => b.seats - a.seats || b.total - a.total || b.commission - a.commission);
   }, [activeStaffList, kpiData, usersData, orders]);
 
   return (
@@ -200,7 +205,7 @@ function OverviewContent() {
       <div className="mt-5 grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         {/* Hoa hồng & số vé theo đối tác: rê chuột vào thanh để xem chi tiết */}
         <Card
-          title="Hoa hồng & số vé theo đối tác"
+          title="Hoa hồng, số đơn & vé theo đối tác"
           action={
             <Link href="/xvip/doi-tac" className="btn-3d btn-3d-white px-3 py-1 text-xs">
               Xem chi tiết
@@ -231,12 +236,11 @@ function OverviewContent() {
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
-              <Link
-                href="/xvip/tuyen-duong"
-                className="relative size-40 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.3)] border border-slate-200 dark:border-slate-700 transition-transform hover:scale-105 active:scale-95"
+              <div
+                className="relative size-40 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.3)] border border-slate-200 dark:border-slate-700"
                 style={{ background: donutGradient }}
                 role="img"
-                aria-label="Biểu đồ tỷ lệ vé theo tuyến - Bấm để xem chi tiết"
+                aria-label="Biểu đồ tỷ lệ vé theo tuyến"
               >
                 <div className="absolute inset-[24%] flex flex-col items-center justify-center rounded-full bg-white dark:bg-slate-900 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_2px_6px_rgba(0,0,0,0.08)] border border-slate-100 dark:border-slate-800">
                   <span className="tnum text-xl font-black text-slate-900 dark:text-white">
@@ -246,20 +250,19 @@ function OverviewContent() {
                     Vé bán
                   </span>
                 </div>
-              </Link>
+              </div>
               <ul className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
-                    <Link
-                      href="/xvip/tuyen-duong"
-                      className="flex items-center gap-2.5 rounded-lg p-1 hover:bg-blue-50 dark:hover:bg-slate-800/60 transition-colors"
+                    <div
+                      className="flex items-center gap-2.5 rounded-lg p-1"
                     >
                       <span className="size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
-                      <span className="flex-1 truncate hover:text-blue-600 transition-colors">{r.name}</span>
+                      <span className="flex-1 truncate">{r.name}</span>
                       <span className="tnum shrink-0 font-bold text-slate-900 dark:text-white">
-                        {r.count} vé ({r.pct}%)
+                        {r.orders} đơn · {r.count} vé ({r.pct}%)
                       </span>
-                    </Link>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -294,7 +297,7 @@ function OverviewContent() {
                   <span className="flex-1 truncate font-semibold text-slate-800 dark:text-slate-200">
                     {s.fullName}
                   </span>
-                  <span className="tnum shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} vé</span>
+                  <span className="tnum shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} đơn · {s.seats} vé</span>
                   <span className="tnum w-24 shrink-0 text-right font-black text-emerald-700 dark:text-emerald-400">
                     {money(s.commission || 0)}đ
                   </span>

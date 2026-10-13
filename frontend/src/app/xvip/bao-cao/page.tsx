@@ -4,7 +4,6 @@ import { useToast } from '@/features/xvip/toast';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ClipboardText,
-  CurrencyCircleDollar,
   FileXls,
   HandCoins,
   Medal,
@@ -85,19 +84,18 @@ export default function StaffReportPage() {
   const staffSelected = isAdmin && staffFilter !== 'all';
   const { data: staffOptions } = useKpiFilterOptions(
     { ...dates, staffId: staffSelected ? Number(staffFilter) : undefined },
-    isAdmin,
   );
   const activeStaffIds = staffOptions?.staffIds;
   const routeOptions = useMemo(() => {
-    if (!staffSelected || !staffOptions) return routeList;
+    if (!staffOptions) return routeList;
     const ids = new Set(staffOptions.routeIds);
     return routeList.filter((r) => ids.has(r.id));
-  }, [staffSelected, staffOptions, routeList]);
+  }, [staffOptions, routeList]);
   const partnerOptions = useMemo(() => {
-    if (!staffSelected || !staffOptions) return partnerList;
+    if (!staffOptions) return partnerList;
     const names = new Set(staffOptions.partners.map((p) => p.toLowerCase()));
     return partnerList.filter((p) => names.has(p.name.trim().toLowerCase()));
-  }, [staffSelected, staffOptions, partnerList]);
+  }, [staffOptions, partnerList]);
 
   const partnerNames = useMemo(
     () =>
@@ -125,6 +123,7 @@ export default function StaffReportPage() {
       routeId: 'all',
       routeIds,
       partners: partnerNames,
+      activeOnly: true,
       dateFrom: null,
       dateTo: null,
       ...dates,
@@ -155,6 +154,24 @@ export default function StaffReportPage() {
       setPartnerIds([]);
     }
   }, [staffSelected, activeStaffIds, staffFilter]);
+
+  // Đổi ngày / nhân viên mà tuyến hoặc đối tác đang chọn không còn đơn thì bỏ chọn mục đó
+  useEffect(() => {
+    if (!staffOptions) return;
+    const routeOk = new Set(staffOptions.routeIds);
+    const partnerOk = new Set(staffOptions.partners.map((p) => p.toLowerCase()));
+    setRouteIds((prev) => {
+      const next = prev.filter((id) => routeOk.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+    setPartnerIds((prev) => {
+      const next = prev.filter((id) => {
+        const name = partnerList.find((p) => p.id === id)?.name.trim().toLowerCase();
+        return !!name && partnerOk.has(name);
+      });
+      return next.length === prev.length ? prev : next;
+    });
+  }, [staffOptions, partnerList]);
 
   // Thành tích từng nhân viên theo đúng bộ lọc đang chọn (server đã lọc)
   const filteredStaff = useMemo(() => {
@@ -190,10 +207,6 @@ export default function StaffReportPage() {
   );
   const totalTickets = useMemo(
     () => filteredStaff.reduce((acc, s) => acc + s.tickets, 0),
-    [filteredStaff],
-  );
-  const totalRevenue = useMemo(
-    () => filteredStaff.reduce((acc, s) => acc + s.revenue, 0),
     [filteredStaff],
   );
   const totalCommission = useMemo(
@@ -423,30 +436,6 @@ export default function StaffReportPage() {
           </div>
         </div>
 
-        {isAdmin && (
-          <div
-            style={{
-              boxShadow:
-                'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #15803d, 0 12px 24px -4px rgba(15,23,42,0.18)',
-            }}
-            className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-emerald-600 to-emerald-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
-          >
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-              <CurrencyCircleDollar size={26} weight="fill" />
-            </span>
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
-                Tổng doanh thu vé
-              </div>
-              <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
-                {money(totalRevenue)}đ
-              </div>
-              <div className="text-[11px] font-medium text-white/90">
-                Giá trị vé khách thanh toán
-              </div>
-            </div>
-          </div>
-        )}
 
         <div
           style={{
@@ -587,14 +576,11 @@ export default function StaffReportPage() {
                 <th className={TH}>Thứ hạng</th>
                 <th className={TH}>Nhân viên</th>
                 <th className={`${TH} text-right`}>Số đơn</th>
-                <th className={`${TH} text-right`}>Số vé bán ra</th>
-                {isAdmin && (
-                  <th className={`${TH} text-right`}>Tổng doanh thu vé</th>
-                )}
+                <th className={`${TH} text-right`}>Tổng vé</th>
                 {isAdmin && (
                   <>
-                    <th className={`${TH} text-right`}>Tiền đã cọc</th>
-                    <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
+                    <th className={`${TH} text-right`}>Đã cọc xvip</th>
+                    <th className={`${TH} text-right`}>Doanh số</th>
                   </>
                 )}
               </tr>
@@ -603,7 +589,7 @@ export default function StaffReportPage() {
               {kpiLoading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 4}
+                    colSpan={isAdmin ? 6 : 4}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
@@ -612,7 +598,7 @@ export default function StaffReportPage() {
               ) : sortedStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 4}
+                    colSpan={isAdmin ? 6 : 4}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có dữ liệu nào khớp bộ lọc đã chọn.
@@ -672,13 +658,6 @@ export default function StaffReportPage() {
                         {staff.tickets.toLocaleString('vi-VN')} vé
                       </td>
                       {isAdmin && (
-                        <td
-                          className={`${TD} text-right font-bold text-slate-900 dark:text-white tnum`}
-                        >
-                          {money(staff.revenue)}đ
-                        </td>
-                      )}
-                      {isAdmin && (
                         <>
                           <td
                             className={`${TD} text-right font-bold text-teal-700 dark:text-teal-400 tnum`}
@@ -701,9 +680,9 @@ export default function StaffReportPage() {
         </div>
       </Card>
 
-      {/* Bảng vé: toàn bộ vé khớp bộ lọc (chọn nhân viên thì ra mọi vé của người đó) */}
+      {/* Bảng đơn: toàn bộ đơn khớp bộ lọc (chọn nhân viên thì ra mọi đơn của người đó) */}
       <Card
-        title={`Danh sách vé (${ticketTotal.toLocaleString('vi-VN')})`}
+        title={`Danh sách đơn (${ticketTotal.toLocaleString('vi-VN')})`}
         className="mt-5 !p-0 overflow-hidden"
       >
         <div className="overflow-x-auto">
@@ -730,7 +709,7 @@ export default function StaffReportPage() {
                     colSpan={11}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
-                    Đang tải danh sách vé...
+                    Đang tải danh sách đơn...
                   </td>
                 </tr>
               ) : ticketList.length === 0 ? (
@@ -739,7 +718,7 @@ export default function StaffReportPage() {
                     colSpan={11}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
-                    Không có vé nào khớp bộ lọc đã chọn.
+                    Không có đơn nào khớp bộ lọc đã chọn.
                   </td>
                 </tr>
               ) : (

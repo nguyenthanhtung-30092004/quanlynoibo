@@ -21,6 +21,7 @@ function filterParams(filters: OrderFilters) {
     staffId: filters.staffId === 'all' ? undefined : filters.staffId,
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
     routeIds: filters.routeIds?.length ? filters.routeIds.join(',') : undefined,
+    activeOnly: filters.activeOnly ? 'true' : undefined,
     partner: filters.partner || undefined,
     partners: filters.partners?.length ? filters.partners.join(',') : undefined,
     dateFrom: filters.dateFrom ?? undefined,

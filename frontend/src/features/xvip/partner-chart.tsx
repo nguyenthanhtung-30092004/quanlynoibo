@@ -1,9 +1,11 @@
-import Link from 'next/link';
 import { money } from '@/features/xvip/data';
 
 export interface PartnerStat {
   partner: string;
+  /** Số đơn */
   total: number;
+  /** Số vé (ghế) */
+  seats: number;
   commission: number;
 }
 
@@ -20,20 +22,24 @@ function compactMoney(n: number): string {
 }
 
 /**
- * Hoa hồng và số vé theo đối tác, gọn để đặt trong một ô nhỏ: mỗi đối tác một hàng
- * (tên + hoa hồng + số vé, thanh năng lượng bên dưới dài theo hoa hồng).
+ * Hoa hồng, số đơn và số vé theo đối tác, gọn để đặt trong một ô nhỏ: mỗi đối tác một hàng
+ * (tên + hoa hồng + số đơn / vé, thanh năng lượng bên dưới dài theo hoa hồng).
  * Rê chuột vào hàng để xem số vé, hoa hồng đầy đủ và tỷ trọng.
  */
 export function PartnerChart({ data }: { data: PartnerStat[] }) {
   const maxCommission = Math.max(1, ...data.map((d) => d.commission));
   const totalCommission = data.reduce((sum, d) => sum + d.commission, 0);
-  const totalTickets = data.reduce((sum, d) => sum + d.total, 0);
+  const totalOrders = data.reduce((sum, d) => sum + d.total, 0);
+  const totalTickets = data.reduce((sum, d) => sum + d.seats, 0);
 
   return (
     <div>
       <div className="mb-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
         <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">
           <b className="tnum">{data.length}</b> đối tác
+        </span>
+        <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">
+          <b className="tnum">{totalOrders.toLocaleString('vi-VN')}</b> đơn
         </span>
         <span className="rounded-md bg-slate-100 px-2 py-0.5 dark:bg-slate-800">
           <b className="tnum">{totalTickets.toLocaleString('vi-VN')}</b> vé
@@ -49,9 +55,7 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
           const share = totalCommission > 0 ? Math.round((d.commission / totalCommission) * 1000) / 10 : 0;
           return (
             <li key={d.partner}>
-              <Link
-                href="/xvip/doi-tac"
-                className="group relative block rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
+              <div className="group relative block rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
               >
                 <span className="flex items-baseline justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate font-bold text-slate-800 dark:text-slate-100" title={d.partner}>
@@ -61,7 +65,7 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
                   <span className="tnum shrink-0 text-slate-500 dark:text-slate-400">
                     <b className="font-black text-sky-700 dark:text-sky-300">{compactMoney(d.commission)}</b>
                     {' · '}
-                    {d.total} vé
+                    {d.total} đơn · {d.seats} vé
                   </span>
                 </span>
 
@@ -81,8 +85,12 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
                       {d.partner}
                     </span>
                     <span className="flex items-center justify-between gap-3">
+                      <span className="text-slate-500 dark:text-slate-400">Số đơn</span>
+                      <b className="tnum text-slate-900 dark:text-white">{d.total} đơn</b>
+                    </span>
+                    <span className="mt-1.5 flex items-center justify-between gap-3">
                       <span className="text-slate-500 dark:text-slate-400">Số vé</span>
-                      <b className="tnum text-slate-900 dark:text-white">{d.total} vé</b>
+                      <b className="tnum text-slate-900 dark:text-white">{d.seats} vé</b>
                     </span>
                     <span className="mt-1.5 flex items-center justify-between gap-3">
                       <span className="text-slate-500 dark:text-slate-400">Hoa hồng (lãi)</span>
@@ -94,7 +102,7 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
                     </span>
                   </span>
                 </span>
-              </Link>
+              </div>
             </li>
           );
         })}

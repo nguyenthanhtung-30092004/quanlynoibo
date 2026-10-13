@@ -73,17 +73,27 @@ export class PayrollService {
       dailyByStaff.set(id, days);
     }
 
+    const staffList = staff.map((u) => ({
+      id: u.id,
+      fullName: u.fullName,
+      isActive: u.isActive,
+      entry: entries[String(u.id)] ?? { ...EMPTY_PAYROLL_ENTRY },
+      daily: dailyByStaff.get(u.id) ?? {},
+    }));
+    staffList.sort((a, b) => {
+      const levelA = a.entry?.level ?? 0;
+      const levelB = b.entry?.level ?? 0;
+      if (levelB !== levelA) {
+        return levelB - levelA;
+      }
+      return a.fullName.localeCompare(b.fullName, 'vi');
+    });
+
     return {
       month,
       daysInMonth,
       config,
-      staff: staff.map((u) => ({
-        id: u.id,
-        fullName: u.fullName,
-        isActive: u.isActive,
-        entry: entries[String(u.id)] ?? { ...EMPTY_PAYROLL_ENTRY },
-        daily: dailyByStaff.get(u.id) ?? {},
-      })),
+      staff: staffList,
     };
   }
 
