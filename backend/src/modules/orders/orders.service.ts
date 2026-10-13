@@ -276,7 +276,7 @@ export class OrdersService {
   }
 
   async findOne(id: number, actor: JwtPayload) {
-    const order = await this.findEntity(id, actor);
+    const order = await this.findEntity(id, actor, true);
     return this.toView(order);
   }
 
@@ -447,9 +447,9 @@ export class OrdersService {
     );
   }
 
-  /** Lịch sử thao tác của một đơn (mới nhất trước); nhân viên chỉ xem được đơn của mình */
+  /** Lịch sử thao tác của một đơn (mới nhất trước) */
   async history(id: number, actor: JwtPayload) {
-    await this.findEntity(id, actor);
+    await this.findEntity(id, actor, true);
     const qb = this.historyRepository
       .createQueryBuilder('h')
       .where('h.orderId = :id', { id });
@@ -631,7 +631,34 @@ export class OrdersService {
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
-      } = { date, ...summarize(orders) };
+        byRoute: Array<{ routeId: number; total: number }>;
+        byPartner?: Array<{ partner: string; total: number; revenue: number }>;
+      } = { date, ...summarize(orders), byRoute: [] };
+
+    // Doanh số theo đối tác (chỉ Admin, vì có doanh thu)
+    if (isAdmin) {
+      const partnerGroups = new Map<string, { partner: string; total: number; revenue: number }>();
+      for (const o of orders) {
+        const name = o.partner?.trim() || 'XVIP';
+        const key = name.toLowerCase();
+        const row = partnerGroups.get(key) ?? { partner: name, total: 0, revenue: 0 };
+        row.total += 1;
+        row.revenue += o.sellPrice;
+        partnerGroups.set(key, row);
+      }
+      result.byPartner = [...partnerGroups.values()].sort(
+        (a, b) => b.revenue - a.revenue || b.total - a.total,
+      );
+    }
+
+    // Số vé theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
+    const routeCounts = new Map<number, number>();
+    for (const o of orders) {
+      routeCounts.set(o.routeId, (routeCounts.get(o.routeId) ?? 0) + 1);
+    }
+    result.byRoute = [...routeCounts.entries()]
+      .map(([routeId, total]) => ({ routeId, total }))
+      .sort((a, b) => b.total - a.total);
 
     // Nhân viên không được biết doanh thu / giá nhập: không trả về từ server
     // (ẩn ở giao diện thôi chưa đủ vì gọi thẳng URL vẫn thấy)
@@ -1039,8 +1066,15 @@ export class OrdersService {
     }
   }
 
-  /** Staff chỉ truy cập được đơn của chính mình (trả 404 để không lộ sự tồn tại) */
-  private async findEntity(id: number, actor: JwtPayload): Promise<Order> {
+  /**
+   * Staff chỉ sửa/hủy được đơn của chính mình (trả 404 để không lộ sự tồn tại);
+   * `readOnly` cho phép xem chi tiết đơn của nhân viên khác (kết quả tìm kiếm).
+   */
+  private async findEntity(
+    id: number,
+    actor: JwtPayload,
+    readOnly = false,
+  ): Promise<Order> {
     const order = await this.orderRepository.findOne({
       where: { id },
       relations: { createdBy: true, route: true },
@@ -1051,7 +1085,7 @@ export class OrdersService {
     });
     if (
       !order ||
-      (actor.role !== UserRole.ADMIN && order.createdById !== actor.sub)
+      (!readOnly && actor.role !== UserRole.ADMIN && order.createdById !== actor.sub)
     ) {
       throw new NotFoundException(`Không tìm thấy đơn hàng "${id}".`);
     }
@@ -1073,8 +1107,9 @@ export class OrdersService {
       if (filter.staffId !== undefined) {
         qb.andWhere('order.createdById = :staffId', { staffId: filter.staffId });
       }
-    } else {
-      // Quyền truy cập do server quyết định, bỏ qua staffId client gửi lên
+    } else if (!filter.search?.trim()) {
+      // Quyền truy cập do server quyết định, bỏ qua staffId client gửi lên.
+      // Khi tìm kiếm thì nhân viên được xem vé phù hợp của cả nhân viên khác.
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
 

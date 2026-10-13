@@ -146,6 +146,10 @@ export interface Kpi extends KpiSummary {
   ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
+  /** Số vé theo tuyến, nhiều nhất trước */
+  byRoute?: Array<{ routeId: number; total: number }>;
+  /** Chỉ có với Admin: doanh số theo đối tác, nhiều nhất trước */
+  byPartner?: Array<{ partner: string; total: number; revenue: number }>;
 }
 
 export type OrderHistoryAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE';

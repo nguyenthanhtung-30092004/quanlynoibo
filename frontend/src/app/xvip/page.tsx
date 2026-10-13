@@ -3,24 +3,22 @@
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import {
-  CurrencyCircleDollar,
-  Percent,
-  Ticket,
-  UsersThree,
-  PaperPlaneTilt,
-} from '@phosphor-icons/react';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useKpi, useOrders } from '@/features/orders/hooks';
-import { usePartners } from '@/features/partners/hooks';
 import { useRoutes } from '@/features/routes/hooks';
 import { useUsers } from '@/features/users/hooks';
-import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
-import { formatDateVN, formatOrderCode } from '@/lib/format';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+
+/** Rút gọn số tiền cho nhãn cột: 1.250.000 → 1,25tr; 850.000 → 850k */
+function compactMoney(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}tr`;
+  if (n >= 1_000) return `${Math.round(n / 1_000).toLocaleString('vi-VN')}k`;
+  return `${n}`;
+}
 
 /** Chỉ Admin xem tổng quan; nhân viên được chuyển sang trang Quản lý vé */
 export default function OverviewPage() {
@@ -41,7 +39,7 @@ function OverviewContent() {
   const { range, basis } = useDateFilter();
   const dates = rangeParams(range, basis);
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, dates);
-  const { data: ordersData, isLoading: ordersLoading } = useOrders({
+  const { data: ordersData } = useOrders({
     search: '',
     staffId: 'all',
     routeId: 'all',
@@ -50,7 +48,6 @@ function OverviewContent() {
     ...dates,
     page: 1,
   });
-  const { data: partnerData } = usePartners();
   const { data: routesData } = useRoutes();
   const { data: me } = useCurrentUser();
   const isAdmin = me?.role === 'ADMIN';
@@ -58,7 +55,6 @@ function OverviewContent() {
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
 
   const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
-  const carriers = useMemo(() => partnerData ?? [], [partnerData]);
   const routes = useMemo(() => routesData?.data ?? [], [routesData]);
 
   // Thống kê chỉ số thật
@@ -75,7 +71,6 @@ function OverviewContent() {
       note: totalTickets > 0 ? 'Dữ liệu vận hành trực tiếp' : 'Hệ thống sẵn sàng lên đơn',
       color: 'from-blue-600 to-blue-700',
       borderBottom: '#1d4ed8',
-      icon: Ticket,
     },
     {
       label: 'Tổng tiền vé',
@@ -83,7 +78,6 @@ function OverviewContent() {
       note: 'Doanh số vé thực tế',
       color: 'from-emerald-600 to-emerald-700',
       borderBottom: '#15803d',
-      icon: CurrencyCircleDollar,
     },
     {
       label: 'Tổng hoa hồng',
@@ -91,7 +85,6 @@ function OverviewContent() {
       note: 'Lợi nhuận điều hành',
       color: 'from-amber-500 to-amber-600',
       borderBottom: '#b45309',
-      icon: Percent,
     },
     {
       label: 'Nhân viên hệ thống',
@@ -99,7 +92,6 @@ function OverviewContent() {
       note: 'Tài khoản hoạt động',
       color: 'from-purple-600 to-purple-700',
       borderBottom: '#6b21a8',
-      icon: UsersThree,
     },
     {
       label: 'Tin SMS đã gửi',
@@ -107,52 +99,44 @@ function OverviewContent() {
       note: 'Xác nhận tới khách',
       color: 'from-cyan-600 to-cyan-700',
       borderBottom: '#0e7490',
-      icon: PaperPlaneTilt,
     },
   ];
 
-  // Doanh số theo đối tác thật
-  const carrierStats = useMemo(() => {
-    return carriers.map((c) => {
-      const matchOrders = orders.filter((o) => o.partner?.toLowerCase() === c.name.toLowerCase());
-      const cRevenue = matchOrders.reduce((sum, o) => sum + (o.sellPrice || 0), 0);
-      return {
-        name: c.name,
-        tickets: matchOrders.length,
-        revenue: cRevenue,
-      };
-    });
-  }, [carriers, orders]);
-
-  const maxCarrierTickets = Math.max(1, ...carrierStats.map((c) => c.tickets));
+  // Doanh số theo đối tác: lấy từ KPI (toàn bộ vé trong khoảng lọc), top theo doanh thu
+  const carrierStats = useMemo(() => kpiData?.byPartner ?? [], [kpiData]);
+  const maxCarrierRevenue = Math.max(1, ...carrierStats.map((c) => c.revenue));
 
   // Tỷ lệ vé theo tuyến thật
+  // Lấy số vé từ KPI (toàn bộ vé trong khoảng lọc), không đếm trên một trang danh sách
   const routeStats = useMemo(() => {
-    return routes.map((r, idx) => {
-      const matchOrders = orders.filter((o) => o.route?.id === r.id);
-      const pct = totalTickets > 0 ? Math.round((matchOrders.length / totalTickets) * 100) : 0;
-      return {
-        id: r.id,
-        name: r.name,
-        count: matchOrders.length,
-        pct,
-        color: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
-      };
-    });
-  }, [routes, orders, totalTickets]);
+    const nameById = new Map(routes.map((r) => [r.id, r.name]));
+    const rows = (kpiData?.byRoute ?? []).map((r) => ({
+      id: r.routeId,
+      name: nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`,
+      count: r.total,
+    }));
+    const top = rows.slice(0, ROUTE_PALETTE.length);
+    const restCount = rows.slice(ROUTE_PALETTE.length).reduce((sum, r) => sum + r.count, 0);
+    const all = restCount > 0 ? [...top, { id: -1, name: 'Tuyến khác', count: restCount }] : top;
+    const total = all.reduce((sum, r) => sum + r.count, 0);
+    return all.map((r, idx) => ({
+      ...r,
+      pct: total > 0 ? Math.round((r.count / total) * 100) : 0,
+      share: total > 0 ? (r.count / total) * 100 : 0,
+      color: r.id === -1 ? '#94a3b8' : ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
+    }));
+  }, [routes, kpiData]);
 
   const donutGradient = useMemo(() => {
-    if (routeStats.length === 0 || totalTickets === 0) {
-      return 'conic-gradient(#3b82f6 0% 100%)';
-    }
+    if (routeStats.length === 0) return 'conic-gradient(#334155 0% 100%)';
     let acc = 0;
     const parts = routeStats.map((r) => {
       const from = acc;
-      acc += r.pct;
+      acc += r.share;
       return `${r.color} ${from}% ${acc}%`;
     });
     return `conic-gradient(${parts.join(', ')})`;
-  }, [routeStats, totalTickets]);
+  }, [routeStats]);
 
   // Top nhân viên thật từ kpiData.byStaff hoặc usersData
   const staffPodium = useMemo(() => {
@@ -185,24 +169,21 @@ function OverviewContent() {
 
       {/* 5 Thẻ chỉ số 3D kết nối API thật */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {STATS.filter((st) => isAdmin || st.label !== 'Tổng tiền vé').map(({ label, value, note, color, borderBottom, icon: StatIcon }) => (
+        {STATS.filter((st) => isAdmin || st.label !== 'Tổng tiền vé').map(({ label, value, note, color, borderBottom }) => (
           <div
             key={label}
             style={{
               boxShadow: `inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 ${borderBottom}, 0 12px 24px -4px rgba(15,23,42,0.18)`,
             }}
-            className={`group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b ${color} p-4 text-white transition-all duration-100 hover:-translate-y-1 hover:brightness-105 active:translate-y-1 cursor-pointer select-none`}
+            className={`group relative min-w-0 rounded-2xl bg-gradient-to-b ${color} px-4 py-3.5 text-white transition-all duration-100 hover:-translate-y-1 hover:brightness-105 active:translate-y-1 cursor-pointer select-none`}
           >
-            <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-              <StatIcon size={26} weight="fill" aria-hidden />
-            </span>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold uppercase tracking-wider text-white/80">{label}</div>
-              <div className="tnum truncate text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
-                {kpiLoading ? '...' : value}
-              </div>
-              <div className="text-[11px] font-medium text-white/90">{note}</div>
+            <div className="border-b border-white/25 pb-2 text-[15px] font-black uppercase leading-tight tracking-wide text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]">
+              {label}
             </div>
+            <div className="tnum mt-2 whitespace-nowrap text-[1.7rem] font-black leading-none drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+              {kpiLoading ? '...' : value}
+            </div>
+            <div className="mt-1.5 text-xs font-medium text-white/85">{note}</div>
           </div>
         ))}
       </div>
@@ -219,25 +200,44 @@ function OverviewContent() {
         >
           {carrierStats.length === 0 ? (
             <div className="py-8 text-center text-xs font-bold text-slate-400">
-              Chưa có đối tác nào trong cơ sở dữ liệu.
+              Chưa có vé nào trong khoảng thời gian đã chọn.
             </div>
           ) : (
-            <ul className="space-y-3 pt-1">
-              {carrierStats.slice(0, 5).map((c) => (
-                <li key={c.name} className="grid grid-cols-[6.5rem_1fr_6rem] items-center gap-2 text-sm">
-                  <span className="truncate font-semibold text-slate-700 dark:text-slate-300">{c.name}</span>
-                  <span className="h-3.5 rounded-full bg-slate-100 dark:bg-slate-800 p-0.5 shadow-inner border border-slate-200 dark:border-slate-700">
+            // Nhiều đối tác thì mỗi cột giữ bề rộng tối thiểu và cuộn ngang
+            <div className="overflow-x-auto">
+            <div
+              className="flex h-56 items-stretch gap-2 pt-2"
+              style={{ minWidth: `${carrierStats.length * 4.5}rem` }}
+              role="img"
+              aria-label="Biểu đồ cột doanh số theo đối tác"
+            >
+              {carrierStats.map((c, idx) => (
+                <Link
+                  key={c.partner}
+                  href="/xvip/doi-tac"
+                  title={`${c.partner}: ${money(c.revenue)}đ, ${c.total} vé`}
+                  className="group flex min-w-0 flex-1 flex-col items-center rounded-lg transition-colors hover:bg-blue-50 dark:hover:bg-slate-800/60"
+                >
+                  <span className="tnum mb-1 text-[11px] font-black text-slate-900 dark:text-white">
+                    {compactMoney(c.revenue)}
+                  </span>
+                  <div className="flex w-full flex-1 items-end justify-center border-b border-slate-200 px-1.5 dark:border-slate-700">
                     <span
-                      className="block h-full rounded-full bg-gradient-to-r from-blue-500 to-xv-blue shadow-[0_1px_3px_rgba(37,99,235,0.4)]"
-                      style={{ width: `${Math.max(6, (c.tickets / maxCarrierTickets) * 100)}%` }}
+                      className="w-full max-w-9 rounded-t-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.35)] transition-all group-hover:brightness-110"
+                      style={{
+                        height: `${Math.max(4, (c.revenue / maxCarrierRevenue) * 100)}%`,
+                        background: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
+                      }}
                     />
+                  </div>
+                  <span className="mt-1.5 w-full truncate text-center text-[11px] font-semibold text-slate-700 dark:text-slate-300">
+                    {c.partner}
                   </span>
-                  <span className="tnum text-right font-bold text-slate-900 dark:text-white">
-                    {isAdmin ? `${money(c.revenue)}đ` : `${c.tickets} vé`}
-                  </span>
-                </li>
+                  <span className="tnum text-[10px] font-medium text-slate-400">{c.total} vé</span>
+                </Link>
               ))}
-            </ul>
+            </div>
+            </div>
           )}
         </Card>
 
@@ -252,7 +252,7 @@ function OverviewContent() {
         >
           {routeStats.length === 0 ? (
             <div className="py-8 text-center text-xs font-bold text-slate-400">
-              Chưa có tuyến đường nào trong cơ sở dữ liệu.
+              Chưa có vé nào trong khoảng thời gian đã chọn.
             </div>
           ) : (
             <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
@@ -273,7 +273,7 @@ function OverviewContent() {
                 </div>
               </Link>
               <ul className="space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {routeStats.slice(0, 5).map((r) => (
+                {routeStats.map((r) => (
                   <li key={r.id}>
                     <Link
                       href="/xvip/tuyen-duong"
@@ -282,7 +282,7 @@ function OverviewContent() {
                       <span className="size-3 rounded-full shadow-sm" style={{ background: r.color }} />
                       <span className="flex-1 hover:text-blue-600 transition-colors">{r.name}</span>
                       <span className="tnum font-bold text-slate-900 dark:text-white">
-                        {r.count} vé {totalTickets > 0 ? `(${r.pct}%)` : ''}
+                        {r.count} vé ({r.pct}%)
                       </span>
                     </Link>
                   </li>
@@ -329,96 +329,6 @@ function OverviewContent() {
           )}
         </Card>
       </div>
-
-      {/* Danh sách vé mới nhất từ API thật */}
-      <Card
-        title="Danh sách đơn vé điều hành mới nhất"
-        action={
-          <Link href="/xvip/quan-ly-ve" className="btn-3d btn-3d-blue px-3.5 py-1.5 text-xs">
-            Vào quản lý toàn bộ vé ➔
-          </Link>
-        }
-        className="mt-5 !p-0 overflow-hidden"
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr>
-                <th className={TH}>STT</th>
-                <th className={TH}>Mã đơn</th>
-                <th className={TH}>Giờ xe</th>
-                <th className={TH}>Nhà xe</th>
-                <th className={TH}>Tuyến đường</th>
-                <th className={TH}>Khách hàng</th>
-                <th className={TH}>Số điện thoại</th>
-                <th className={`${TH} text-right`}>Giá vé</th>
-                <th className={`${TH} text-right`}>Hoa hồng</th>
-                <th className={TH}>NV tạo</th>
-                <th className={TH}>Trạng thái</th>
-              </tr>
-            </thead>
-            <tbody>
-              {ordersLoading ? (
-                <tr>
-                  <td colSpan={11} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
-                    Đang tải danh sách vé mới nhất từ cơ sở dữ liệu...
-                  </td>
-                </tr>
-              ) : orders.length === 0 ? (
-                <tr>
-                  <td colSpan={11} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
-                    Chưa có đơn vé nào trong hệ thống.{' '}
-                    <Link href="/xvip/quan-ly-ve" className="text-blue-600 hover:underline font-bold ml-1">
-                      Bấm vào đây để tạo đơn vé mới!
-                    </Link>
-                  </td>
-                </tr>
-              ) : (
-                orders.slice(0, 8).map((t, i) => (
-                  <tr key={t.id} className="hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors">
-                    <td className={TD}>{i + 1}</td>
-                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
-                      {formatOrderCode(t.id)}
-                    </td>
-                    <td className={`${TD} font-bold text-blue-700 dark:text-blue-400`}>
-                      {t.departureTime}
-                      <span className="block text-[11px] font-normal text-slate-400 dark:text-slate-500">
-                        {formatDateVN(t.departureDate)}
-                      </span>
-                    </td>
-                    <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
-                      <Link href="/xvip/doi-tac" className="hover:text-blue-600 hover:underline transition-colors">
-                        {t.partner || 'XVIP'}
-                      </Link>
-                    </td>
-                    <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
-                      <Link href="/xvip/tuyen-duong" className="hover:text-blue-600 hover:underline transition-colors">
-                        {t.route?.name || 'Tuyến liên tỉnh'}
-                      </Link>
-                    </td>
-                    <td className={`${TD} font-bold text-slate-900 dark:text-white`}>
-                      {t.customerName || 'Khách lẻ'}
-                    </td>
-                    <td className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}>{t.phone}</td>
-                    <td className={`${TD} ${NUM} text-slate-900 dark:text-white`}>{money(t.sellPrice)}đ</td>
-                    <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
-                      {money(t.commission)}đ
-                    </td>
-                    <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
-                      {t.staff?.fullName || 'NV'}
-                    </td>
-                    <td className={TD}>
-                      <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-                        {t.smsSent ? 'Đã gửi SMS' : 'Chưa gửi'}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </>
   );
 }
