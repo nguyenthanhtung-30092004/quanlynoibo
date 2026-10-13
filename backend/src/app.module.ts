@@ -5,6 +5,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
 import authConfig from './config/auth.config.js';
+import { AttendanceModule } from './modules/attendance/attendance.module.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { AuthGuard } from './modules/auth/guards/auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
@@ -44,6 +45,7 @@ import { UsersModule } from './modules/users/users.module.js';
     RoutesModule,
     SettingsModule,
     PayrollModule,
+    AttendanceModule,
     RealtimeModule,
   ],
   controllers: [AppController],

@@ -631,7 +631,7 @@ export class OrdersService {
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
-        byRoute: Array<{ routeId: number; total: number }>;
+        byRoute: Array<{ routeId: number; total: number; revenue?: number }>;
         byPartner?: Array<{ partner: string; total: number; commission: number }>;
       } = { date, ...summarize(orders), byRoute: [] };
 
@@ -651,13 +651,20 @@ export class OrdersService {
       );
     }
 
-    // Số vé theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
-    const routeCounts = new Map<number, number>();
+    // Số vé và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
+    const routeMap = new Map<number, { total: number; revenue: number }>();
     for (const o of orders) {
-      routeCounts.set(o.routeId, (routeCounts.get(o.routeId) ?? 0) + 1);
+      const cur = routeMap.get(o.routeId) ?? { total: 0, revenue: 0 };
+      cur.total += 1;
+      cur.revenue += o.sellPrice || 0;
+      routeMap.set(o.routeId, cur);
     }
-    result.byRoute = [...routeCounts.entries()]
-      .map(([routeId, total]) => ({ routeId, total }))
+    result.byRoute = [...routeMap.entries()]
+      .map(([routeId, stat]) => ({
+        routeId,
+        total: stat.total,
+        ...(isAdmin ? { revenue: stat.revenue } : {}),
+      }))
       .sort((a, b) => b.total - a.total);
 
     // Nhân viên không được biết doanh thu / giá nhập: không trả về từ server

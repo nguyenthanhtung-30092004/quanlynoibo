@@ -705,10 +705,13 @@ export default function TicketManagementPage() {
     const errors: FormErrors = {};
     if (!formState.customerName.trim())
       errors.customerName = 'Vui lòng nhập tên khách hàng.';
-    const phoneClean = formState.phone.replace(/\s+/g, '');
-    if (!phoneClean) errors.phone = 'Vui lòng nhập số điện thoại.';
-    else if (!/^(0|\+84)\d{9,10}$/.test(phoneClean))
+    if (!formState.phone.trim()) {
+      errors.phone = 'Vui lòng nhập số điện thoại.';
+    } else if (/\s/.test(formState.phone)) {
+      errors.phone = 'Số điện thoại không được chứa dấu cách.';
+    } else if (!/^(0|\+84)\d{9,10}$/.test(formState.phone)) {
       errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
+    }
     if (!formState.routeId) errors.routeId = 'Vui lòng chọn tuyến đường.';
     if (!formState.departureTime)
       errors.departureTime = 'Vui lòng chọn giờ đi.';
@@ -733,7 +736,7 @@ export default function TicketManagementPage() {
 
     const payload: CreateOrderInput = {
       customerName: formState.customerName.trim() || undefined,
-      phone: formState.phone.replace(/\s+/g, ''),
+      phone: formState.phone.trim(),
       routeId: Number(formState.routeId),
       partner: formState.partner.trim() || undefined,
       vehicleType: formState.vehicleType.trim() || undefined,
@@ -1264,11 +1267,19 @@ export default function TicketManagementPage() {
                         inputMode="tel"
                         value={formState.phone}
                         onChange={(e) => {
+                          const val = e.target.value;
                           setFormState((p) => ({
                             ...p,
-                            phone: e.target.value,
+                            phone: val,
                           }));
-                          setFormErrors((er) => ({ ...er, phone: undefined }));
+                          if (/\s/.test(val)) {
+                            setFormErrors((er) => ({
+                              ...er,
+                              phone: 'Số điện thoại không được chứa dấu cách.',
+                            }));
+                          } else {
+                            setFormErrors((er) => ({ ...er, phone: undefined }));
+                          }
                         }}
                         aria-invalid={!!formErrors.phone}
                       />

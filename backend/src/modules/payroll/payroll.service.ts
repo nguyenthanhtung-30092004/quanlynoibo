@@ -48,17 +48,21 @@ export class PayrollService {
       order: { fullName: 'ASC' },
     });
 
-    // Hoa hồng từng ngày (theo ngày vào sổ, giống KPI); vé đã hủy không tính
+    // Hoa hồng từng ngày (theo ngày vào sổ / ngày tạo vé, không lấy theo ngày khởi hành); vé đã hủy không tính
+    const effectiveDayExpr = `to_char(COALESCE("order"."entryDate", CAST("order"."createdAt" AT TIME ZONE 'Asia/Ho_Chi_Minh' AS date)), 'YYYY-MM-DD')`;
     const rows = await this.orders
       .createQueryBuilder('order')
       .select('"order"."createdById"', 'staffId')
-      .addSelect(`to_char("order"."entryDate", 'YYYY-MM-DD')`, 'day')
+      .addSelect(effectiveDayExpr, 'day')
       .addSelect('COALESCE(SUM("order"."commission"), 0)', 'commission')
       .addSelect('COUNT(*)', 'tickets')
-      .where('"order"."entryDate" >= :from AND "order"."entryDate" <= :to', { from, to })
+      .where(
+        `COALESCE("order"."entryDate", CAST("order"."createdAt" AT TIME ZONE 'Asia/Ho_Chi_Minh' AS date)) >= :from AND COALESCE("order"."entryDate", CAST("order"."createdAt" AT TIME ZONE 'Asia/Ho_Chi_Minh' AS date)) <= :to`,
+        { from, to },
+      )
       .andWhere('"order"."cancelledAt" IS NULL')
       .groupBy('"order"."createdById"')
-      .addGroupBy('"order"."entryDate"')
+      .addGroupBy(effectiveDayExpr)
       .getRawMany<{ staffId: number; day: string; commission: string; tickets: string }>();
 
     const dailyByStaff = new Map<number, Record<string, PayrollDay>>();

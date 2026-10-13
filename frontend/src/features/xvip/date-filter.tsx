@@ -24,7 +24,7 @@ export interface DateRange {
 export type DateBasis = 'departure' | 'created';
 
 export const BASIS_LABEL: Record<DateBasis, string> = {
-  created: 'Ngày tạo vé',
+  created: 'Ngày vào sổ (tạo vé)',
   departure: 'Ngày khởi hành',
 };
 

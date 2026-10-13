@@ -6,13 +6,17 @@ import Link from 'next/link';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { useRoutes } from '@/features/routes/hooks';
-import { useUsers } from '@/features/users/hooks';
+import { useActiveStaff, useUsers } from '@/features/users/hooks';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
-const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+const ROUTE_PALETTE = [
+  '#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4',
+  '#ea580c', '#14b8a6', '#6366f1', '#84cc16', '#e11d48', '#d946ef',
+  '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+];
 
 
 /** Chỉ Admin xem tổng quan; nhân viên được chuyển sang trang Quản lý vé */
@@ -48,36 +52,29 @@ function OverviewContent() {
   const isAdmin = me?.role === 'ADMIN';
   // API người dùng chỉ dành cho Admin; nhân viên không xem doanh thu
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
+  const { data: activeStaffList = [] } = useActiveStaff(isAdmin);
 
   const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
   const routes = useMemo(() => routesData?.data ?? [], [routesData]);
 
   // Thống kê chỉ số thật
   const totalTickets = kpiData?.total ?? orders.length;
-  const totalRevenue = kpiData?.revenue ?? orders.reduce((sum, o) => sum + (o.sellPrice || 0), 0);
   const totalCommission = kpiData?.commission ?? orders.reduce((sum, o) => sum + (o.commission || 0), 0);
-  const totalStaffCount = usersData?.total ?? 1;
+  const totalStaffCount = activeStaffList.length > 0 ? activeStaffList.length : (usersData?.total ?? 1);
   const smsSentCount = kpiData?.smsSent ?? orders.filter((o) => o.smsSent).length;
 
   const STATS = [
     {
-      label: 'Tổng vé điều hành',
+      label: 'Tổng vé',
       value: `${totalTickets.toLocaleString('vi-VN')} vé`,
       note: totalTickets > 0 ? 'Dữ liệu vận hành trực tiếp' : 'Hệ thống sẵn sàng lên đơn',
       color: 'from-blue-600 to-blue-700',
       borderBottom: '#1d4ed8',
     },
     {
-      label: 'Tổng tiền vé',
-      value: `${money(totalRevenue)}đ`,
-      note: 'Doanh số vé thực tế',
-      color: 'from-emerald-600 to-emerald-700',
-      borderBottom: '#15803d',
-    },
-    {
-      label: 'Tổng hoa hồng',
+      label: 'Doanh số',
       value: `${money(totalCommission)}đ`,
-      note: 'Lợi nhuận điều hành',
+      note: 'Tổng hoa hồng tích lũy',
       color: 'from-amber-500 to-amber-600',
       borderBottom: '#b45309',
     },
@@ -100,24 +97,23 @@ function OverviewContent() {
   // Doanh số theo đối tác: lấy từ KPI (toàn bộ vé trong khoảng lọc), top theo doanh thu
   const carrierStats = useMemo(() => kpiData?.byPartner ?? [], [kpiData]);
 
-  // Tỷ lệ vé theo tuyến thật
-  // Lấy số vé từ KPI (toàn bộ vé trong khoảng lọc), không đếm trên một trang danh sách
+  // Tỷ lệ vé theo tuyến: hiển thị hết tất cả các tuyến đường có doanh thu / có vé
   const routeStats = useMemo(() => {
     const nameById = new Map(routes.map((r) => [r.id, r.name]));
-    const rows = (kpiData?.byRoute ?? []).map((r) => ({
-      id: r.routeId,
-      name: nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`,
-      count: r.total,
-    }));
-    const top = rows.slice(0, ROUTE_PALETTE.length);
-    const restCount = rows.slice(ROUTE_PALETTE.length).reduce((sum, r) => sum + r.count, 0);
-    const all = restCount > 0 ? [...top, { id: -1, name: 'Tuyến khác', count: restCount }] : top;
-    const total = all.reduce((sum, r) => sum + r.count, 0);
-    return all.map((r, idx) => ({
+    const rows = (kpiData?.byRoute ?? [])
+      .filter((r) => (r.revenue !== undefined ? r.revenue > 0 : r.total > 0))
+      .map((r) => ({
+        id: r.routeId,
+        name: nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`,
+        count: r.total,
+        revenue: r.revenue,
+      }));
+    const total = rows.reduce((sum, r) => sum + r.count, 0);
+    return rows.map((r, idx) => ({
       ...r,
       pct: total > 0 ? Math.round((r.count / total) * 100) : 0,
       share: total > 0 ? (r.count / total) * 100 : 0,
-      color: r.id === -1 ? '#94a3b8' : ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
+      color: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
     }));
   }, [routes, kpiData]);
 
@@ -132,22 +128,41 @@ function OverviewContent() {
     return `conic-gradient(${parts.join(', ')})`;
   }, [routeStats]);
 
-  // Top nhân viên thật từ kpiData.byStaff hoặc usersData
+  // Toàn bộ nhân viên tổng đài và kết quả bán vé
   const staffPodium = useMemo(() => {
-    if (kpiData?.byStaff && kpiData.byStaff.length > 0) {
-      return kpiData.byStaff;
+    const kpiByStaffMap = new Map((kpiData?.byStaff ?? []).map((s) => [s.staffId, s]));
+
+    if (activeStaffList.length > 0) {
+      return activeStaffList
+        .map((u) => {
+          const stats = kpiByStaffMap.get(u.id);
+          return {
+            staffId: u.id,
+            fullName: u.fullName,
+            total: stats?.total ?? 0,
+            commission: stats?.commission ?? 0,
+          };
+        })
+        .sort((a, b) => b.total - a.total || b.commission - a.commission);
     }
+
+    if (kpiData?.byStaff && kpiData.byStaff.length > 0) {
+      return [...kpiData.byStaff].sort((a, b) => b.total - a.total || b.commission - a.commission);
+    }
+
     const staffUsers = usersData?.data?.filter((u) => u.role === 'STAFF') ?? [];
-    return staffUsers.map((u) => {
-      const matchOrders = orders.filter((o) => o.staff?.id === u.id);
-      return {
-        staffId: u.id,
-        fullName: u.fullName,
-        total: matchOrders.length,
-        commission: matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0),
-      };
-    });
-  }, [kpiData, usersData, orders]);
+    return staffUsers
+      .map((u) => {
+        const matchOrders = orders.filter((o) => o.staff?.id === u.id);
+        return {
+          staffId: u.id,
+          fullName: u.fullName,
+          total: matchOrders.length,
+          commission: matchOrders.reduce((sum, o) => sum + (o.commission || 0), 0),
+        };
+      })
+      .sort((a, b) => b.total - a.total || b.commission - a.commission);
+  }, [activeStaffList, kpiData, usersData, orders]);
 
   return (
     <>
@@ -161,9 +176,9 @@ function OverviewContent() {
         Tổng quan điều hành hệ thống
       </PageTitle>
 
-      {/* 5 Thẻ chỉ số 3D kết nối API thật */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {STATS.filter((st) => isAdmin || st.label !== 'Tổng tiền vé').map(({ label, value, note, color, borderBottom }) => (
+      {/* 4 Thẻ chỉ số 3D kết nối API thật */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {STATS.map(({ label, value, note, color, borderBottom }) => (
           <div
             key={label}
             style={{
@@ -232,16 +247,16 @@ function OverviewContent() {
                   </span>
                 </div>
               </Link>
-              <ul className="space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <ul className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
                     <Link
                       href="/xvip/tuyen-duong"
                       className="flex items-center gap-2.5 rounded-lg p-1 hover:bg-blue-50 dark:hover:bg-slate-800/60 transition-colors"
                     >
-                      <span className="size-3 rounded-full shadow-sm" style={{ background: r.color }} />
-                      <span className="flex-1 hover:text-blue-600 transition-colors">{r.name}</span>
-                      <span className="tnum font-bold text-slate-900 dark:text-white">
+                      <span className="size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
+                      <span className="flex-1 truncate hover:text-blue-600 transition-colors">{r.name}</span>
+                      <span className="tnum shrink-0 font-bold text-slate-900 dark:text-white">
                         {r.count} vé ({r.pct}%)
                       </span>
                     </Link>
@@ -252,9 +267,9 @@ function OverviewContent() {
           )}
         </Card>
 
-        {/* Top nhân viên thật */}
+        {/* Nhân viên tổng đài */}
         <Card
-          title="Nhân viên điều hành bán vé"
+          title="Nhân viên tổng đài"
           action={
             <Link href="/xvip/bao-cao" className="btn-3d btn-3d-white px-3 py-1 text-xs">
               Báo cáo chi tiết
@@ -266,21 +281,21 @@ function OverviewContent() {
               Chưa có nhân viên nào trong cơ sở dữ liệu.
             </div>
           ) : (
-            <ol className="space-y-3 pt-1">
-              {staffPodium.slice(0, 5).map((s, i) => (
+            <ol className="space-y-3 pt-1 max-h-[380px] overflow-y-auto pr-1">
+              {staffPodium.map((s, i) => (
                 <li
                   key={s.staffId || s.fullName}
                   className="flex items-center gap-3 text-sm rounded-lg p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 >
-                  <span className="flex size-5 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200 dark:border-slate-700">
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200 dark:border-slate-700">
                     {i + 1}
                   </span>
                   <Avatar name={s.fullName} />
                   <span className="flex-1 truncate font-semibold text-slate-800 dark:text-slate-200">
                     {s.fullName}
                   </span>
-                  <span className="tnum text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} vé</span>
-                  <span className="tnum w-24 text-right font-black text-emerald-700 dark:text-emerald-400">
+                  <span className="tnum shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} vé</span>
+                  <span className="tnum w-24 shrink-0 text-right font-black text-emerald-700 dark:text-emerald-400">
                     {money(s.commission || 0)}đ
                   </span>
                 </li>

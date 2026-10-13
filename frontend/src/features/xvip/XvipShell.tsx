@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
+  CalendarCheck,
   CaretDown,
   ChartBar,
   Gear,
@@ -21,6 +22,7 @@ import {
 import { cn } from '@/lib/cn';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
 import { useSettings } from '@/features/settings/hooks';
+import { AttendanceChip } from '@/features/attendance/AttendanceChip';
 import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
@@ -41,6 +43,7 @@ const NAV: NavItem[] = [
   { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },
   { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle, adminOnly: true },
   { href: '/xvip/cong-no', label: 'Công nợ', icon: Wallet, adminOnly: true },
+  { href: '/xvip/cham-cong', label: 'Chấm công', icon: CalendarCheck, adminOnly: true },
   { href: '/xvip/bang-luong', label: 'Bảng lương', icon: Money, adminOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear, adminOnly: true },
@@ -55,6 +58,12 @@ function initialsOf(fullName: string) {
   const first = words[0].charAt(0);
   const last = words.length > 1 ? words[words.length - 1].charAt(0) : '';
   return (first + last).toLocaleUpperCase('vi');
+}
+
+/** Chip chấm công chỉ hiện (và chỉ theo dõi) với nhân viên; Admin không chấm công */
+function StaffAttendance() {
+  const { data: me } = useCurrentUser();
+  return me?.role === 'STAFF' ? <AttendanceChip /> : null;
 }
 
 /** Khối người dùng ở header: bấm để mở menu có nút Đăng xuất */
@@ -259,6 +268,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
               <ThemeToggle />
 
               <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
+                <StaffAttendance />
                 <NotificationBell />
                 <UserMenu />
               </div>

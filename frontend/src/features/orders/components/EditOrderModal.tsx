@@ -148,13 +148,19 @@ export function EditOrderModal() {
               rules={[
                 { required: true, message: 'Nhập số điện thoại' },
                 {
-                  pattern: /^(0|\+84)\d{9,10}$/,
-                  transform: (v: string) => v?.replace(/\s+/g, ''),
-                  message: 'Số điện thoại không hợp lệ',
+                  validator: (_, value) => {
+                    if (value && /\s/.test(value)) {
+                      return Promise.reject(new Error('Số điện thoại không được chứa dấu cách'));
+                    }
+                    if (value && !/^(0|\+84)\d{9,10}$/.test(value)) {
+                      return Promise.reject(new Error('Số điện thoại không hợp lệ'));
+                    }
+                    return Promise.resolve();
+                  },
                 },
               ]}
             >
-              <Input inputMode="tel" />
+              <Input inputMode="tel" placeholder="0912345678" />
             </Form.Item>
           </div>
         </div>

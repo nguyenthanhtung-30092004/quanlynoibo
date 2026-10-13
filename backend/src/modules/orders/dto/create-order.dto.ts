@@ -13,9 +13,6 @@ import {
 } from 'class-validator';
 import { SeatZone } from '../entities/order.entity.js';
 
-const stripSpaces = ({ value }: { value: unknown }) =>
-  typeof value === 'string' ? value.replace(/\s+/g, '') : value;
-
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
@@ -34,8 +31,8 @@ export class CreateOrderDto {
   customerName?: string;
 
   @ApiProperty({ example: '0912345678' })
-  @Transform(stripSpaces)
   @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
+  @Matches(/^\S+$/, { message: 'Số điện thoại không được chứa dấu cách' })
   @Matches(/^(0|\+84)\d{9,10}$/, { message: 'Số điện thoại không hợp lệ' })
   phone: string;
 

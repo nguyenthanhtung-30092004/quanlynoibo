@@ -10,10 +10,12 @@ import {
   Function as FunctionIcon,
 } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
+import { shiftMonth, monthLabel } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { computePayroll, standardDays } from '@/features/payroll/calc';
 import { FormulaPanel } from '@/features/payroll/FormulaPanel';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
+import { attendanceApi } from '@/features/attendance/api';
 import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
 import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
@@ -21,14 +23,6 @@ import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
 type Entries = Record<number, PayrollEntry>;
-
-const shiftMonth = (month: string, delta: number): string => {
-  const [y, m] = month.split('-').map(Number);
-  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
-  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
-};
-
-const monthLabel = (month: string) => `Tháng ${month.slice(5)}/${month.slice(0, 4)}`;
 
 const entriesOf = (data: PayrollData): Entries =>
   Object.fromEntries(data.staff.map((s) => [s.id, s.entry]));
@@ -128,6 +122,35 @@ export default function PayrollPage() {
       }
       return next;
     });
+  };
+
+  /** Điền số công thực tế từ bảng chấm công của tháng (chỉ người đã có công, không ghi đè người chưa có dữ liệu) */
+  const [fillingAttendance, setFillingAttendance] = useState(false);
+  const fillFromAttendance = async () => {
+    if (!data) return;
+    setFillingAttendance(true);
+    try {
+      const att = await attendanceApi.month(month);
+      const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
+      const targets = data.staff.filter((s) => (congById.get(s.id) ?? 0) > 0);
+      setEntries((prev) => {
+        const next = { ...prev };
+        for (const s of targets) {
+          next[s.id] = { ...(prev[s.id] ?? s.entry), workDays: Math.min(31, congById.get(s.id) ?? 0) };
+        }
+        return next;
+      });
+      const filled = targets.length;
+      showToast(
+        filled > 0
+          ? `Đã điền công từ chấm công cho ${filled} nhân viên. Bấm Lưu bảng lương để giữ lại.`
+          : 'Tháng này chưa có công nào từ chấm công để điền.',
+      );
+    } catch (err) {
+      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không lấy được dữ liệu chấm công.'}`);
+    } finally {
+      setFillingAttendance(false);
+    }
   };
 
   const missingDays = rows.filter((r) => r.entry.workDays === null).length;
@@ -247,7 +270,7 @@ export default function PayrollPage() {
                   Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) ± Điều chỉnh tay
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                  &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
+                  &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
                   bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> để giữ lại.
                 </p>
               </div>
@@ -272,11 +295,21 @@ export default function PayrollPage() {
         className="mt-5 !p-0 overflow-hidden"
         title={`Bảng lương ${monthLabel(month).toLowerCase()}`}
         action={
-          missingDays > 0 ? (
-            <button type="button" onClick={fillFullDays} className="btn-3d btn-3d-white px-3 py-1 text-xs">
-              Điền đủ {std} công cho {missingDays} người chưa nhập
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={fillFromAttendance}
+              disabled={fillingAttendance || !data}
+              className="btn-3d btn-3d-white px-3 py-1 text-xs disabled:opacity-50"
+            >
+              {fillingAttendance ? 'Đang lấy...' : 'Điền công từ chấm công'}
             </button>
-          ) : undefined
+            {missingDays > 0 && (
+              <button type="button" onClick={fillFullDays} className="btn-3d btn-3d-white px-3 py-1 text-xs">
+                Điền đủ {std} công cho {missingDays} người chưa nhập
+              </button>
+            )}
+          </div>
         }
       >
         <div className="overflow-x-auto">
@@ -287,7 +320,10 @@ export default function PayrollPage() {
                 <th className={TH}>Nhân viên</th>
                 <th className={TH}>Bậc</th>
                 <th className={`${TH} text-right`}>Công thực tế</th>
-                <th className={`${TH} text-right`}>Doanh số (hoa hồng)</th>
+                <th className={`${TH} text-right`}>
+                  Doanh số (hoa hồng)
+                  <span className="block text-[10px] font-normal normal-case text-slate-400">Theo ngày vào sổ</span>
+                </th>
                 <th className={`${TH} text-right`}>Lương cứng</th>
                 <th className={`${TH} text-right`}>Thưởng ngày</th>
                 <th className={`${TH} text-right`}>Thưởng tháng</th>
