@@ -6,6 +6,7 @@ import {
   Eye,
   EyeSlash,
   FileXls,
+  Key,
   LockSimple,
   LockSimpleOpen,
   MagnifyingGlass,
@@ -120,6 +121,9 @@ function UsersPageContent() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [draft, setDraft] = useState<UserDraft>(EMPTY_DRAFT);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
+  const [resetTarget, setResetTarget] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const showToast = useToast();
 
@@ -205,6 +209,27 @@ function UsersPageContent() {
       refetch();
     } catch (err: unknown) {
       showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không đổi được trạng thái tài khoản.'}`);
+    }
+  };
+
+  const openResetPassword = (u: User) => {
+    setResetTarget(u);
+    setNewPassword('');
+    setShowNewPassword(false);
+  };
+
+  const handleResetPassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!resetTarget) return;
+    const password = newPassword.trim();
+    if (!password) return;
+    try {
+      await updateMutation.mutateAsync({ id: resetTarget.id, input: { password } });
+      showToast(`Đã đặt lại mật khẩu cho "${resetTarget.fullName}".`);
+      setResetTarget(null);
+      refetch();
+    } catch (err: unknown) {
+      showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không đặt lại được mật khẩu.'}`);
     }
   };
 
@@ -379,7 +404,7 @@ function UsersPageContent() {
                         <div>
                           <span className="font-extrabold text-slate-900 dark:text-white">{u.fullName}</span>
                           <span className="block text-[11px] font-medium text-slate-400 dark:text-slate-500">
-                            {u.address || 'Hệ thống'}
+                            {u.address || 'Chưa có ghi chú'}
                           </span>
                         </div>
                       </div>
@@ -421,6 +446,14 @@ function UsersPageContent() {
                           className="btn-3d btn-3d-blue flex items-center gap-1.5 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <PencilSimple size={14} weight="bold" /> Sửa
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openResetPassword(u)}
+                          title="Đặt lại mật khẩu"
+                          className="btn-3d btn-3d-white flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
+                        >
+                          <Key size={14} weight="bold" /> Đặt MK
                         </button>
                         <button
                           type="button"
@@ -488,12 +521,12 @@ function UsersPageContent() {
               </p>
             )}
 
-            <Field label="Địa chỉ / Chi nhánh">
+            <Field label="Ghi chú">
               <input
                 className="input-3d"
                 value={draft.address}
                 onChange={(e) => setDraft({ ...draft, address: e.target.value })}
-                placeholder="VD: Chi nhánh Bến xe Bãi Cháy, Quảng Ninh"
+                placeholder="Muốn ghi gì cũng được"
               />
             </Field>
 
@@ -534,6 +567,57 @@ function UsersPageContent() {
                 className="btn-3d btn-3d-blue px-5 py-2 text-sm"
               >
                 {editingUser ? 'Cập nhật nhân viên' : 'Tạo tài khoản'}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal Đặt lại mật khẩu */}
+      {resetTarget && (
+        <Modal title="Đặt lại mật khẩu" onClose={() => setResetTarget(null)}>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <p className="text-sm text-slate-700 dark:text-slate-300">
+              Nhập mật khẩu mới cho <strong>{resetTarget.fullName}</strong> (@{resetTarget.username}). Nhân viên đang
+              đăng nhập sẽ bị đăng xuất.
+            </p>
+            <Field label="Mật khẩu mới" required>
+              <span className="relative block">
+                <input
+                  className="input-3d pr-11 font-mono"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu mới"
+                  autoComplete="new-password"
+                  autoFocus
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword((v) => !v)}
+                  title={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
+                >
+                  {showNewPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
+                </button>
+              </span>
+            </Field>
+            <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setResetTarget(null)}
+                className="btn-3d btn-3d-white px-4 py-2 text-sm"
+              >
+                Hủy
+              </button>
+              <button
+                type="submit"
+                disabled={updateMutation.isPending}
+                className="btn-3d btn-3d-blue px-5 py-2 text-sm disabled:opacity-60"
+              >
+                Đặt lại mật khẩu
               </button>
             </div>
           </form>

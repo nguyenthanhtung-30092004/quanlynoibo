@@ -632,18 +632,22 @@ export class OrdersService {
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
         byRoute: Array<{ routeId: number; total: number }>;
-        byPartner?: Array<{ partner: string; total: number; revenue: number }>;
+        byPartner?: Array<{ partner: string; total: number; revenue: number; commission: number }>;
       } = { date, ...summarize(orders), byRoute: [] };
 
-    // Doanh số theo đối tác (chỉ Admin, vì có doanh thu)
+    // Doanh số theo đối tác (chỉ Admin, vì có doanh thu và hoa hồng)
     if (isAdmin) {
-      const partnerGroups = new Map<string, { partner: string; total: number; revenue: number }>();
+      const partnerGroups = new Map<
+        string,
+        { partner: string; total: number; revenue: number; commission: number }
+      >();
       for (const o of orders) {
         const name = o.partner?.trim() || 'XVIP';
         const key = name.toLowerCase();
-        const row = partnerGroups.get(key) ?? { partner: name, total: 0, revenue: 0 };
+        const row = partnerGroups.get(key) ?? { partner: name, total: 0, revenue: 0, commission: 0 };
         row.total += 1;
         row.revenue += o.sellPrice;
+        row.commission += o.commission;
         partnerGroups.set(key, row);
       }
       result.byPartner = [...partnerGroups.values()].sort(

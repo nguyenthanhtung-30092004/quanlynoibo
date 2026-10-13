@@ -25,7 +25,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  @Length(8, 100, { message: 'Mật khẩu phải từ 8 đến 100 ký tự' })
+  @Length(1, 100, { message: 'Mật khẩu không được để trống và không dài quá 100 ký tự' })
   password?: string;
 
   @ApiProperty({ description: 'Họ và tên', example: 'Nguyễn Văn A' })
@@ -41,12 +41,12 @@ export class CreateUserDto {
   phone?: string;
 
   @ApiPropertyOptional({
-    description: 'Địa chỉ',
+    description: 'Ghi chú (ghi gì cũng được)',
     example: '12 Nguyễn Trãi, Thanh Xuân, Hà Nội',
   })
   @IsOptional()
   @IsString()
-  @Length(1, 255, { message: 'Địa chỉ không được dài quá 255 ký tự' })
+  @Length(1, 255, { message: 'Ghi chú không được dài quá 255 ký tự' })
   address?: string;
 
   @ApiPropertyOptional({

@@ -9,16 +9,11 @@ import { useRoutes } from '@/features/routes/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
+import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
 const ROUTE_PALETTE = ['#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
 
-/** Rút gọn số tiền cho nhãn cột: 1.250.000 → 1,25tr; 850.000 → 850k */
-function compactMoney(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })}tr`;
-  if (n >= 1_000) return `${Math.round(n / 1_000).toLocaleString('vi-VN')}k`;
-  return `${n}`;
-}
 
 /** Chỉ Admin xem tổng quan; nhân viên được chuyển sang trang Quản lý vé */
 export default function OverviewPage() {
@@ -104,7 +99,6 @@ function OverviewContent() {
 
   // Doanh số theo đối tác: lấy từ KPI (toàn bộ vé trong khoảng lọc), top theo doanh thu
   const carrierStats = useMemo(() => kpiData?.byPartner ?? [], [kpiData]);
-  const maxCarrierRevenue = Math.max(1, ...carrierStats.map((c) => c.revenue));
 
   // Tỷ lệ vé theo tuyến thật
   // Lấy số vé từ KPI (toàn bộ vé trong khoảng lọc), không đếm trên một trang danh sách
@@ -188,59 +182,26 @@ function OverviewContent() {
         ))}
       </div>
 
-      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Doanh số theo nhà xe thật */}
-        <Card
-          title="Doanh số theo đối tác"
-          action={
-            <Link href="/xvip/doi-tac" className="btn-3d btn-3d-white px-3 py-1 text-xs">
-              Xem chi tiết
-            </Link>
-          }
-        >
-          {carrierStats.length === 0 ? (
-            <div className="py-8 text-center text-xs font-bold text-slate-400">
-              Chưa có vé nào trong khoảng thời gian đã chọn.
-            </div>
-          ) : (
-            // Nhiều đối tác thì mỗi cột giữ bề rộng tối thiểu và cuộn ngang
-            <div className="overflow-x-auto">
-            <div
-              className="flex h-56 items-stretch gap-2 pt-2"
-              style={{ minWidth: `${carrierStats.length * 4.5}rem` }}
-              role="img"
-              aria-label="Biểu đồ cột doanh số theo đối tác"
-            >
-              {carrierStats.map((c, idx) => (
-                <Link
-                  key={c.partner}
-                  href="/xvip/doi-tac"
-                  title={`${c.partner}: ${money(c.revenue)}đ, ${c.total} vé`}
-                  className="group flex min-w-0 flex-1 flex-col items-center rounded-lg transition-colors hover:bg-blue-50 dark:hover:bg-slate-800/60"
-                >
-                  <span className="tnum mb-1 text-[11px] font-black text-slate-900 dark:text-white">
-                    {compactMoney(c.revenue)}
-                  </span>
-                  <div className="flex w-full flex-1 items-end justify-center border-b border-slate-200 px-1.5 dark:border-slate-700">
-                    <span
-                      className="w-full max-w-9 rounded-t-md shadow-[inset_0_1px_1px_rgba(255,255,255,0.35)] transition-all group-hover:brightness-110"
-                      style={{
-                        height: `${Math.max(4, (c.revenue / maxCarrierRevenue) * 100)}%`,
-                        background: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
-                      }}
-                    />
-                  </div>
-                  <span className="mt-1.5 w-full truncate text-center text-[11px] font-semibold text-slate-700 dark:text-slate-300">
-                    {c.partner}
-                  </span>
-                  <span className="tnum text-[10px] font-medium text-slate-400">{c.total} vé</span>
-                </Link>
-              ))}
-            </div>
-            </div>
-          )}
-        </Card>
+      {/* Doanh số theo đối tác: full chiều ngang, rê chuột vào cột để xem vé / doanh thu / hoa hồng */}
+      <Card
+        title="Doanh số theo đối tác"
+        className="mt-5"
+        action={
+          <Link href="/xvip/doi-tac" className="btn-3d btn-3d-white px-3 py-1 text-xs">
+            Xem chi tiết
+          </Link>
+        }
+      >
+        {carrierStats.length === 0 ? (
+          <div className="py-8 text-center text-xs font-bold text-slate-400">
+            Chưa có vé nào trong khoảng thời gian đã chọn.
+          </div>
+        ) : (
+          <PartnerChart data={carrierStats} />
+        )}
+      </Card>
 
+      <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Tỷ lệ vé theo tuyến thật */}
         <Card
           title="Tỷ lệ vé theo tuyến đường"

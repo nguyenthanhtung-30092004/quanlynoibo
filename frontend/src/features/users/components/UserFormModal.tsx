@@ -146,7 +146,7 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
             tooltip={isEdit ? 'Để trống nếu không đổi. Đổi mật khẩu sẽ đăng xuất tài khoản này khỏi các thiết bị.' : undefined}
             rules={[
               { required: !isEdit, message: 'Nhập mật khẩu' },
-              { min: 8, max: 100, message: 'Mật khẩu phải từ 8 đến 100 ký tự' },
+              { max: 100, message: 'Mật khẩu không được dài quá 100 ký tự' },
             ]}
           >
             <Input.Password autoComplete="new-password" className="shadow-3d-sm" />
@@ -178,7 +178,7 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
             />
           </Form.Item>
 
-          <Form.Item name="address" label="Địa chỉ" className="sm:col-span-2">
+          <Form.Item name="address" label="Ghi chú" className="sm:col-span-2">
             <Input maxLength={255} className="shadow-3d-sm" />
           </Form.Item>
         </div>

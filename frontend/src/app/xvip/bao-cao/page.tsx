@@ -597,16 +597,13 @@ export default function StaffReportPage() {
                     <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
                   </>
                 )}
-                {isAdmin && (
-                  <th className={`${TH} text-right`}>Giá trị TB / vé</th>
-                )}
               </tr>
             </thead>
             <tbody>
               {kpiLoading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 4}
+                    colSpan={isAdmin ? 7 : 4}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
@@ -615,7 +612,7 @@ export default function StaffReportPage() {
               ) : sortedStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 8 : 4}
+                    colSpan={isAdmin ? 7 : 4}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có dữ liệu nào khớp bộ lọc đã chọn.
@@ -623,10 +620,6 @@ export default function StaffReportPage() {
                 </tr>
               ) : (
                 sortedStaff.map((staff, index) => {
-                  const avgPrice =
-                    staff.tickets > 0
-                      ? Math.round(staff.revenue / staff.tickets)
-                      : 0;
                   return (
                     <tr
                       key={staff.id || staff.name}
@@ -698,13 +691,6 @@ export default function StaffReportPage() {
                             {money(staff.commission)}đ
                           </td>
                         </>
-                      )}
-                      {isAdmin && (
-                        <td
-                          className={`${TD} text-right font-semibold text-slate-600 dark:text-slate-300 tnum`}
-                        >
-                          {money(avgPrice)}đ
-                        </td>
                       )}
                     </tr>
                   );

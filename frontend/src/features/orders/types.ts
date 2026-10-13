@@ -149,7 +149,7 @@ export interface Kpi extends KpiSummary {
   /** Số vé theo tuyến, nhiều nhất trước */
   byRoute?: Array<{ routeId: number; total: number }>;
   /** Chỉ có với Admin: doanh số theo đối tác, nhiều nhất trước */
-  byPartner?: Array<{ partner: string; total: number; revenue: number }>;
+  byPartner?: Array<{ partner: string; total: number; revenue: number; commission: number }>;
 }
 
 export type OrderHistoryAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE';

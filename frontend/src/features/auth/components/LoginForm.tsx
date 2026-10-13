@@ -94,7 +94,6 @@ export function LoginForm() {
     e.preventDefault();
     setError(null);
     setNotice(null);
-    if (newPassword.length < 8) return setError('Mật khẩu mới phải có ít nhất 8 ký tự.');
     if (newPassword !== confirmPassword) return setError('Mật khẩu nhập lại không khớp.');
     setBusy(true);
     try {
@@ -162,7 +161,7 @@ export function LoginForm() {
               <PasswordField
                 value={newPassword}
                 onChange={setNewPassword}
-                placeholder="Mật khẩu mới (tối thiểu 8 ký tự)"
+                placeholder="Mật khẩu mới"
                 autoComplete="new-password"
                 icon="key"
               />
