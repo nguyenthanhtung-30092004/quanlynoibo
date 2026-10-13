@@ -9,7 +9,7 @@ export const routesApi = {
         search: filters?.search?.trim() || undefined,
         isActive: filters?.isActive,
         page: filters?.page,
-        limit: filters?.limit ?? 100,
+        limit: filters?.limit ?? 1000,
       },
     }),
 

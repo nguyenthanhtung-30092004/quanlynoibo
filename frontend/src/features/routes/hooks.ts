@@ -15,7 +15,7 @@ export function useRoutes(filters?: RouteFilters) {
 export function useActiveRoutes(enabled = true) {
   return useQuery({
     queryKey: [...KEY, 'active'],
-    queryFn: ({ signal }) => routesApi.list({ isActive: true, limit: 100 }, signal),
+    queryFn: ({ signal }) => routesApi.list({ isActive: true, limit: 1000 }, signal),
     enabled,
     staleTime: 60_000,
     select: (res) => res.data,

@@ -102,7 +102,9 @@ export class RoutesService {
       .where('LOWER(r.name) = LOWER(:name)', { name })
       .getOne();
     if (existing && existing.id !== exceptId) {
-      throw new ConflictException('Tên tuyến đường đã tồn tại.');
+      throw new ConflictException(
+        `Tên tuyến đường đã tồn tại (tuyến "${existing.name}", ID #${existing.id}).`,
+      );
     }
   }
 }
