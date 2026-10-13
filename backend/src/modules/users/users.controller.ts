@@ -56,6 +56,16 @@ export class UsersController {
     };
   }
 
+  /** Chỉ Admin: xem mật khẩu hiện tại của nhân viên (gọi riêng từng người khi bấm biểu tượng con mắt) */
+  @Get(':id/password')
+  async revealPassword(@Param('id', ParseIntPipe) id: number) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy mật khẩu thành công',
+      data: { password: await this.usersService.revealPassword(id) },
+    };
+  }
+
   @Get(':id')
   async findOne(@Param('id', ParseIntPipe) id: number) {
     return {

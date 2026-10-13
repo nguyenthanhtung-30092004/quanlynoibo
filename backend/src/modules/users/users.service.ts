@@ -10,6 +10,7 @@ import * as bcrypt from 'bcrypt';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { UpdateUserDto } from './dto/update-user.dto.js';
 import { User, UserRole } from './entities/user.entity.js';
+import { decryptPassword, encryptPassword } from './password-vault.js';
 
 /** Mật khẩu khởi tạo khi Admin tạo nhân viên mà không nhập mật khẩu */
 const DEFAULT_STAFF_PASSWORD = '123456';
@@ -29,9 +30,11 @@ export class UsersService {
     }
     await this.assertUsernameAvailable(username);
 
+    const password = dto.password ?? DEFAULT_STAFF_PASSWORD;
     const user = this.userRepository.create({
       username,
-      passwordHash: await bcrypt.hash(dto.password ?? DEFAULT_STAFF_PASSWORD, 10),
+      passwordHash: await bcrypt.hash(password, 10),
+      passwordEnc: encryptPassword(password),
       fullName: dto.fullName,
       phone: dto.phone ?? null,
       address: dto.address ?? null,
@@ -122,6 +125,7 @@ export class UsersService {
     if (dto.isActive !== undefined) patch.isActive = dto.isActive;
     if (dto.password) {
       patch.passwordHash = await bcrypt.hash(dto.password, 10);
+      patch.passwordEnc = encryptPassword(dto.password);
     }
     // Khóa tài khoản hoặc đổi mật khẩu thì thu hồi phiên đăng nhập hiện tại
     if (dto.isActive === false || dto.password) {
@@ -151,11 +155,25 @@ export class UsersService {
     });
   }
 
-  async setPasswordHash(id: number, passwordHash: string): Promise<void> {
+  /** Đặt mật khẩu mới (lưu cả bản băm để đăng nhập và bản mã hóa để Admin xem) */
+  async setPassword(id: number, password: string): Promise<void> {
     await this.userRepository.update(id, {
-      passwordHash,
+      passwordHash: await bcrypt.hash(password, 10),
+      passwordEnc: encryptPassword(password),
       refreshTokenHash: null,
     });
+  }
+
+  /** Mật khẩu hiện tại của tài khoản, null nếu chưa lưu được (tài khoản cũ) */
+  async revealPassword(id: number): Promise<string | null> {
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordEnc')
+      .where('user.id = :id', { id })
+      .andWhere('user.deletedAt IS NULL')
+      .getOne();
+    if (!user) throw new NotFoundException(`Không tìm thấy tài khoản với ID "${id}".`);
+    return decryptPassword(user.passwordEnc);
   }
 
   /**

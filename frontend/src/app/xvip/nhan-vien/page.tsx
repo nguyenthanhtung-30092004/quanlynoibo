@@ -3,6 +3,8 @@
 import { useToast } from '@/features/xvip/toast';
 import { useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import {
+  Eye,
+  EyeSlash,
   FileXls,
   LockSimple,
   LockSimpleOpen,
@@ -17,6 +19,7 @@ import {
 } from '@phosphor-icons/react';
 import type { User, UserRole } from '@/features/auth/types';
 import { useCurrentUser } from '@/features/auth/hooks';
+import { usersApi } from '@/features/users/api';
 import { useCreateUser, useDeleteUser, useUpdateUser, useUsers } from '@/features/users/hooks';
 import { Avatar, Card, PageTitle, StatusBadge, TD, TH } from '@/features/xvip/ui';
 
@@ -29,6 +32,46 @@ function Field({ label, required, children }: { label: string; required?: boolea
       </span>
       {children}
     </label>
+  );
+}
+
+/** Ô mật khẩu: mặc định ẩn, bấm con mắt mới tải và hiện mật khẩu, bấm lại thì ẩn và bỏ khỏi bộ nhớ */
+function PasswordCell({ userId }: { userId: number }) {
+  const [shown, setShown] = useState<string | null | undefined>(undefined);
+  const [loading, setLoading] = useState(false);
+  const showToast = useToast();
+
+  const toggle = async () => {
+    if (shown !== undefined) {
+      setShown(undefined);
+      return;
+    }
+    setLoading(true);
+    try {
+      setShown(await usersApi.revealPassword(userId));
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không lấy được mật khẩu.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className="min-w-20 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
+        {shown === undefined ? '••••••••' : (shown ?? 'Chưa lưu, hãy đặt lại')}
+      </span>
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={loading}
+        title={shown === undefined ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
+        aria-label={shown === undefined ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
+        className="flex size-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-slate-700 dark:hover:text-white"
+      >
+        {shown === undefined ? <Eye size={16} /> : <EyeSlash size={16} />}
+      </button>
+    </span>
   );
 }
 
@@ -306,6 +349,7 @@ function UsersPageContent() {
                 <th className={TH}>STT</th>
                 <th className={TH}>Nhân viên</th>
                 <th className={TH}>Tên đăng nhập</th>
+                <th className={TH}>Mật khẩu</th>
                 <th className={TH}>Số điện thoại</th>
                 <th className={TH}>Vai trò</th>
                 <th className={TH}>Trạng thái</th>
@@ -315,13 +359,13 @@ function UsersPageContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={8} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải danh sách tài khoản từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có tài khoản nào hoặc không tìm thấy kết quả phù hợp.
                   </td>
                 </tr>
@@ -342,6 +386,9 @@ function UsersPageContent() {
                     </td>
                     <td className={`${TD} font-mono text-xs font-bold text-slate-700 dark:text-slate-300`}>
                       @{u.username}
+                    </td>
+                    <td className={TD}>
+                      <PasswordCell key={`${u.id}-${u.updatedAt}`} userId={u.id} />
                     </td>
                     <td className={TD}>
                       <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">

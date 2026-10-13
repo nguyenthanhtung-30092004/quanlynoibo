@@ -10,6 +10,7 @@ export interface User {
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface LoginInput {

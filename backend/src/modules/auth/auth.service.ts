@@ -141,10 +141,7 @@ export class AuthService {
     }
 
     // Đổi mật khẩu đồng thời thu hồi refresh token ở các thiết bị khác
-    await this.usersService.setPasswordHash(
-      user.id,
-      await bcrypt.hash(newPassword, 10),
-    );
+    await this.usersService.setPassword(user.id, newPassword);
     return { success: true };
   }
 

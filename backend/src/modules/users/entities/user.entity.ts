@@ -24,6 +24,10 @@ export class User {
   @Column({ name: 'passwordHash', length: 255, select: false })
   passwordHash: string;
 
+  /** Mật khẩu mã hóa 2 chiều (AES) để Admin xem lại; null với tài khoản cũ chưa đặt lại mật khẩu */
+  @Column({ name: 'passwordEnc', type: 'varchar', length: 512, nullable: true, select: false })
+  passwordEnc: string | null;
+
   @Column({ name: 'fullName', length: 100 })
   fullName: string;
 

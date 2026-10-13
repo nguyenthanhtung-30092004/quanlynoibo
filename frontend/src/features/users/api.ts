@@ -23,5 +23,11 @@ export const usersApi = {
       (res) => res.data,
     ),
 
+  /** Chỉ Admin: mật khẩu hiện tại của nhân viên, null nếu tài khoản cũ chưa đặt lại mật khẩu */
+  revealPassword: (id: number) =>
+    api<ApiResponse<{ password: string | null }>>(`users/${id}/password`).then(
+      (res) => res.data.password,
+    ),
+
   remove: (id: number) => api<ApiResponse<null>>(`users/${id}`, { method: 'DELETE' }),
 };
