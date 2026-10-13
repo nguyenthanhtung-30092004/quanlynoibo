@@ -39,6 +39,7 @@ import {
   parseOrderWorkbook,
   type ImportRow,
 } from './order-import.parser.js';
+import { matchCanonicalPartner } from './order-partner.util.js';
 
 /** Kết quả nhập Excel: số đơn đã nạp, trùng đã bỏ qua và các dòng lỗi */
 export interface ImportResult {
@@ -128,6 +129,20 @@ export class OrdersService {
 
     await this.assertRouteUsable(dto.routeId);
 
+    let canonicalPartner: string | null = null;
+    if (dto.partner && dto.partner.trim()) {
+      const allPartners = await this.partnerRepository.find({
+        select: { id: true, name: true },
+      });
+      const matched = matchCanonicalPartner(dto.partner, allPartners);
+      if (matched === undefined) {
+        throw new BadRequestException(
+          `Đối tác "${dto.partner}" không có trong danh sách. Hãy chọn đối tác có sẵn.`,
+        );
+      }
+      canonicalPartner = matched;
+    }
+
     const costPrice = dto.costPrice ?? 0;
     const sellPrice = dto.sellPrice ?? 0;
 
@@ -148,7 +163,7 @@ export class OrdersService {
         deposit: dto.deposit ?? 0,
         collectOnDelivery: dto.collectOnDelivery ?? 0,
         commission: dto.commission ?? 0,
-        partner: dto.partner || null,
+        partner: canonicalPartner,
         pickupPoint: dto.pickupPoint || null,
         dropoffPoint: dto.dropoffPoint || null,
         note: dto.note || null,
@@ -175,8 +190,6 @@ export class OrdersService {
       this.userRepository.find({ where: { isActive: true } }),
       this.partnerRepository.find(),
     ]);
-    // Đối tác đã có trong hệ thống thì dùng đúng tên chuẩn của nó
-    const partnerByName = new Map(partners.map((p) => [normalizeKey(p.name), p.name]));
     const routeByName = new Map(routes.map((r) => [normalizeKey(r.name), r.id]));
     const userByName = new Map<string, number>();
     for (const u of users) {
@@ -195,6 +208,16 @@ export class OrdersService {
       const routeId = routeByName.get(normalizeKey(row.routeName));
       if (row.routeName && !routeId) problems.push(`không có tuyến "${row.routeName}"`);
 
+      let canonicalPartner: string | null = null;
+      if (row.partner && row.partner.trim()) {
+        const matched = matchCanonicalPartner(row.partner, partners);
+        if (matched === undefined) {
+          problems.push(`Đối tác "${row.partner}" không có trong danh sách`);
+        } else {
+          canonicalPartner = matched;
+        }
+      }
+
       const dto = plainToInstance(CreateOrderDto, {
         customerName: row.customerName,
         phone: row.phone,
@@ -211,7 +234,7 @@ export class OrdersService {
         deposit: row.deposit,
         collectOnDelivery: row.collectOnDelivery,
         commission: row.commission,
-        partner: (row.partner && partnerByName.get(normalizeKey(row.partner))) || row.partner,
+        partner: canonicalPartner,
         pickupPoint: row.pickupPoint,
         dropoffPoint: row.dropoffPoint,
         note: row.note,
@@ -290,6 +313,29 @@ export class OrdersService {
       await this.assertRouteUsable(dto.routeId);
     }
 
+    let nextPartner = order.partner;
+    if (dto.partner !== undefined) {
+      const currentPartnerRaw = order.partner ? order.partner.trim() : null;
+      const newPartnerRaw =
+        dto.partner && dto.partner.trim() ? dto.partner.trim() : null;
+      if (newPartnerRaw !== currentPartnerRaw) {
+        if (!newPartnerRaw) {
+          nextPartner = null;
+        } else {
+          const allPartners = await this.partnerRepository.find({
+            select: { id: true, name: true },
+          });
+          const matched = matchCanonicalPartner(newPartnerRaw, allPartners);
+          if (matched === undefined) {
+            throw new BadRequestException(
+              `Đối tác "${dto.partner}" không có trong danh sách. Hãy chọn đối tác có sẵn.`,
+            );
+          }
+          nextPartner = matched;
+        }
+      }
+    }
+
     const next = {
       customerName:
         dto.customerName !== undefined
@@ -308,7 +354,7 @@ export class OrdersService {
       sellPrice: dto.sellPrice ?? order.sellPrice,
       deposit: dto.deposit ?? order.deposit,
       collectOnDelivery: dto.collectOnDelivery ?? order.collectOnDelivery,
-      partner: dto.partner !== undefined ? dto.partner || null : order.partner,
+      partner: nextPartner,
       pickupPoint:
         dto.pickupPoint !== undefined
           ? dto.pickupPoint || null

@@ -423,6 +423,7 @@ export default function TicketManagementPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   // Đang đặt lại từ đơn nào (tạo đơn mới dựa trên đơn cũ)
   const [rebookFromId, setRebookFromId] = useState<number | null>(null);
+  const [editingRouteFallback, setEditingRouteFallback] = useState<string | undefined>();
   const [deleteTarget, setDeleteTarget] = useState<Order | null>(null);
   const [cancelTarget, setCancelTarget] = useState<Order | null>(null);
   const [cancelReason, setCancelReason] = useState('');
@@ -585,6 +586,7 @@ export default function TicketManagementPage() {
     resetBox();
     setEditingId(null);
     setRebookFromId(null);
+    setEditingRouteFallback(undefined);
     setFormState(defaultFormState);
     setFormErrors({});
     // Vé mới: mặc định gửi Zalo cho khách (nhân viên bỏ tích nếu không muốn gửi)
@@ -597,6 +599,7 @@ export default function TicketManagementPage() {
     resetBox();
     setEditingId(null);
     setRebookFromId(o.id);
+    setEditingRouteFallback(o.route?.name);
     setFormState({
       customerName: o.customerName ?? '',
       phone: o.phone,
@@ -629,6 +632,7 @@ export default function TicketManagementPage() {
     resetBox();
     setRebookFromId(null);
     setEditingId(o.id);
+    setEditingRouteFallback(o.route?.name);
     setFormState({
       customerName: o.customerName ?? '',
       phone: o.phone,
@@ -712,7 +716,14 @@ export default function TicketManagementPage() {
     } else if (!/^(0|\+84)\d{9,10}$/.test(formState.phone)) {
       errors.phone = 'Số điện thoại không hợp lệ (VD: 0912345678).';
     }
-    if (!formState.routeId) errors.routeId = 'Vui lòng chọn tuyến đường.';
+    if (!formState.routeId) {
+      errors.routeId = 'Vui lòng chọn tuyến đường.';
+    } else if (
+      activeRoutes.length > 0 &&
+      !activeRoutes.some((r) => r.id === formState.routeId)
+    ) {
+      errors.routeId = 'Tuyến đường này không còn hoạt động, hãy chọn lại.';
+    }
     if (!formState.departureTime)
       errors.departureTime = 'Vui lòng chọn giờ đi.';
     if (!formState.departureDate)
@@ -720,7 +731,14 @@ export default function TicketManagementPage() {
     else if (!editingId && formState.departureDate < getVnToday())
       // Vé mới không được đặt cho ngày đã qua (kể cả khi dán nội dung vào ô chữ)
       errors.departureDate = 'Ngày khởi hành không được trước hôm nay.';
-    if (!formState.partner.trim()) errors.partner = 'Vui lòng nhập đối tác.';
+    if (!formState.partner.trim()) {
+      errors.partner = 'Vui lòng chọn đối tác.';
+    } else if (
+      partnerList.length > 0 &&
+      !partnerList.some((p) => p.name === formState.partner.trim())
+    ) {
+      errors.partner = 'Đối tác này không còn trong danh sách, hãy chọn lại.';
+    }
     if (!formState.vehicleType.trim())
       errors.vehicleType = 'Vui lòng chọn loại hình.';
     const total = Number(formState.seatCount) || 0;
@@ -1324,8 +1342,10 @@ export default function TicketManagementPage() {
                         <RouteCombobox
                           routes={activeRoutes}
                           value={formState.routeId}
+                          fallbackName={editingRouteFallback}
                           invalid={!!formErrors.routeId}
                           onChange={(rId) => {
+                            setEditingRouteFallback(undefined);
                             setFormErrors((er) => ({
                               ...er,
                               routeId: undefined,

@@ -13,9 +13,9 @@ interface RouteOption {
 const money = (n: number) => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 /**
- * Ô chọn tuyến đường kiểu gõ-để-gợi ý: gõ vài chữ là lọc ngay danh sách, bấm
- * hoặc Enter để chọn (mũi tên lên/xuống để di chuyển). Không phải cuộn dài như
- * ô chọn thường.
+ * Ô chọn tuyến đường kiểu gõ-để-gợi ý: chỉ cho chọn từ danh sách tuyến hoạt động.
+ * Gõ để lọc danh sách, bấm chuột hoặc Enter để chọn (mũi tên lên/xuống để di chuyển).
+ * Khi rời ô mà chưa chọn, chữ trong ô quay về đúng tên tuyến đang chọn.
  */
 export function RouteCombobox({
   routes,
@@ -23,6 +23,7 @@ export function RouteCombobox({
   onChange,
   placeholder = '',
   invalid = false,
+  fallbackName,
 }: {
   routes: RouteOption[];
   /** id tuyến đang chọn, 0 nếu chưa chọn */
@@ -30,9 +31,11 @@ export function RouteCombobox({
   onChange: (id: number) => void;
   placeholder?: string;
   invalid?: boolean;
+  fallbackName?: string;
 }) {
   const selected = routes.find((r) => r.id === value);
-  const [text, setText] = useState(selected?.name ?? '');
+  const currentName = selected?.name ?? fallbackName ?? '';
+  const [text, setText] = useState(currentName);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -40,15 +43,15 @@ export function RouteCombobox({
 
   // Đồng bộ chữ hiển thị khi giá trị đổi từ bên ngoài (mở vé khác, danh sách vừa tải xong)
   useEffect(() => {
-    setText(selected?.name ?? '');
-  }, [selected?.id, selected?.name]);
+    setText(selected?.name ?? fallbackName ?? '');
+  }, [selected?.id, selected?.name, fallbackName]);
 
   const filtered = useMemo(() => {
     const q = fold(text);
     // Đang hiện đúng tên tuyến đã chọn thì cho xem lại toàn bộ danh sách
-    if (!q || (selected && text === selected.name)) return routes;
+    if (!q || (currentName && text === currentName)) return routes;
     return rankMatches(routes, q, (r) => r.name);
-  }, [routes, text, selected]);
+  }, [routes, text, currentName]);
 
   useEffect(() => setActive(0), [text, open]);
 
@@ -65,12 +68,12 @@ export function RouteCombobox({
     const onDown = (e: MouseEvent) => {
       if (!rootRef.current?.contains(e.target as Node)) {
         setOpen(false);
-        setText(selected?.name ?? '');
+        setText(selected?.name ?? fallbackName ?? '');
       }
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
-  }, [open, selected?.name]);
+  }, [open, selected?.name, fallbackName]);
 
   const pick = (r: RouteOption) => {
     onChange(r.id);
@@ -78,51 +81,75 @@ export function RouteCombobox({
     setOpen(false);
   };
 
+  const isNotInList = Boolean(routes.length > 0 && value > 0 && !selected);
+
   return (
     <div ref={rootRef} className="relative">
-      <MagnifyingGlass
-        size={16}
-        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-        aria-hidden
-      />
-      <input
-        className={`input-3d pl-9 ${invalid ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
-        aria-invalid={invalid}
-        role="combobox"
-        aria-expanded={open}
-        aria-autocomplete="list"
-        autoComplete="off"
-        value={text}
-        placeholder={placeholder}
-        onFocus={(e) => {
-          setOpen(true);
-          e.target.select();
-        }}
-        onChange={(e) => {
-          setText(e.target.value);
-          setOpen(true);
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'ArrowDown') {
-            e.preventDefault();
+      <div className="relative">
+        <MagnifyingGlass
+          size={16}
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+          aria-hidden
+        />
+        <input
+          className={`input-3d pl-9 ${
+            invalid
+              ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]'
+              : isNotInList
+                ? '!border-amber-500 !shadow-[0_0_0_3px_rgba(245,158,11,0.2)]'
+                : ''
+          }`}
+          aria-invalid={invalid}
+          role="combobox"
+          aria-expanded={open}
+          aria-autocomplete="list"
+          autoComplete="off"
+          value={text}
+          placeholder={placeholder}
+          onFocus={(e) => {
             setOpen(true);
-            setActive((i) => Math.min(i + 1, filtered.length - 1));
-          } else if (e.key === 'ArrowUp') {
-            e.preventDefault();
-            setActive((i) => Math.max(i - 1, 0));
-          } else if (e.key === 'Enter') {
-            // Chặn gửi form khi Enter dùng để chọn gợi ý
-            if (open && filtered[active]) {
-              e.preventDefault();
-              pick(filtered[active]);
+            e.target.select();
+          }}
+          onBlur={(e) => {
+            if (!rootRef.current?.contains(e.relatedTarget as Node)) {
+              setOpen(false);
+              setText(selected?.name ?? fallbackName ?? '');
             }
-          } else if (e.key === 'Escape' && open) {
-            e.stopPropagation();
-            setOpen(false);
-            setText(selected?.name ?? '');
-          }
-        }}
-      />
+          }}
+          onChange={(e) => {
+            setText(e.target.value);
+            setOpen(true);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setOpen(true);
+              setActive((i) => Math.min(i + 1, Math.max(filtered.length - 1, 0)));
+            } else if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActive((i) => Math.max(i - 1, 0));
+            } else if (e.key === 'Enter') {
+              // Chặn gửi form khi Enter dùng để chọn gợi ý
+              if (open) {
+                e.preventDefault();
+                if (filtered[active]) {
+                  pick(filtered[active]);
+                }
+              }
+            } else if (e.key === 'Escape' && open) {
+              e.stopPropagation();
+              setOpen(false);
+              setText(selected?.name ?? fallbackName ?? '');
+            }
+          }}
+        />
+      </div>
+
+      {isNotInList && !invalid && (
+        <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+          Tuyến đường này không còn hoạt động, hãy chọn lại
+        </p>
+      )}
 
       {open && (
         <ul
