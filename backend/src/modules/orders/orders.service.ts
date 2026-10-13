@@ -670,15 +670,30 @@ export class OrdersService {
     return result;
   }
 
-  /** Tuyến và đối tác có đơn trong khoảng ngày / nhân viên đang lọc, để ô lọc chỉ gợi ý những mục có dữ liệu */
+  /**
+   * Nhân viên, tuyến và đối tác có đơn trong khoảng ngày đang lọc, để các ô lọc chỉ gợi ý mục có dữ liệu.
+   * Danh sách nhân viên chỉ phụ thuộc khoảng ngày; tuyến và đối tác thu hẹp thêm theo nhân viên đang chọn.
+   */
   async kpiFilterOptions(query: KpiQueryDto, actor: JwtPayload) {
     const { orders } = await this.kpiOrders(
-      { ...query, routeId: undefined, routeIds: undefined, partner: undefined, partners: undefined },
+      {
+        ...query,
+        staffId: undefined,
+        routeId: undefined,
+        routeIds: undefined,
+        partner: undefined,
+        partners: undefined,
+      },
       actor,
     );
+    const ofStaff =
+      actor.role === UserRole.ADMIN && query.staffId !== undefined
+        ? orders.filter((o) => o.createdById === query.staffId)
+        : orders;
     return {
-      routeIds: [...new Set(orders.map((o) => o.routeId))],
-      partners: [...new Set(orders.map((o) => o.partner?.trim()).filter((p): p is string => !!p))],
+      staffIds: [...new Set(orders.map((o) => o.createdById))],
+      routeIds: [...new Set(ofStaff.map((o) => o.routeId))],
+      partners: [...new Set(ofStaff.map((o) => o.partner?.trim()).filter((p): p is string => !!p))],
     };
   }
 

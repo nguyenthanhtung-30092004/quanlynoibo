@@ -95,7 +95,7 @@ export const ordersApi = {
     api<ApiResponse<Kpi>>('orders/kpi', { query: kpiQuery(date, range) }).then((res) => res.data),
 
   kpiFilterOptions: (range?: KpiRange) =>
-    api<ApiResponse<{ routeIds: number[]; partners: string[] }>>('orders/kpi/filter-options', {
+    api<ApiResponse<{ staffIds: number[]; routeIds: number[]; partners: string[] }>>('orders/kpi/filter-options', {
       query: kpiQuery(undefined, range),
     }).then((res) => res.data),
 

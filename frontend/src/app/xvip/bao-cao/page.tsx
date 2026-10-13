@@ -80,12 +80,14 @@ export default function StaffReportPage() {
   const { data: routeList = [] } = useActiveRoutes();
   const { data: partnerList = [] } = usePartners();
 
-  // Chọn một nhân viên thì ô tuyến / đối tác chỉ gợi ý những mục người đó có đơn trong khoảng ngày đang lọc
+  // Ô nhân viên chỉ gợi ý người có đơn trong khoảng ngày đang lọc;
+  // chọn một nhân viên thì ô tuyến / đối tác cũng chỉ gợi ý những mục người đó có đơn
   const staffSelected = isAdmin && staffFilter !== 'all';
   const { data: staffOptions } = useKpiFilterOptions(
     { ...dates, staffId: staffSelected ? Number(staffFilter) : undefined },
-    staffSelected,
+    isAdmin,
   );
+  const activeStaffIds = staffOptions?.staffIds;
   const routeOptions = useMemo(() => {
     if (!staffSelected || !staffOptions) return routeList;
     const ids = new Set(staffOptions.routeIds);
@@ -138,7 +140,21 @@ export default function StaffReportPage() {
     setTicketPage(1);
   }, [staffFilter, routeIds, partnerNames, range, basis]);
 
-  const staffList = useMemo(() => usersData?.data ?? [], [usersData]);
+  const allStaff = useMemo(() => usersData?.data ?? [], [usersData]);
+  const staffList = useMemo(() => {
+    if (!activeStaffIds) return allStaff;
+    const ids = new Set(activeStaffIds);
+    return allStaff.filter((s) => ids.has(s.id));
+  }, [allStaff, activeStaffIds]);
+
+  // Đổi khoảng ngày mà nhân viên đang chọn không có đơn trong khoảng mới thì bỏ chọn
+  useEffect(() => {
+    if (staffSelected && activeStaffIds && !activeStaffIds.includes(Number(staffFilter))) {
+      setStaffFilter('all');
+      setRouteIds([]);
+      setPartnerIds([]);
+    }
+  }, [staffSelected, activeStaffIds, staffFilter]);
 
   // Thành tích từng nhân viên theo đúng bộ lọc đang chọn (server đã lọc)
   const filteredStaff = useMemo(() => {
