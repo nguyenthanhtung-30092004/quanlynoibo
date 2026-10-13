@@ -48,7 +48,7 @@ export const ordersApi = {
       query: {
         ...filterParams(filters),
         page: filters.page,
-        limit: ORDERS_PAGE_SIZE,
+        limit: filters.pageSize ?? ORDERS_PAGE_SIZE,
       },
     }),
 
@@ -93,6 +93,11 @@ export const ordersApi = {
 
   kpi: (date?: string, range?: KpiRange) =>
     api<ApiResponse<Kpi>>('orders/kpi', { query: kpiQuery(date, range) }).then((res) => res.data),
+
+  kpiFilterOptions: (range?: KpiRange) =>
+    api<ApiResponse<{ routeIds: number[]; partners: string[] }>>('orders/kpi/filter-options', {
+      query: kpiQuery(undefined, range),
+    }).then((res) => res.data),
 
   activity: () =>
     api<ApiResponse<OrderActivity[]>>('orders/activity').then((res) => res.data),

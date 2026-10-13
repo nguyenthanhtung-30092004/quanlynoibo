@@ -52,11 +52,14 @@ import { parseOrderText } from '@/features/orders/parse-order-text';
 
 import { Modal } from '@/features/xvip/Modal';
 import { handleArrowNav } from '@/features/xvip/arrow-nav';
+import { OrderDetailModal } from '@/features/orders/components/OrderDetailModal';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
 import { Pagination } from '@/features/xvip/Pagination';
-import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
+import { ORDERS_ALL_SIZE, ORDERS_PAGE_SIZE } from '@/features/orders/constants';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
+import { AutoGrowInput } from '@/features/xvip/AutoGrowInput';
+import { OptionFilterInput } from '@/features/xvip/OptionFilterInput';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import {
@@ -231,39 +234,6 @@ function Section({
   );
 }
 
-/** Nhóm các dòng thông tin trong hộp chi tiết đơn */
-function DetailGroup({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <section>
-      <h3 className="mb-1.5 text-xs font-extrabold uppercase tracking-wide text-blue-700 dark:text-blue-400">
-        {title}
-      </h3>
-      <dl className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-        {children}
-      </dl>
-    </section>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div className="flex gap-3 px-3 py-2 text-sm">
-      <dt className="w-32 shrink-0 font-semibold text-slate-500 dark:text-slate-400">
-        {label}
-      </dt>
-      <dd className="min-w-0 flex-1 break-words font-bold text-slate-900 dark:text-white">
-        {value || '—'}
-      </dd>
-    </div>
-  );
-}
-
 interface OrderFormState {
   customerName: string;
   phone: string;
@@ -362,6 +332,9 @@ export default function TicketManagementPage() {
           }
         : {
             ...localFilters,
+            // Xem theo ngày: hiện hết vé của khoảng ngày đang chọn, không chia trang
+            page: 1,
+            pageSize: ORDERS_ALL_SIZE,
             dateFrom: null,
             dateTo: null,
             departureFrom: null,
@@ -818,7 +791,8 @@ export default function TicketManagementPage() {
   const ordersList: Order[] = ordersData?.data ?? [];
   const totalOrders = ordersData?.total ?? 0;
   const currentPage = filters.page;
-  const lastPage = Math.max(1, Math.ceil(totalOrders / ORDERS_PAGE_SIZE));
+  const pageSize = filters.pageSize ?? ORDERS_PAGE_SIZE;
+  const lastPage = Math.max(1, Math.ceil(totalOrders / pageSize));
   // Xóa hết đơn ở trang cuối thì lùi về trang cuối còn dữ liệu
   useEffect(() => {
     if (ordersData && currentPage > lastPage) {
@@ -911,25 +885,18 @@ export default function TicketManagementPage() {
               <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                 Nhân viên
               </span>
-              <select
-                className="input-3d"
-                value={filters.staffId}
-                onChange={(e) =>
+              <OptionFilterInput
+                options={activeStaff.map((s) => ({ value: String(s.id), label: s.fullName }))}
+                value={filters.staffId === ALL ? '' : String(filters.staffId)}
+                allLabel="Tất cả nhân viên"
+                onChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
-                    staffId:
-                      e.target.value === ALL ? ALL : Number(e.target.value),
+                    staffId: v === '' ? ALL : Number(v),
                     page: 1,
                   }))
                 }
-              >
-                <option value={ALL}>Tất cả nhân viên</option>
-                {activeStaff.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName}
-                  </option>
-                ))}
-              </select>
+              />
             </label>
           )}
 
@@ -955,24 +922,14 @@ export default function TicketManagementPage() {
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
               Đối tác
             </span>
-            <select
-              className="input-3d"
-              value={filters.partner ?? ALL}
-              onChange={(e) =>
-                setFilters((prev) => ({
-                  ...prev,
-                  partner: e.target.value === ALL ? undefined : e.target.value,
-                  page: 1,
-                }))
+            <OptionFilterInput
+              options={partnerList.map((p) => ({ value: p.name, label: p.name }))}
+              value={filters.partner ?? ''}
+              allLabel="Tất cả đối tác"
+              onChange={(v) =>
+                setFilters((prev) => ({ ...prev, partner: v || undefined, page: 1 }))
               }
-            >
-              <option value={ALL}>Tất cả đối tác</option>
-              {partnerList.map((p) => (
-                <option key={p.id} value={p.name}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+            />
           </label>
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -1046,7 +1003,7 @@ export default function TicketManagementPage() {
                     <td
                       className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}
                     >
-                      {(currentPage - 1) * ORDERS_PAGE_SIZE + i + 1}
+                      {(currentPage - 1) * pageSize + i + 1}
                     </td>
                     <td
                       className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}
@@ -1181,10 +1138,10 @@ export default function TicketManagementPage() {
             </tbody>
           </table>
         </div>
-        {!isLoading && totalOrders > 0 && (
+        {!isLoading && totalOrders > pageSize && (
           <Pagination
             page={currentPage}
-            pageSize={ORDERS_PAGE_SIZE}
+            pageSize={pageSize}
             total={totalOrders}
             onChange={(page) => setFilters((prev) => ({ ...prev, page }))}
           />
@@ -1220,13 +1177,13 @@ export default function TicketManagementPage() {
                       required
                       error={formErrors.customerName}
                     >
-                      <input
-                        className={`input-3d ${formErrors.customerName ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''}`}
+                      <AutoGrowInput
+                        invalid={!!formErrors.customerName}
                         value={formState.customerName}
-                        onChange={(e) => {
+                        onChange={(v) => {
                           setFormState((p) => ({
                             ...p,
-                            customerName: e.target.value,
+                            customerName: v,
                           }));
                           setFormErrors((er) => ({
                             ...er,
@@ -1234,7 +1191,6 @@ export default function TicketManagementPage() {
                           }));
                         }}
                         maxLength={100}
-                        aria-invalid={!!formErrors.customerName}
                         autoFocus
                       />
                     </Field>
@@ -1411,13 +1367,12 @@ export default function TicketManagementPage() {
                     </Field>
 
                     <Field label="Điểm đón">
-                      <input
-                        className="input-3d"
+                      <AutoGrowInput
                         value={formState.pickupPoint}
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setFormState((p) => ({
                             ...p,
-                            pickupPoint: e.target.value,
+                            pickupPoint: v,
                           }))
                         }
                         maxLength={255}
@@ -1425,13 +1380,12 @@ export default function TicketManagementPage() {
                     </Field>
 
                     <Field label="Điểm trả">
-                      <input
-                        className="input-3d"
+                      <AutoGrowInput
                         value={formState.dropoffPoint}
-                        onChange={(e) =>
+                        onChange={(v) =>
                           setFormState((p) => ({
                             ...p,
-                            dropoffPoint: e.target.value,
+                            dropoffPoint: v,
                           }))
                         }
                         maxLength={255}
@@ -1710,114 +1664,14 @@ export default function TicketManagementPage() {
 
       {/* Chi tiết đơn (bấm vào dòng) */}
       {detailOrder && (
-        <Modal
-          title={`Chi tiết đơn ${formatOrderCode(detailOrder.id)}`}
+        <OrderDetailModal
+          order={detailOrder}
           onClose={() => setDetailOrder(null)}
-        >
-          <div className="space-y-4">
-            {detailOrder.cancelledAt && (
-              <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                <p>Đơn đã hủy lúc {formatDateVN(detailOrder.cancelledAt)}</p>
-                {detailOrder.cancelReason && (
-                  <p className="mt-0.5 font-semibold">
-                    Lý do: {detailOrder.cancelReason}
-                  </p>
-                )}
-              </div>
-            )}
-            <DetailGroup title="Khách hàng">
-              <DetailRow
-                label="Tên"
-                value={detailOrder.customerName || 'Khách lẻ'}
-              />
-              <DetailRow label="Số điện thoại" value={detailOrder.phone} />
-              <DetailRow
-                label="Nhân viên tạo"
-                value={detailOrder.staff?.fullName}
-              />
-            </DetailGroup>
-            <DetailGroup title="Chuyến đi">
-              <DetailRow label="Tuyến" value={detailOrder.route?.name} />
-              <DetailRow
-                label="Giờ đi"
-                value={`${detailOrder.departureTime} - ${formatDateVN(detailOrder.departureDate)}`}
-              />
-              <DetailRow label="Nhà xe" value={detailOrder.partner || 'XVIP'} />
-              <DetailRow label="Loại hình" value={detailOrder.vehicleType} />
-              <DetailRow label="Điểm đón" value={detailOrder.pickupPoint} />
-              <DetailRow label="Điểm trả" value={detailOrder.dropoffPoint} />
-              <DetailRow
-                label="Số ghế"
-                value={[
-                  detailOrder.seatCount > 0 && `${detailOrder.seatCount} ghế`,
-                  detailOrder.seatFront > 0 && `${detailOrder.seatFront} đầu`,
-                  detailOrder.seatMiddle > 0 &&
-                    `${detailOrder.seatMiddle} giữa`,
-                  detailOrder.seatBack > 0 && `${detailOrder.seatBack} cuối`,
-                ]
-                  .filter(Boolean)
-                  .join(', ')}
-              />
-            </DetailGroup>
-            <DetailGroup title="Giá tiền">
-              <DetailRow
-                label="Giá nhập"
-                value={`${money(detailOrder.costPrice)}đ`}
-              />
-              <DetailRow
-                label="Giá bán"
-                value={`${money(detailOrder.sellPrice)}đ`}
-              />
-              <DetailRow
-                label="Đã cọc"
-                value={`${money(detailOrder.deposit)}đ`}
-              />
-              <DetailRow
-                label="Nhờ thu"
-                value={`${money(detailOrder.collectOnDelivery)}đ`}
-              />
-              <DetailRow
-                label="Hoa hồng"
-                value={`${money(detailOrder.commission)}đ`}
-              />
-            </DetailGroup>
-            <DetailGroup title="Khác">
-              <DetailRow
-                label="Tin nhắn"
-                value={
-                  detailOrder.smsSent
-                    ? detailOrder.messageChannel === 'ZALO'
-                      ? 'Đã gửi Zalo'
-                      : 'Đã gửi SMS'
-                    : 'Chưa gửi'
-                }
-              />
-              <DetailRow label="Ghi chú" value={detailOrder.note} />
-            </DetailGroup>
-            <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
-              {!detailOrder.cancelledAt && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    const o = detailOrder;
-                    setDetailOrder(null);
-                    handleOpenEdit(o);
-                  }}
-                  className="btn-3d btn-3d-amber px-4 py-2 text-sm"
-                >
-                  Sửa vé
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setDetailOrder(null)}
-                className="btn-3d btn-3d-white px-4 py-2 text-sm"
-              >
-                Đóng
-              </button>
-            </div>
-          </div>
-        </Modal>
+          onEdit={(o) => {
+            setDetailOrder(null);
+            handleOpenEdit(o);
+          }}
+        />
       )}
 
       {historyOrderId !== null && (

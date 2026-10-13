@@ -4,6 +4,7 @@ import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Radio, Select
 import dayjs, { type Dayjs } from 'dayjs';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useActiveRoutes } from '@/features/routes/hooks';
+import { antdSearch } from '@/features/xvip/search-rank';
 import { useActiveStaff } from '@/features/users/hooks';
 import { ApiError } from '@/lib/api-client';
 import { formatVND } from '@/lib/format';
@@ -175,7 +176,8 @@ export function CreateOrderModal() {
                 showSearch
                 loading={routesLoading}
                 placeholder="Chọn tuyến đường"
-                optionFilterProp="label"
+                filterOption={antdSearch.filterOption}
+                filterSort={antdSearch.filterSort}
                 onChange={handleRouteChange}
                 options={routes.map((r) => ({
                   value: r.id,

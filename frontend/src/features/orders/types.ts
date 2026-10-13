@@ -68,6 +68,8 @@ export interface Order {
 
 export interface OrderFilters {
   search: string;
+  /** Số vé mỗi lần tải; bỏ trống = cỡ trang mặc định */
+  pageSize?: number;
   staffId: number | 'all';
   routeId: number | 'all';
   /** Lọc nhiều tuyến cùng lúc; rỗng = không lọc theo nhiều tuyến */
@@ -138,6 +140,8 @@ export interface KpiSummary {
 
 export interface Kpi extends KpiSummary {
   date: string;
+  /** Top nhân viên toàn hệ thống (mọi vai trò đều nhận), chỉ gồm số đơn / vé */
+  leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
 }

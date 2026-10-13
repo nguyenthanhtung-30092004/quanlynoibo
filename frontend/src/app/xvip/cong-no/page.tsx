@@ -18,6 +18,7 @@ import { Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
 import { Modal } from '@/features/xvip/Modal';
+import { OptionFilterInput } from '@/features/xvip/OptionFilterInput';
 interface SettlementModalData {
   carrierId: number;
   carrierName: string;
@@ -154,18 +155,12 @@ export default function DebtPage() {
 
           <label className="block min-w-56 flex-1">
             <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">Đối tác</span>
-            <select
-              className="input-3d"
-              value={carrierFilter}
-              onChange={(e) => setCarrierFilter(e.target.value)}
-            >
-              <option value="all">Tất cả đối tác</option>
-              {carriers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
+            <OptionFilterInput
+              options={carriers.map((c) => ({ value: String(c.id), label: c.name }))}
+              value={carrierFilter === 'all' ? '' : carrierFilter}
+              allLabel="Tất cả đối tác"
+              onChange={(v) => setCarrierFilter(v || 'all')}
+            />
           </label>
         </div>
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">

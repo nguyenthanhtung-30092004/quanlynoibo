@@ -3,13 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CaretDown, MagnifyingGlass } from '@phosphor-icons/react';
 
-const fold = (s: string) =>
-  s
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/gi, 'd')
-    .toLowerCase()
-    .trim();
+import { fold, rankMatches } from './search-rank';
 
 export interface MultiOption {
   value: number;
@@ -54,12 +48,9 @@ export function MultiCheckSelect({
   }, [open]);
 
   const filtered = useMemo(() => {
-    const words = fold(query).split(/\s+/).filter(Boolean);
-    if (words.length === 0) return options;
-    return options.filter((o) => {
-      const n = fold(o.label);
-      return words.every((w) => n.includes(w));
-    });
+    const q = fold(query);
+    if (!q) return options;
+    return rankMatches(options, q, (o) => o.label);
   }, [options, query]);
 
   const selected = new Set(value);

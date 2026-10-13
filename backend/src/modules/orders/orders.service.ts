@@ -552,7 +552,7 @@ export class OrdersService {
   }
 
   /** Đơn còn hiệu lực khớp bộ lọc KPI (ngày vào sổ / ngày khởi hành, nhân viên, tuyến, đối tác) */
-  private async kpiOrders(query: KpiQueryDto, actor: JwtPayload) {
+  private async kpiOrders(query: KpiQueryDto, actor: JwtPayload, allStaff = false) {
     const date = query.date ?? getBusinessDate();
     const qb = this.orderRepository
       .createQueryBuilder('order')
@@ -594,7 +594,7 @@ export class OrdersService {
         partners: query.partners.map((p) => p.toLowerCase()),
       });
     }
-    if (actor.role !== UserRole.ADMIN) {
+    if (actor.role !== UserRole.ADMIN && !allStaff) {
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
     // Vé đã hủy không tính vào doanh thu
@@ -605,7 +605,10 @@ export class OrdersService {
 
   /** KPI theo ngày vào sổ (mặc định) hoặc theo ngày khởi hành. Admin thấy thêm bảng theo từng nhân viên */
   async kpi(query: KpiQueryDto, actor: JwtPayload) {
-    const { date, orders } = await this.kpiOrders(query, actor);
+    const isAdmin = actor.role === UserRole.ADMIN;
+    // Nhân viên cũng cần bảng vinh danh toàn hệ thống nên lấy đơn của mọi người rồi tách phần của mình
+    const { date, orders: scoped } = await this.kpiOrders(query, actor, !isAdmin);
+    const orders = isAdmin ? scoped : scoped.filter((o) => o.createdById === actor.sub);
 
     const sum = (list: Order[], pick: (o: Order) => number) =>
       list.reduce((total, o) => total + pick(o), 0);
@@ -623,6 +626,7 @@ export class OrdersService {
     const result: Partial<ReturnType<typeof summarize>> &
       Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent'> & {
         date: string;
+        leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
@@ -635,7 +639,22 @@ export class OrdersService {
       delete result.cost;
     }
 
-    if (actor.role === UserRole.ADMIN) {
+    // Vinh danh toàn hệ thống: chỉ số đơn / vé, không lộ doanh thu hay hoa hồng của người khác
+    const ranking = new Map<number, Order[]>();
+    for (const o of scoped) {
+      ranking.set(o.createdById, [...(ranking.get(o.createdById) ?? []), o]);
+    }
+    result.leaderboard = [...ranking.entries()]
+      .map(([staffId, list]) => ({
+        staffId,
+        fullName: list[0].createdBy?.fullName ?? '',
+        total: list.length,
+        seats: sum(list, (o) => this.ticketsOf(o)),
+      }))
+      .sort((a, b) => b.seats - a.seats)
+      .slice(0, 3);
+
+    if (isAdmin) {
       const groups = new Map<number, Order[]>();
       for (const o of orders) {
         groups.set(o.createdById, [...(groups.get(o.createdById) ?? []), o]);
@@ -649,6 +668,18 @@ export class OrdersService {
         .sort((a, b) => b.total - a.total);
     }
     return result;
+  }
+
+  /** Tuyến và đối tác có đơn trong khoảng ngày / nhân viên đang lọc, để ô lọc chỉ gợi ý những mục có dữ liệu */
+  async kpiFilterOptions(query: KpiQueryDto, actor: JwtPayload) {
+    const { orders } = await this.kpiOrders(
+      { ...query, routeId: undefined, routeIds: undefined, partner: undefined, partners: undefined },
+      actor,
+    );
+    return {
+      routeIds: [...new Set(orders.map((o) => o.routeId))],
+      partners: [...new Set(orders.map((o) => o.partner?.trim()).filter((p): p is string => !!p))],
+    };
   }
 
   /** Công nợ theo đối tác trong khoảng lọc: số đơn, vé, thu hộ, hoa hồng giữ, giá nhập phải trả. Vé hủy không tính */

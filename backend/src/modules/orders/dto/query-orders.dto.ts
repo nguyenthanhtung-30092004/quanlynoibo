@@ -92,12 +92,12 @@ export class QueryOrdersDto extends OrderFilterDto {
   @Min(1)
   page?: number;
 
-  @ApiPropertyOptional({ default: 20, maximum: 100 })
+  @ApiPropertyOptional({ default: 20, maximum: 1000 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  @Max(100)
+  @Max(1000)
   limit?: number;
 }
 

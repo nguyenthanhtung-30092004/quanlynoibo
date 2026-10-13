@@ -111,6 +111,15 @@ export function useKpi(date?: string, range?: KpiRange) {
   });
 }
 
+/** Tuyến và đối tác có đơn theo khoảng ngày / nhân viên, bỏ qua lọc tuyến và đối tác */
+export function useKpiFilterOptions(range: KpiRange | undefined, enabled = true) {
+  return useQuery({
+    queryKey: [...KPI_KEY, 'filter-options', range],
+    queryFn: () => ordersApi.kpiFilterOptions(range),
+    enabled,
+  });
+}
+
 /** Hoạt động gần đây; khóa nằm dưới 'orders' nên tự tải lại khi có sự kiện realtime về đơn */
 export function useOrderActivity() {
   return useQuery({

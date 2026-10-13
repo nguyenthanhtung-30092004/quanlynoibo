@@ -64,6 +64,17 @@ function titleCase(text: string) {
     .join(' ');
 }
 
+/** Chuẩn hóa để so khớp tìm kiếm: bỏ dấu, thường hóa, gộp mọi loại khoảng trắng (kể cả NBSP) */
+function normalizeText(s: string) {
+  return s
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 /** Tên hiển thị tự tạo từ hai điểm, rỗng nếu thiếu một trong hai */
 function autoRouteName(origin: string, destination: string) {
   const o = titleCase(origin);
@@ -100,12 +111,13 @@ export default function RoutesPage() {
 
   const filtered = useMemo(() => {
     const idQuery = search.trim().replace(/^#/, '');
-    return routesList.filter((r) => {
+    const q = normalizeText(search);
+    const matched = routesList.filter((r) => {
       const matchSearch =
         (idQuery !== '' && String(r.id) === idQuery) ||
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.origin.toLowerCase().includes(search.toLowerCase()) ||
-        r.destination.toLowerCase().includes(search.toLowerCase());
+        normalizeText(r.name).includes(q) ||
+        normalizeText(r.origin).includes(q) ||
+        normalizeText(r.destination).includes(q);
 
       const matchStatus =
         statusFilter === 'all' ||
@@ -114,6 +126,15 @@ export default function RoutesPage() {
 
       return matchSearch && matchStatus;
     });
+    if (!q) return matched;
+
+    // Từ khóa đứng đầu tên/điểm đi xếp trước, đứng sau (điểm đến, giữa tên) xếp sau
+    const rank = (r: RouteExt) =>
+      normalizeText(r.name).startsWith(q) || normalizeText(r.origin).startsWith(q) ? 0 : 1;
+    return matched
+      .map((r, i) => ({ r, i, k: rank(r) }))
+      .sort((a, b) => a.k - b.k || a.i - b.i)
+      .map((x) => x.r);
   }, [routesList, search, statusFilter]);
 
   const totalCount = routesList.length;

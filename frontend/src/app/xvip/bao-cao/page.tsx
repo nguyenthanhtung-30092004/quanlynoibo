@@ -6,15 +6,17 @@ import {
   ClipboardText,
   CurrencyCircleDollar,
   FileXls,
+  HandCoins,
   Medal,
   Percent,
   Ticket,
   Trophy,
   X,
 } from '@phosphor-icons/react';
-import { useKpi, useOrders } from '@/features/orders/hooks';
+import { useKpi, useKpiFilterOptions, useOrders } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
-import type { OrderFilters } from '@/features/orders/types';
+import type { Order, OrderFilters } from '@/features/orders/types';
+import { OrderDetailModal } from '@/features/orders/components/OrderDetailModal';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useUsers } from '@/features/users/hooks';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -25,6 +27,7 @@ import { Pagination } from '@/features/xvip/Pagination';
 import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
+import { OptionFilterInput } from '@/features/xvip/OptionFilterInput';
 import {
   DateRangeFilter,
   rangeParams,
@@ -77,6 +80,23 @@ export default function StaffReportPage() {
   const { data: routeList = [] } = useActiveRoutes();
   const { data: partnerList = [] } = usePartners();
 
+  // Chọn một nhân viên thì ô tuyến / đối tác chỉ gợi ý những mục người đó có đơn trong khoảng ngày đang lọc
+  const staffSelected = isAdmin && staffFilter !== 'all';
+  const { data: staffOptions } = useKpiFilterOptions(
+    { ...dates, staffId: staffSelected ? Number(staffFilter) : undefined },
+    staffSelected,
+  );
+  const routeOptions = useMemo(() => {
+    if (!staffSelected || !staffOptions) return routeList;
+    const ids = new Set(staffOptions.routeIds);
+    return routeList.filter((r) => ids.has(r.id));
+  }, [staffSelected, staffOptions, routeList]);
+  const partnerOptions = useMemo(() => {
+    if (!staffSelected || !staffOptions) return partnerList;
+    const names = new Set(staffOptions.partners.map((p) => p.toLowerCase()));
+    return partnerList.filter((p) => names.has(p.name.trim().toLowerCase()));
+  }, [staffSelected, staffOptions, partnerList]);
+
   const partnerNames = useMemo(
     () =>
       partnerList.filter((p) => partnerIds.includes(p.id)).map((p) => p.name),
@@ -95,6 +115,7 @@ export default function StaffReportPage() {
 
   // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
   const [ticketPage, setTicketPage] = useState(1);
+  const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const ticketFilters = useMemo<OrderFilters>(
     () => ({
       search: '',
@@ -132,6 +153,7 @@ export default function StaffReportPage() {
           tickets: kpiData?.seats ?? 0,
           revenue: kpiData?.revenue ?? 0,
           commission: kpiData?.commission ?? 0,
+          deposit: kpiData?.deposit ?? 0,
         },
       ];
     }
@@ -142,6 +164,7 @@ export default function StaffReportPage() {
       tickets: s.seats,
       revenue: s.revenue ?? 0,
       commission: s.commission,
+      deposit: s.deposit ?? 0,
     }));
   }, [kpiData, isAdmin, me]);
 
@@ -162,12 +185,18 @@ export default function StaffReportPage() {
     [filteredStaff],
   );
 
+  const totalDeposit = useMemo(
+    () => filteredStaff.reduce((acc, s) => acc + s.deposit, 0),
+    [filteredStaff],
+  );
+
   const sortedStaff = useMemo(
     () => [...filteredStaff].sort((a, b) => b.tickets - a.tickets),
     [filteredStaff],
   );
 
-  const topPerformer = sortedStaff[0];
+  // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
+  const podium = kpiData?.leaderboard ?? [];
 
   // Xuất Excel đúng theo bộ lọc đang chọn (chỉ Admin; server cũng chặn nhân viên)
   const handleExportExcel = async () => {
@@ -231,18 +260,20 @@ export default function StaffReportPage() {
               <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
                 Nhân viên
               </span>
-              <select
-                className="input-3d"
-                value={staffFilter}
-                onChange={(e) => setStaffFilter(e.target.value)}
-              >
-                <option value="all">Tất cả nhân viên</option>
-                {staffList.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.fullName} ({s.username})
-                  </option>
-                ))}
-              </select>
+              <OptionFilterInput
+                options={staffList.map((s) => ({
+                  value: String(s.id),
+                  label: `${s.fullName} (${s.username})`,
+                }))}
+                value={staffFilter === 'all' ? '' : staffFilter}
+                allLabel="Tất cả nhân viên"
+                onChange={(v) => {
+                  setStaffFilter(v || 'all');
+                  // Đổi nhân viên thì bỏ tuyến / đối tác đã chọn vì có thể người mới không có
+                  setRouteIds([]);
+                  setPartnerIds([]);
+                }}
+              />
             </label>
           )}
 
@@ -251,7 +282,7 @@ export default function StaffReportPage() {
               Tuyến đường
             </span>
             <MultiCheckSelect
-              options={routeList.map((r) => ({ value: r.id, label: r.name }))}
+              options={routeOptions.map((r) => ({ value: r.id, label: r.name }))}
               value={routeIds}
               onChange={setRouteIds}
               allLabel="Tất cả tuyến"
@@ -264,7 +295,7 @@ export default function StaffReportPage() {
               Đối tác
             </span>
             <MultiCheckSelect
-              options={partnerList.map((p) => ({ value: p.id, label: p.name }))}
+              options={partnerOptions.map((p) => ({ value: p.id, label: p.name }))}
               value={partnerIds}
               onChange={setPartnerIds}
               allLabel="Tất cả đối tác"
@@ -317,7 +348,7 @@ export default function StaffReportPage() {
       </Card>
 
       {/* 3D KPI Metrics Cards */}
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 ${isAdmin ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
         <div
           style={{
             boxShadow:
@@ -392,6 +423,29 @@ export default function StaffReportPage() {
         <div
           style={{
             boxShadow:
+              'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #0f766e, 0 12px 24px -4px rgba(15,23,42,0.18)',
+          }}
+          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-teal-600 to-teal-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+        >
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
+            <HandCoins size={26} weight="fill" />
+          </span>
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">
+              Tổng tiền đã cọc
+            </div>
+            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">
+              {money(totalDeposit)}đ
+            </div>
+            <div className="text-[11px] font-medium text-white/90">
+              Khách đã đặt cọc trước
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #b45309, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
           className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
@@ -414,20 +468,20 @@ export default function StaffReportPage() {
       </div>
 
       {/* 3D Podium: Top 3 Nhân Viên Xuất Sắc Nhất */}
-      {sortedStaff.length > 0 && topPerformer && topPerformer.tickets > 0 && (
+      {podium.length > 0 && podium[0].seats > 0 && (
         <Card title="Vinh danh nhân viên bán vé xuất sắc" className="mt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
             {/* Top 2 */}
-            {sortedStaff[1] && (
+            {podium[1] && (
               <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-2 md:order-1">
                 <Medal
                   size={28}
                   weight="fill"
                   className="text-slate-400 mb-2"
                 />
-                <Avatar name={sortedStaff[1].name} />
+                <Avatar name={podium[1].fullName} />
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {sortedStaff[1].name}
+                  {podium[1].fullName}
                 </span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                   Á quân bán vé
@@ -436,11 +490,8 @@ export default function StaffReportPage() {
                   <div className="text-xs text-slate-500">
                     Số lượng:{' '}
                     <strong>
-                      {sortedStaff[1].orders} đơn · {sortedStaff[1].tickets} vé
+                      {podium[1].total} đơn · {podium[1].seats} vé
                     </strong>
-                  </div>
-                  <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                    {money(sortedStaff[1].commission)}đ
                   </div>
                 </div>
               </div>
@@ -453,37 +504,34 @@ export default function StaffReportPage() {
                 weight="fill"
                 className="text-amber-500 mb-2 animate-bounce"
               />
-              <Avatar name={topPerformer.name} />
+              <Avatar name={podium[0].fullName} />
               <span className="mt-2 font-black text-slate-900 dark:text-white text-lg">
-                {topPerformer.name}
+                {podium[0].fullName}
               </span>
               <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                Quán quân doanh số
+                Quán quân toàn hệ thống
               </span>
               <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-amber-300 dark:border-amber-700 shadow-inner">
                 <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                   Đạt:{' '}
                   <strong>
-                    {topPerformer.orders} đơn · {topPerformer.tickets} vé
+                    {podium[0].total} đơn · {podium[0].seats} vé
                   </strong>
-                </div>
-                <div className="text-sm font-black text-emerald-600 dark:text-emerald-400">
-                  {money(topPerformer.commission)}đ hoa hồng
                 </div>
               </div>
             </div>
 
             {/* Top 3 */}
-            {sortedStaff[2] && (
+            {podium[2] && (
               <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-3">
                 <Medal
                   size={28}
                   weight="fill"
                   className="text-amber-700 mb-2"
                 />
-                <Avatar name={sortedStaff[2].name} />
+                <Avatar name={podium[2].fullName} />
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {sortedStaff[2].name}
+                  {podium[2].fullName}
                 </span>
                 <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
                   Hạng ba
@@ -492,11 +540,8 @@ export default function StaffReportPage() {
                   <div className="text-xs text-slate-500">
                     Số lượng:{' '}
                     <strong>
-                      {sortedStaff[2].orders} đơn · {sortedStaff[2].tickets} vé
+                      {podium[2].total} đơn · {podium[2].seats} vé
                     </strong>
-                  </div>
-                  <div className="text-xs font-black text-emerald-600 dark:text-emerald-400">
-                    {money(sortedStaff[2].commission)}đ
                   </div>
                 </div>
               </div>
@@ -518,6 +563,7 @@ export default function StaffReportPage() {
                 {isAdmin && (
                   <th className={`${TH} text-right`}>Tổng doanh thu vé</th>
                 )}
+                <th className={`${TH} text-right`}>Tiền đã cọc</th>
                 <th className={`${TH} text-right`}>Hoa hồng đạt được</th>
                 {isAdmin && (
                   <th className={`${TH} text-right`}>Giá trị TB / vé</th>
@@ -528,7 +574,7 @@ export default function StaffReportPage() {
               {kpiLoading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 5}
+                    colSpan={isAdmin ? 8 : 6}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải dữ liệu báo cáo hiệu suất từ cơ sở dữ liệu...
@@ -537,7 +583,7 @@ export default function StaffReportPage() {
               ) : sortedStaff.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 7 : 5}
+                    colSpan={isAdmin ? 8 : 6}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có dữ liệu nào khớp bộ lọc đã chọn.
@@ -601,6 +647,11 @@ export default function StaffReportPage() {
                         </td>
                       )}
                       <td
+                        className={`${TD} text-right font-bold text-teal-700 dark:text-teal-400 tnum`}
+                      >
+                        {money(staff.deposit)}đ
+                      </td>
+                      <td
                         className={`${TD} text-right font-black text-emerald-600 dark:text-emerald-400 tnum`}
                       >
                         {money(staff.commission)}đ
@@ -638,6 +689,7 @@ export default function StaffReportPage() {
                 <th className={TH}>Khách hàng</th>
                 <th className={TH}>Số điện thoại</th>
                 <th className={`${TH} text-right`}>Giá bán</th>
+                <th className={`${TH} text-right`}>Đã cọc</th>
                 <th className={`${TH} text-right`}>Hoa hồng</th>
                 <th className={TH}>NV tạo</th>
               </tr>
@@ -646,7 +698,7 @@ export default function StaffReportPage() {
               {ticketsLoading ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách vé...
@@ -655,7 +707,7 @@ export default function StaffReportPage() {
               ) : ticketList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={10}
+                    colSpan={11}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có vé nào khớp bộ lọc đã chọn.
@@ -665,7 +717,9 @@ export default function StaffReportPage() {
                 ticketList.map((t, i) => (
                   <tr
                     key={t.id}
-                    className={`hover:bg-blue-50/25 dark:hover:bg-slate-800/50 transition-colors ${
+                    onClick={() => setDetailOrder(t)}
+                    title="Bấm để xem chi tiết"
+                    className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors ${
                       t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
                     }`}
                   >
@@ -701,6 +755,9 @@ export default function StaffReportPage() {
                     <td className={`${TD} ${NUM} text-slate-900 dark:text-white`}>
                       {money(t.sellPrice)}đ
                     </td>
+                    <td className={`${TD} ${NUM} text-teal-700 dark:text-teal-400`}>
+                      {money(t.deposit)}đ
+                    </td>
                     <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
                       {money(t.commission)}đ
                     </td>
@@ -722,6 +779,10 @@ export default function StaffReportPage() {
           />
         )}
       </Card>
+
+      {detailOrder && (
+        <OrderDetailModal order={detailOrder} onClose={() => setDetailOrder(null)} />
+      )}
     </>
   );
 }

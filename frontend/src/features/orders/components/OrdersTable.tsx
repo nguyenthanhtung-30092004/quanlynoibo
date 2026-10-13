@@ -15,6 +15,7 @@ import {
 } from '@phosphor-icons/react';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useActiveRoutes } from '@/features/routes/hooks';
+import { antdSearch } from '@/features/xvip/search-rank';
 import { useActiveStaff } from '@/features/users/hooks';
 import { ApiError } from '@/lib/api-client';
 import { formatDateTimeShort, formatOrderCode, formatVND } from '@/lib/format';
@@ -70,6 +71,9 @@ function Toolbar({ isAdmin }: { isAdmin: boolean }) {
         onChange={(routeId) => setFilters({ routeId })}
         className="w-48 shadow-3d-sm"
         aria-label="Lọc theo tuyến đường"
+        showSearch
+        filterOption={antdSearch.filterOption}
+        filterSort={antdSearch.filterSort}
         options={[
           { value: 'all', label: 'Tất cả tuyến đường' },
           ...routes.map((r) => ({ value: r.id, label: r.name })),
@@ -82,6 +86,9 @@ function Toolbar({ isAdmin }: { isAdmin: boolean }) {
           onChange={(staffId) => setFilters({ staffId })}
           className="w-44 shadow-3d-sm"
           aria-label="Lọc theo nhân viên"
+          showSearch
+          filterOption={antdSearch.filterOption}
+          filterSort={antdSearch.filterSort}
           options={[
             { value: 'all', label: 'Tất cả nhân viên' },
             ...staff.map((u) => ({ value: u.id, label: u.fullName })),

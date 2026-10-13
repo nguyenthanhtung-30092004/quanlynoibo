@@ -83,6 +83,16 @@ export class OrdersController {
     };
   }
 
+  /** Tuyến / đối tác có đơn theo ngày và nhân viên đang lọc, cho các ô lọc ở báo cáo */
+  @Get('kpi/filter-options')
+  async kpiFilterOptions(@Query() query: KpiQueryDto, @CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy tùy chọn bộ lọc thành công',
+      data: await this.ordersService.kpiFilterOptions(query, user),
+    };
+  }
+
   /** Hoạt động gần đây trên đơn, cho chuông thông báo */
   @Get('activity')
   async activity(@CurrentUser() user: JwtPayload) {

@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Radio, Select, TimePicker } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
 import { useActiveRoutes } from '@/features/routes/hooks';
+import { antdSearch } from '@/features/xvip/search-rank';
 import { ApiError } from '@/lib/api-client';
 import { formatVND } from '@/lib/format';
 import { useUiStore } from '@/stores/ui-store';
@@ -170,7 +171,8 @@ export function EditOrderModal() {
               <Select
                 showSearch
                 loading={routesLoading}
-                optionFilterProp="label"
+                filterOption={antdSearch.filterOption}
+                filterSort={antdSearch.filterSort}
                 options={routes.map((r) => ({
                   value: r.id,
                   label: `${r.name} ${r.defaultPrice ? `(${formatVND(r.defaultPrice)})` : ''}`,

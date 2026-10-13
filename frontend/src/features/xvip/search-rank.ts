@@ -5,7 +5,32 @@ export const fold = (s: string) =>
     .replace(/[̀-ͯ]/g, '')
     .replace(/đ/gi, 'd')
     .toLowerCase()
+    .replace(/\s+/g, ' ')
     .trim();
+
+/** Khớp khi mọi từ gõ vào đều có trong nhãn (bỏ dấu, không phân biệt khoảng trắng lạ) */
+export const matchesAllWords = (label: string, input: string) => {
+  const n = fold(label);
+  return fold(input)
+    .split(' ')
+    .filter(Boolean)
+    .every((w) => n.includes(w));
+};
+
+/** Dùng cho `filterOption` / `filterSort` của antd Select: khớp đầu nhãn xếp trước, khớp giữa nhãn xếp sau */
+export const antdSearch = {
+  filterOption: (input: string, option?: { label?: unknown }) =>
+    matchesAllWords(String(option?.label ?? ''), input),
+  filterSort: (
+    a: { label?: unknown },
+    b: { label?: unknown },
+    { searchValue }: { searchValue: string },
+  ) => {
+    const q = fold(searchValue);
+    const rank = (o: { label?: unknown }) => (fold(String(o.label ?? '')).startsWith(q) ? 0 : 1);
+    return rank(a) - rank(b);
+  },
+};
 
 /**
  * Lọc và xếp gợi ý: khớp từ đầu tên xếp trước (gõ "hà nội" ra các tuyến "Hà Nội - ..." trước),
