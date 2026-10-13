@@ -41,6 +41,18 @@ export default function PayrollPage() {
   const [formulaOpen, setFormulaOpen] = useState(true);
   const [expanded, setExpanded] = useState<number | null>(null);
 
+  // Header của trang cũng dính và cao không cố định (xuống dòng khi hẹp): đo để thanh tháng dính ngay bên dưới
+  const [headerHeight, setHeaderHeight] = useState(0);
+  useEffect(() => {
+    const header = document.querySelector('header');
+    if (!header) return;
+    const measure = () => setHeaderHeight(header.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
   const { data, isLoading, isError, error, refetch } = usePayroll(month);
   const saveMutation = useSavePayroll();
 
@@ -122,7 +134,13 @@ export default function PayrollPage() {
 
   return (
     <>
+      {/* Thanh chọn tháng + nút lưu dính ngay dưới header, cuộn xuống vẫn thấy */}
+      <div
+        className="sticky z-10 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90 sm:-mx-6 sm:px-6"
+        style={{ top: headerHeight }}
+      >
       <PageTitle
+        className="!mb-3"
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -164,6 +182,7 @@ export default function PayrollPage() {
       >
         Bảng tính lương
       </PageTitle>
+      </div>
 
       {isError && (
         <Card>

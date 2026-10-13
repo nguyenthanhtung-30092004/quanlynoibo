@@ -36,9 +36,17 @@ export function Card({
   );
 }
 
-export function PageTitle({ children, actions }: { children: ReactNode; actions?: ReactNode }) {
+export function PageTitle({
+  children,
+  actions,
+  className,
+}: {
+  children: ReactNode;
+  actions?: ReactNode;
+  className?: string;
+}) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div className={cn('mb-6 flex flex-wrap items-center justify-between gap-3', className)}>
       <div className="flex items-center gap-3">
         <div className="h-7 w-1.5 rounded-full bg-xv-blue shadow-[0_0_8px_rgba(37,99,235,0.6)]" />
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900 dark:text-white drop-shadow-[0_1px_1px_rgba(255,255,255,0.9)] dark:drop-shadow-none transition-colors">
