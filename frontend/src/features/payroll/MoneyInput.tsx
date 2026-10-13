@@ -10,6 +10,7 @@ export function MoneyInput({
   value,
   onChange,
   allowNegative = false,
+  align = 'left',
   placeholder = '0',
   className = '',
   ariaLabel,
@@ -17,6 +18,8 @@ export function MoneyInput({
   value: number;
   onChange: (value: number) => void;
   allowNegative?: boolean;
+  /** Canh lề số trong ô: mặc định canh trái, cột số trong bảng thì canh phải */
+  align?: 'left' | 'right';
   placeholder?: string;
   className?: string;
   ariaLabel?: string;
@@ -48,7 +51,7 @@ export function MoneyInput({
         last.current = next;
         onChange(next);
       }}
-      className={`input-3d tnum text-right ${className}`}
+      className={`input-3d tnum ${align === 'right' ? 'text-right' : 'text-left'} ${className}`}
     />
   );
 }

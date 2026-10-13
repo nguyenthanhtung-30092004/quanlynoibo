@@ -222,7 +222,18 @@ export default function PayrollPage() {
       >
         {config && data ? (
           formulaOpen ? (
-            <FormulaPanel config={config} onChange={setConfig} daysInMonth={data.daysInMonth} />
+            <>
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="font-black text-emerald-900 dark:text-emerald-200">
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) ± Điều chỉnh tay
+                </div>
+                <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                  &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
+                  bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> để giữ lại.
+                </p>
+              </div>
+              <FormulaPanel config={config} onChange={setConfig} daysInMonth={data.daysInMonth} />
+            </>
           ) : (
             <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
               Lương cứng ({config.levels.map((l) => `${l.label}: ${money(l.base)}`).join(' · ')}) ÷ {std} công × công thực tế.
@@ -368,6 +379,7 @@ export default function PayrollPage() {
                         <td className={`${TD} text-right`}>
                           <MoneyInput
                             allowNegative
+                            align="right"
                             ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
                             className="!h-9 !w-28 !py-1 !px-2 text-sm"
                             value={entry.adjustment}

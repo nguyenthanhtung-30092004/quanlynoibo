@@ -2,8 +2,9 @@
 
 import type { ReactNode } from 'react';
 import { ArrowCounterClockwise, Plus, Trash } from '@phosphor-icons/react';
+import { money } from '@/features/xvip/data';
 import { MoneyInput } from './MoneyInput';
-import { standardDays } from './calc';
+import { dayBonus, standardDays } from './calc';
 import type { PayrollConfig } from './types';
 
 export const DEFAULT_CONFIG: PayrollConfig = {
@@ -23,27 +24,61 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   overRate: { threshold: 30_000_000, percent: 10 },
 };
 
-const SMALL_INPUT = '!h-9 !py-1 !px-2.5 text-sm';
+const vnd = (n: number) => `${money(Math.round(n))}đ`;
 
-function Block({ title, hint, children }: { title: string; hint?: string; children: ReactNode }) {
+/** Một quy chế: số thứ tự, tên, mô tả một câu, phần điền số và ví dụ tính ngay bằng số đang nhập */
+function Rule({
+  no,
+  title,
+  desc,
+  example,
+  children,
+}: {
+  no: number;
+  title: string;
+  desc: string;
+  example?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
-      <h3 className="text-sm font-black text-slate-900 dark:text-white">{title}</h3>
-      {hint && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{hint}</p>}
-      <div className="mt-3 space-y-2">{children}</div>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900/50 sm:p-5">
+      <div className="flex items-start gap-3">
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-black text-white">
+          {no}
+        </span>
+        <div className="min-w-0">
+          <h3 className="text-base font-black text-slate-900 dark:text-white">{title}</h3>
+          <p className="mt-0.5 text-sm leading-snug text-slate-600 dark:text-slate-300">{desc}</p>
+        </div>
+      </div>
+      <div className="mt-4">{children}</div>
+      {example && (
+        <p className="mt-4 rounded-lg bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900 dark:bg-blue-950/40 dark:text-blue-200">
+          <b>Ví dụ:</b> {example}
+        </p>
+      )}
     </section>
   );
 }
 
-function Line({ children }: { children: ReactNode }) {
+/** Ô nhập có nhãn phía trên, để nhìn vào biết ô đó là gì */
+function Field({ label, unit, children }: { label: string; unit?: string; children: ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-sm text-slate-700 dark:text-slate-300">
+    <label className="block min-w-0">
+      <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">
+        {label}
+        {unit && <span className="ml-1 font-medium text-slate-400">({unit})</span>}
+      </span>
       {children}
-    </div>
+    </label>
   );
 }
 
-const unit = 'text-xs font-semibold text-slate-500 dark:text-slate-400';
+const COL_HEAD = 'text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400';
+const DEL_BTN =
+  'flex size-9 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-30 dark:hover:bg-red-950/40';
+const ADD_BTN =
+  'mt-3 inline-flex items-center gap-1.5 rounded-lg border border-dashed border-blue-300 px-3 py-1.5 text-xs font-bold text-blue-600 hover:bg-blue-50 disabled:opacity-40 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-950/30';
 
 /** Bảng công thức tính lương: mọi mốc, mức thưởng, tỷ lệ đều điền tay được */
 export function FormulaPanel({
@@ -58,48 +93,72 @@ export function FormulaPanel({
   const set = (patch: Partial<PayrollConfig>) => onChange({ ...config, ...patch });
   const std = standardDays(daysInMonth, config.standardDaysOffset);
 
+  // Số dùng cho các ví dụ
+  const sample = config.levels[0];
+  const sampleWork = Math.max(0, std - 2);
+  const topDaily = config.dailyBonuses.reduce((m, t) => Math.max(m, t.threshold), 0);
+  const sampleOverCommission = config.overRate.threshold + 5_000_000;
+
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        <Block title="1. Lương cứng theo bậc" hint="Chọn bậc cho từng nhân viên ở bảng bên dưới.">
-          {config.levels.map((lv, i) => (
-            <Line key={i}>
-              <input
-                className={`input-3d w-24 ${SMALL_INPUT}`}
-                value={lv.label}
-                aria-label={`Tên bậc ${i + 1}`}
-                onChange={(e) =>
-                  set({ levels: config.levels.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })
-                }
-              />
-              <input
-                className={`input-3d min-w-0 flex-1 ${SMALL_INPUT}`}
-                value={lv.note}
-                placeholder="Ghi chú (VD: làm trên 1 năm)"
-                aria-label={`Ghi chú bậc ${i + 1}`}
-                onChange={(e) =>
-                  set({ levels: config.levels.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)) })
-                }
-              />
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel={`Lương cứng ${lv.label}`}
-                value={lv.base}
-                onChange={(base) => set({ levels: config.levels.map((x, j) => (j === i ? { ...x, base } : x)) })}
-              />
-              <span className={unit}>đ/tháng</span>
-              <button
-                type="button"
-                disabled={config.levels.length <= 1}
-                onClick={() => set({ levels: config.levels.filter((_, j) => j !== i) })}
-                title="Xóa bậc này"
-                aria-label={`Xóa ${lv.label}`}
-                className="flex size-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-30 dark:hover:bg-red-950/40"
-              >
-                <Trash size={15} />
-              </button>
-            </Line>
-          ))}
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2">
+        {/* 1. Lương cứng theo bậc */}
+        <Rule
+          no={1}
+          title="Lương cứng theo bậc"
+          desc="Mỗi nhân viên thuộc một bậc, bậc quyết định lương cứng cả tháng. Chọn bậc cho từng người ở bảng lương bên dưới."
+          example={
+            sample && (
+              <>
+                {sample.label} có lương cứng {vnd(sample.base)}, tháng này {std} công. Làm {sampleWork}/{std} công thì
+                lương cứng = {money(sample.base)} ÷ {std} × {sampleWork} = <b>{vnd((sample.base / std) * sampleWork)}</b>.
+              </>
+            )
+          }
+        >
+          <div className="grid grid-cols-[6.5rem_minmax(0,1fr)_9rem_2.25rem] items-end gap-x-2 gap-y-2">
+            <span className={COL_HEAD}>Tên bậc</span>
+            <span className={COL_HEAD}>Điều kiện (ghi chú)</span>
+            <span className={COL_HEAD}>Lương cứng / tháng</span>
+            <span />
+            {config.levels.map((lv, i) => (
+              <div key={i} className="contents">
+                <input
+                  className="input-3d !h-10"
+                  value={lv.label}
+                  aria-label={`Tên bậc ${i + 1}`}
+                  onChange={(e) =>
+                    set({ levels: config.levels.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)) })
+                  }
+                />
+                <input
+                  className="input-3d !h-10"
+                  value={lv.note}
+                  placeholder="VD: Làm việc trên 1 năm"
+                  aria-label={`Điều kiện ${lv.label}`}
+                  onChange={(e) =>
+                    set({ levels: config.levels.map((x, j) => (j === i ? { ...x, note: e.target.value } : x)) })
+                  }
+                />
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel={`Lương cứng ${lv.label}`}
+                  value={lv.base}
+                  onChange={(base) => set({ levels: config.levels.map((x, j) => (j === i ? { ...x, base } : x)) })}
+                />
+                <button
+                  type="button"
+                  disabled={config.levels.length <= 1}
+                  onClick={() => set({ levels: config.levels.filter((_, j) => j !== i) })}
+                  title="Xóa bậc này"
+                  aria-label={`Xóa ${lv.label}`}
+                  className={DEL_BTN}
+                >
+                  <Trash size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
           <button
             type="button"
             disabled={config.levels.length >= 10}
@@ -111,137 +170,195 @@ export function FormulaPanel({
                 ],
               })
             }
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline disabled:opacity-40 dark:text-blue-400"
+            className={ADD_BTN}
           >
             <Plus size={13} weight="bold" /> Thêm bậc
           </button>
-        </Block>
+        </Rule>
 
-        <div className="space-y-3">
-          <Block
-            title="2. Ngày công"
-            hint="Lương cứng thực nhận = lương cứng ÷ công chuẩn × công thực tế (làm hơn công chuẩn thì được hơn)."
+        <div className="space-y-4">
+          {/* 2. Ngày công */}
+          <Rule
+            no={2}
+            title="Công chuẩn của tháng"
+            desc="Công chuẩn là số công đi làm đủ để nhận trọn lương cứng. Làm nhiều hơn công chuẩn thì được nhiều hơn."
+            example={
+              <>
+                Tháng {daysInMonth} ngày − {config.standardDaysOffset} ngày nghỉ = <b>{std} công</b>. Các tháng khác:{' '}
+                {[31, 30, 29, 28]
+                  .filter((d) => d !== daysInMonth)
+                  .map((d) => `${d} ngày → ${standardDays(d, config.standardDaysOffset)} công`)
+                  .join(', ')}
+                .
+              </>
+            }
           >
-            <Line>
-              <span>Công chuẩn = số ngày trong tháng −</span>
-              <MoneyInput
-                className={`w-16 ${SMALL_INPUT}`}
-                ariaLabel="Số ngày trừ để ra công chuẩn"
-                value={config.standardDaysOffset}
-                onChange={(standardDaysOffset) => set({ standardDaysOffset: Math.min(28, standardDaysOffset) })}
-              />
-              <span className={unit}>ngày</span>
-            </Line>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Tháng đang xem có {daysInMonth} ngày → <b className="text-slate-800 dark:text-slate-200">{std} công</b>{' '}
-              (31 ngày = 27, 30 ngày = 26, 29 ngày = 25, 28 ngày = 24 khi trừ 4).
-            </p>
-          </Block>
+            <div className="max-w-xs">
+              <Field label="Số ngày trừ đi (ngày nghỉ) để ra công chuẩn" unit="ngày">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Số ngày trừ để ra công chuẩn"
+                  value={config.standardDaysOffset}
+                  onChange={(standardDaysOffset) => set({ standardDaysOffset: Math.min(28, standardDaysOffset) })}
+                />
+              </Field>
+            </div>
+          </Rule>
 
-          <Block title="3. Mốc lương cứng cao" hint="Đạt mốc thì lương cứng của tháng đó lấy mức này, thay cho lương theo bậc.">
-            <Line>
-              <span>Hoa hồng tháng từ</span>
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel="Mốc đạt lương cứng cao"
-                value={config.topBase.threshold}
-                onChange={(threshold) => set({ topBase: { ...config.topBase, threshold } })}
-              />
-              <span>→ lương cứng</span>
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel="Lương cứng khi đạt mốc"
-                value={config.topBase.base}
-                onChange={(base) => set({ topBase: { ...config.topBase, base } })}
-              />
-              <span className={unit}>đ</span>
-            </Line>
-          </Block>
+          {/* 3. Mốc lương cứng cao */}
+          <Rule
+            no={3}
+            title="Đạt doanh số cao thì được lương cứng cao"
+            desc="Tháng nào hoa hồng đạt mốc này thì lương cứng của tháng đó lấy mức bên dưới, thay cho lương theo bậc."
+            example={
+              <>
+                Hoa hồng tháng đạt {vnd(config.topBase.threshold)} trở lên → lương cứng <b>{vnd(config.topBase.base)}</b>{' '}
+                (không phân biệt bậc).
+              </>
+            }
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Hoa hồng cả tháng đạt từ" unit="đ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Mốc đạt lương cứng cao"
+                  value={config.topBase.threshold}
+                  onChange={(threshold) => set({ topBase: { ...config.topBase, threshold } })}
+                />
+              </Field>
+              <Field label="Thì lương cứng của tháng là" unit="đ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Lương cứng khi đạt mốc"
+                  value={config.topBase.base}
+                  onChange={(base) => set({ topBase: { ...config.topBase, base } })}
+                />
+              </Field>
+            </div>
+          </Rule>
         </div>
 
-        <Block title="4. Thưởng ngày" hint="Mỗi ngày chỉ tính một mốc cao nhất đạt được (không cộng dồn các mốc).">
-          {config.dailyBonuses.map((t, i) => (
-            <Line key={i}>
-              <span>Ngày đạt từ</span>
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel={`Mốc thưởng ngày ${i + 1}`}
-                value={t.threshold}
-                onChange={(threshold) =>
-                  set({ dailyBonuses: config.dailyBonuses.map((x, j) => (j === i ? { ...x, threshold } : x)) })
-                }
-              />
-              <span>→ thưởng</span>
-              <MoneyInput
-                className={`w-28 ${SMALL_INPUT}`}
-                ariaLabel={`Tiền thưởng ngày ${i + 1}`}
-                value={t.bonus}
-                onChange={(bonus) =>
-                  set({ dailyBonuses: config.dailyBonuses.map((x, j) => (j === i ? { ...x, bonus } : x)) })
-                }
-              />
-              <span className={unit}>đ</span>
-              <button
-                type="button"
-                onClick={() => set({ dailyBonuses: config.dailyBonuses.filter((_, j) => j !== i) })}
-                title="Xóa mốc này"
-                aria-label={`Xóa mốc thưởng ngày ${i + 1}`}
-                className="flex size-8 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40"
-              >
-                <Trash size={15} />
-              </button>
-            </Line>
-          ))}
+        {/* 4. Thưởng ngày */}
+        <Rule
+          no={4}
+          title="Thưởng theo ngày"
+          desc="Ngày nào hoa hồng đạt mốc thì được thưởng thêm. Một ngày chỉ nhận một mốc cao nhất, không cộng dồn."
+          example={
+            topDaily > 0 && (
+              <>
+                Một ngày hoa hồng {vnd(topDaily)} → thưởng <b>{vnd(dayBonus(topDaily, config.dailyBonuses))}</b>
+                {config.dailyBonuses.length > 1 && ' (chỉ tính mốc cao nhất, không cộng mốc thấp hơn)'}.
+              </>
+            )
+          }
+        >
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.25rem] items-end gap-x-2 gap-y-2">
+            <span className={COL_HEAD}>Hoa hồng trong ngày từ (đ)</span>
+            <span className={COL_HEAD}>Thì thưởng (đ)</span>
+            <span />
+            {config.dailyBonuses.map((t, i) => (
+              <div key={i} className="contents">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel={`Mốc thưởng ngày ${i + 1}`}
+                  value={t.threshold}
+                  onChange={(threshold) =>
+                    set({ dailyBonuses: config.dailyBonuses.map((x, j) => (j === i ? { ...x, threshold } : x)) })
+                  }
+                />
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel={`Tiền thưởng ngày ${i + 1}`}
+                  value={t.bonus}
+                  onChange={(bonus) =>
+                    set({ dailyBonuses: config.dailyBonuses.map((x, j) => (j === i ? { ...x, bonus } : x)) })
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => set({ dailyBonuses: config.dailyBonuses.filter((_, j) => j !== i) })}
+                  title="Xóa mốc này"
+                  aria-label={`Xóa mốc thưởng ngày ${i + 1}`}
+                  className={DEL_BTN}
+                >
+                  <Trash size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
           <button
             type="button"
             disabled={config.dailyBonuses.length >= 10}
             onClick={() => set({ dailyBonuses: [...config.dailyBonuses, { threshold: 0, bonus: 0 }] })}
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:underline disabled:opacity-40 dark:text-blue-400"
+            className={ADD_BTN}
           >
             <Plus size={13} weight="bold" /> Thêm mốc thưởng ngày
           </button>
-        </Block>
+        </Rule>
 
-        <div className="space-y-3">
-          <Block title="5. Thưởng tháng">
-            <Line>
-              <span>Tổng hoa hồng cả tháng đạt từ</span>
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel="Mốc thưởng tháng"
-                value={config.monthlyBonus.threshold}
-                onChange={(threshold) => set({ monthlyBonus: { ...config.monthlyBonus, threshold } })}
-              />
-              <span>→ thưởng</span>
-              <MoneyInput
-                className={`w-28 ${SMALL_INPUT}`}
-                ariaLabel="Tiền thưởng tháng"
-                value={config.monthlyBonus.bonus}
-                onChange={(bonus) => set({ monthlyBonus: { ...config.monthlyBonus, bonus } })}
-              />
-              <span className={unit}>đ</span>
-            </Line>
-          </Block>
+        <div className="space-y-4">
+          {/* 5. Thưởng tháng */}
+          <Rule
+            no={5}
+            title="Thưởng theo tháng"
+            desc="Tổng hoa hồng cả tháng đạt mốc thì được thưởng thêm một khoản cố định."
+            example={
+              <>
+                Cả tháng đạt {vnd(config.monthlyBonus.threshold)} → thưởng <b>{vnd(config.monthlyBonus.bonus)}</b>.
+              </>
+            }
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Tổng hoa hồng cả tháng đạt từ" unit="đ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Mốc thưởng tháng"
+                  value={config.monthlyBonus.threshold}
+                  onChange={(threshold) => set({ monthlyBonus: { ...config.monthlyBonus, threshold } })}
+                />
+              </Field>
+              <Field label="Thì thưởng" unit="đ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Tiền thưởng tháng"
+                  value={config.monthlyBonus.bonus}
+                  onChange={(bonus) => set({ monthlyBonus: { ...config.monthlyBonus, bonus } })}
+                />
+              </Field>
+            </div>
+          </Rule>
 
-          <Block title="6. Doanh số vượt mốc" hint="Ai vượt mốc thì được một tỷ lệ % trên phần vượt.">
-            <Line>
-              <span>Hoa hồng vượt</span>
-              <MoneyInput
-                className={`w-32 ${SMALL_INPUT}`}
-                ariaLabel="Mốc doanh số vượt"
-                value={config.overRate.threshold}
-                onChange={(threshold) => set({ overRate: { ...config.overRate, threshold } })}
-              />
-              <span>→ được</span>
-              <MoneyInput
-                className={`w-16 ${SMALL_INPUT}`}
-                ariaLabel="Phần trăm trên phần vượt"
-                value={config.overRate.percent}
-                onChange={(percent) => set({ overRate: { ...config.overRate, percent: Math.min(100, percent) } })}
-              />
-              <span className={unit}>% phần vượt</span>
-            </Line>
-          </Block>
+          {/* 6. Vượt mốc */}
+          <Rule
+            no={6}
+            title="Thưởng phần doanh số vượt mốc"
+            desc="Hoa hồng cả tháng vượt qua mốc này thì nhân viên được hưởng một tỷ lệ % trên chính phần vượt."
+            example={
+              <>
+                Hoa hồng tháng {vnd(sampleOverCommission)} → vượt {vnd(5_000_000)} → được {config.overRate.percent}% ={' '}
+                <b>{vnd((5_000_000 * config.overRate.percent) / 100)}</b>.
+              </>
+            }
+          >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Mốc doanh số (hoa hồng cả tháng)" unit="đ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Mốc doanh số vượt"
+                  value={config.overRate.threshold}
+                  onChange={(threshold) => set({ overRate: { ...config.overRate, threshold } })}
+                />
+              </Field>
+              <Field label="Được hưởng trên phần vượt" unit="%">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Phần trăm trên phần vượt"
+                  value={config.overRate.percent}
+                  onChange={(percent) => set({ overRate: { ...config.overRate, percent: Math.min(100, percent) } })}
+                />
+              </Field>
+            </div>
+          </Rule>
         </div>
       </div>
 
