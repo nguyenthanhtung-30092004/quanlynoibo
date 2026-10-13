@@ -6,7 +6,6 @@ import {
   Eye,
   EyeSlash,
   FileXls,
-  Key,
   LockSimple,
   LockSimpleOpen,
   MagnifyingGlass,
@@ -36,20 +35,39 @@ function Field({ label, required, children }: { label: string; required?: boolea
   );
 }
 
-/** Ô mật khẩu: mặc định ẩn, bấm con mắt mới tải và hiện mật khẩu, bấm lại thì ẩn và bỏ khỏi bộ nhớ */
-function PasswordCell({ userId }: { userId: number }) {
-  const [shown, setShown] = useState<string | null | undefined>(undefined);
+/**
+ * Ô mật khẩu: ô nhập + con mắt + nút Đặt lại.
+ * Mặc định ẩn (chưa tải mật khẩu); bấm con mắt mới tải và hiện, lúc đó sửa được trong ô.
+ * Nút Đặt lại chỉ sáng khi nội dung khác mật khẩu đang lưu.
+ */
+function PasswordCell({
+  userId,
+  onReset,
+}: {
+  userId: number;
+  onReset: (userId: number, password: string) => Promise<void>;
+}) {
+  // undefined = đang ẩn; null = đã mở nhưng chưa có mật khẩu lưu; chuỗi = mật khẩu đang lưu
+  const [saved, setSaved] = useState<string | null | undefined>(undefined);
+  const [draft, setDraft] = useState('');
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const showToast = useToast();
 
+  const revealed = saved !== undefined;
+  const changed = revealed && draft.length > 0 && draft !== (saved ?? '');
+
   const toggle = async () => {
-    if (shown !== undefined) {
-      setShown(undefined);
+    if (revealed) {
+      setSaved(undefined);
+      setDraft('');
       return;
     }
     setLoading(true);
     try {
-      setShown(await usersApi.revealPassword(userId));
+      const current = await usersApi.revealPassword(userId);
+      setSaved(current);
+      setDraft(current ?? '');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Không lấy được mật khẩu.');
     } finally {
@@ -57,20 +75,59 @@ function PasswordCell({ userId }: { userId: number }) {
     }
   };
 
+  const submit = async () => {
+    if (!changed) return;
+    setSaving(true);
+    try {
+      await onReset(userId, draft);
+      // Lưu xong: giữ ô hiện mật khẩu mới, nút Đặt lại tắt lại
+      setSaved(draft);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <span className="inline-flex items-center gap-2">
-      <span className="min-w-20 font-mono text-xs font-bold text-slate-700 dark:text-slate-300">
-        {shown === undefined ? '••••••••' : (shown ?? 'Chưa lưu, hãy đặt lại')}
-      </span>
+    <span className="inline-flex items-center gap-1.5">
+      <input
+        type={revealed ? 'text' : 'password'}
+        value={revealed ? draft : '••••••••'}
+        readOnly={!revealed}
+        onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            void submit();
+          }
+        }}
+        placeholder={revealed && saved === null ? 'Chưa lưu, nhập mật khẩu mới' : undefined}
+        autoComplete="off"
+        spellCheck={false}
+        aria-label="Mật khẩu"
+        className={`h-8 w-44 rounded-lg border px-2.5 font-mono text-xs font-bold outline-none transition-colors ${
+          revealed
+            ? 'border-blue-300 bg-white text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 dark:border-blue-700 dark:bg-slate-900 dark:text-white dark:focus:ring-blue-900'
+            : 'cursor-default border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-400'
+        }`}
+      />
       <button
         type="button"
         onClick={toggle}
         disabled={loading}
-        title={shown === undefined ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
-        aria-label={shown === undefined ? 'Hiện mật khẩu' : 'Ẩn mật khẩu'}
-        className="flex size-7 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-slate-700 dark:hover:text-white"
+        title={revealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu để xem / sửa'}
+        aria-label={revealed ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        className="flex size-7 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-50 dark:hover:bg-slate-700 dark:hover:text-white"
       >
-        {shown === undefined ? <Eye size={16} /> : <EyeSlash size={16} />}
+        {revealed ? <EyeSlash size={16} /> : <Eye size={16} />}
+      </button>
+      <button
+        type="button"
+        onClick={submit}
+        disabled={!changed || saving}
+        title={changed ? 'Lưu mật khẩu mới' : 'Hãy hiện mật khẩu và sửa trước khi đặt lại'}
+        className="btn-3d btn-3d-blue shrink-0 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-35 disabled:grayscale"
+      >
+        {saving ? 'Đang lưu...' : 'Đặt lại'}
       </button>
     </span>
   );
@@ -121,9 +178,6 @@ function UsersPageContent() {
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [draft, setDraft] = useState<UserDraft>(EMPTY_DRAFT);
   const [deleteTarget, setDeleteTarget] = useState<User | null>(null);
-  const [resetTarget, setResetTarget] = useState<User | null>(null);
-  const [newPassword, setNewPassword] = useState('');
-  const [showNewPassword, setShowNewPassword] = useState(false);
 
   const showToast = useToast();
 
@@ -212,24 +266,15 @@ function UsersPageContent() {
     }
   };
 
-  const openResetPassword = (u: User) => {
-    setResetTarget(u);
-    setNewPassword('');
-    setShowNewPassword(false);
-  };
-
-  const handleResetPassword = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!resetTarget) return;
-    const password = newPassword.trim();
-    if (!password) return;
+  /** Đặt lại mật khẩu từ ô mật khẩu trong bảng; lỗi thì báo và ném lại để ô giữ nguyên nội dung đang sửa */
+  const handleResetPassword = async (userId: number, password: string) => {
+    const target = usersList.find((x) => x.id === userId);
     try {
-      await updateMutation.mutateAsync({ id: resetTarget.id, input: { password } });
-      showToast(`Đã đặt lại mật khẩu cho "${resetTarget.fullName}".`);
-      setResetTarget(null);
-      refetch();
+      await updateMutation.mutateAsync({ id: userId, input: { password } });
+      showToast(`Đã đặt lại mật khẩu cho "${target?.fullName ?? 'nhân viên'}".`);
     } catch (err: unknown) {
       showToast(`Lỗi: ${err instanceof Error ? err.message : 'Không đặt lại được mật khẩu.'}`);
+      throw err;
     }
   };
 
@@ -413,7 +458,7 @@ function UsersPageContent() {
                       @{u.username}
                     </td>
                     <td className={TD}>
-                      <PasswordCell key={`${u.id}-${u.updatedAt}`} userId={u.id} />
+                      <PasswordCell key={u.id} userId={u.id} onReset={handleResetPassword} />
                     </td>
                     <td className={TD}>
                       <span className="inline-flex items-center gap-1.5 font-bold text-slate-700 dark:text-slate-300">
@@ -446,14 +491,6 @@ function UsersPageContent() {
                           className="btn-3d btn-3d-blue flex items-center gap-1.5 px-2.5 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <PencilSimple size={14} weight="bold" /> Sửa
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openResetPassword(u)}
-                          title="Đặt lại mật khẩu"
-                          className="btn-3d btn-3d-white flex items-center gap-1.5 px-2.5 py-1.5 text-xs"
-                        >
-                          <Key size={14} weight="bold" /> Đặt MK
                         </button>
                         <button
                           type="button"
@@ -567,57 +604,6 @@ function UsersPageContent() {
                 className="btn-3d btn-3d-blue px-5 py-2 text-sm"
               >
                 {editingUser ? 'Cập nhật nhân viên' : 'Tạo tài khoản'}
-              </button>
-            </div>
-          </form>
-        </Modal>
-      )}
-
-      {/* Modal Đặt lại mật khẩu */}
-      {resetTarget && (
-        <Modal title="Đặt lại mật khẩu" onClose={() => setResetTarget(null)}>
-          <form onSubmit={handleResetPassword} className="space-y-4">
-            <p className="text-sm text-slate-700 dark:text-slate-300">
-              Nhập mật khẩu mới cho <strong>{resetTarget.fullName}</strong> (@{resetTarget.username}). Nhân viên đang
-              đăng nhập sẽ bị đăng xuất.
-            </p>
-            <Field label="Mật khẩu mới" required>
-              <span className="relative block">
-                <input
-                  className="input-3d pr-11 font-mono"
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Nhập mật khẩu mới"
-                  autoComplete="new-password"
-                  autoFocus
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword((v) => !v)}
-                  title={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                  aria-label={showNewPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                  className="absolute right-2 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:hover:bg-slate-700 dark:hover:text-white"
-                >
-                  {showNewPassword ? <EyeSlash size={16} /> : <Eye size={16} />}
-                </button>
-              </span>
-            </Field>
-            <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3">
-              <button
-                type="button"
-                onClick={() => setResetTarget(null)}
-                className="btn-3d btn-3d-white px-4 py-2 text-sm"
-              >
-                Hủy
-              </button>
-              <button
-                type="submit"
-                disabled={updateMutation.isPending}
-                className="btn-3d btn-3d-blue px-5 py-2 text-sm disabled:opacity-60"
-              >
-                Đặt lại mật khẩu
               </button>
             </div>
           </form>

@@ -184,7 +184,7 @@ function OverviewContent() {
 
       {/* Doanh số theo đối tác: full chiều ngang, rê chuột vào cột để xem vé / doanh thu / hoa hồng */}
       <Card
-        title="Doanh số theo đối tác"
+        title="Hoa hồng & số vé theo đối tác"
         className="mt-5"
         action={
           <Link href="/xvip/doi-tac" className="btn-3d btn-3d-white px-3 py-1 text-xs">
