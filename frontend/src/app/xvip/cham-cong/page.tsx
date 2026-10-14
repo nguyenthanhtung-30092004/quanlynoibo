@@ -235,8 +235,8 @@ export default function AttendancePage() {
         {draft ? (
           <div className="space-y-4">
             <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              Hệ thống tự động tính công theo thời gian nhân viên đăng nhập và thao tác trong ngày (chuột, bàn phím, chuyển tab
-              trong 5 phút gần nhất). Không bắt buộc định vị, dùng máy tính hay điện thoại đều được tính.
+              Hệ thống tự động tính công theo thời gian nhân viên đăng nhập: giờ bắt đầu tính từ lần đăng nhập đầu tiên
+              trong ngày. Không bắt buộc định vị, dùng máy tính hay điện thoại đều được tính.
             </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
