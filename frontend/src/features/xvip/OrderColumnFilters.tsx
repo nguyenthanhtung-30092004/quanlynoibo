@@ -286,8 +286,8 @@ function StaffFilterInner({
   close,
 }: {
   filters: OrderFilters;
-  selected: string[];
-  onApply: (staffIds: string[]) => void;
+  selected: number[];
+  onApply: (staffIds: number[]) => void;
   onClear: () => void;
   close: () => void;
 }) {
@@ -306,8 +306,8 @@ function StaffFilterInner({
   );
 
   return (
-    <CheckListFilter<string>
-      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+    <CheckListFilter<number>
+      items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
       selected={selected}
       searchQuery={search}
       onSearchChange={setSearch}
@@ -395,19 +395,32 @@ export function ThDepartureTime({ local, filters, onChange }: OrderThProps) {
 }
 
 export function ThPartner({ local, filters, onChange }: OrderThProps) {
+  const selectedPartners = useMemo(() => {
+    const list = [...(local.partners ?? [])];
+    if (local.partner && !list.includes(local.partner)) {
+      list.push(local.partner);
+    }
+    return list;
+  }, [local.partners, local.partner]);
+
   return (
     <ThFilter title="Nhà xe">
       <ColumnFilterPopover
         title="Nhà xe"
-        isActive={!!local.partner}
-        onClear={() => onChange({ partner: undefined })}
+        isActive={selectedPartners.length > 0}
+        onClear={() => onChange({ partner: undefined, partners: [] })}
       >
         {({ close }) => (
           <PartnerFilterInner
             filters={filters}
-            selected={local.partner ? [local.partner] : []}
-            onApply={(partners) => onChange({ partner: partners[0] || undefined })}
-            onClear={() => onChange({ partner: undefined })}
+            selected={selectedPartners}
+            onApply={(partners) =>
+              onChange({
+                partners,
+                partner: partners.length === 1 ? partners[0] : undefined,
+              })
+            }
+            onClear={() => onChange({ partner: undefined, partners: [] })}
             close={close}
           />
         )}
@@ -472,21 +485,92 @@ export function ThCustomer({
   );
 }
 
-export function ThSellPrice({ local, onChange }: OrderThProps) {
+/** Bộ lọc Giá bán */
+function SellPriceFilterInner({
+  filters,
+  selected,
+  min,
+  max,
+  onApplyTicks,
+  onClearTicks,
+  onApplyRange,
+  onClearRange,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: number[];
+  min?: number;
+  max?: number;
+  onApplyTicks: (prices: number[]) => void;
+  onClearTicks: () => void;
+  onApplyRange: (range: { min?: number; max?: number }) => void;
+  onClearRange: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, sellPrices: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'sellPrice',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <div className="space-y-3">
+      <CheckListFilter<number>
+        items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
+        selected={selected}
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Tìm giá bán..."
+        isLoading={isLoading}
+        onApply={onApplyTicks}
+        onClear={onClearTicks}
+        close={close}
+      />
+      <div className="border-t border-slate-100 dark:border-slate-800 pt-2.5">
+        <div className="mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+          Hoặc theo khoảng (Từ - Đến):
+        </div>
+        <NumberRangeFilter
+          min={min}
+          max={max}
+          onApply={onApplyRange}
+          onClear={onClearRange}
+          close={close}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function ThSellPrice({ local, filters, onChange }: OrderThProps) {
+  const isTicksActive = (local.sellPrices ?? []).length > 0;
+  const isRangeActive = local.sellPriceMin !== undefined || local.sellPriceMax !== undefined;
   return (
     <ThFilter title="Giá bán" right>
       <ColumnFilterPopover
         title="Giá bán"
         align="right"
-        isActive={local.sellPriceMin !== undefined || local.sellPriceMax !== undefined}
-        onClear={() => onChange({ sellPriceMin: undefined, sellPriceMax: undefined })}
+        isActive={isTicksActive || isRangeActive}
+        onClear={() => onChange({ sellPrices: undefined, sellPriceMin: undefined, sellPriceMax: undefined })}
       >
         {({ close }) => (
-          <NumberRangeFilter
+          <SellPriceFilterInner
+            filters={filters}
+            selected={local.sellPrices ?? []}
             min={local.sellPriceMin}
             max={local.sellPriceMax}
-            onApply={(range) => onChange({ sellPriceMin: range.min, sellPriceMax: range.max })}
-            onClear={() => onChange({ sellPriceMin: undefined, sellPriceMax: undefined })}
+            onApplyTicks={(prices) => onChange({ sellPrices: prices.length ? prices : undefined })}
+            onClearTicks={() => onChange({ sellPrices: undefined })}
+            onApplyRange={(range) => onChange({ sellPriceMin: range.min, sellPriceMax: range.max })}
+            onClearRange={() => onChange({ sellPriceMin: undefined, sellPriceMax: undefined })}
             close={close}
           />
         )}
@@ -495,23 +579,92 @@ export function ThSellPrice({ local, onChange }: OrderThProps) {
   );
 }
 
-export function ThCommission({ local, onChange }: OrderThProps) {
+/** Bộ lọc Hoa hồng */
+function CommissionFilterInner({
+  filters,
+  selected,
+  min,
+  max,
+  onApplyTicks,
+  onClearTicks,
+  onApplyRange,
+  onClearRange,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: number[];
+  min?: number;
+  max?: number;
+  onApplyTicks: (commissions: number[]) => void;
+  onClearTicks: () => void;
+  onApplyRange: (range: { min?: number; max?: number }) => void;
+  onClearRange: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, commissions: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'commission',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <div className="space-y-3">
+      <CheckListFilter<number>
+        items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
+        selected={selected}
+        searchQuery={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Tìm mức hoa hồng..."
+        isLoading={isLoading}
+        onApply={onApplyTicks}
+        onClear={onClearTicks}
+        close={close}
+      />
+      <div className="border-t border-slate-100 dark:border-slate-800 pt-2.5">
+        <div className="mb-2 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+          Hoặc theo khoảng (Từ - Đến):
+        </div>
+        <NumberRangeFilter
+          min={min}
+          max={max}
+          onApply={onApplyRange}
+          onClear={onClearRange}
+          close={close}
+        />
+      </div>
+    </div>
+  );
+}
+
+export function ThCommission({ local, filters, onChange }: OrderThProps) {
+  const isTicksActive = (local.commissions ?? []).length > 0;
+  const isRangeActive = local.commissionMin !== undefined || local.commissionMax !== undefined;
   return (
     <ThFilter title="Hoa hồng" right>
       <ColumnFilterPopover
         title="Hoa hồng"
         align="right"
-        isActive={local.commissionMin !== undefined || local.commissionMax !== undefined}
-        onClear={() => onChange({ commissionMin: undefined, commissionMax: undefined })}
+        isActive={isTicksActive || isRangeActive}
+        onClear={() => onChange({ commissions: undefined, commissionMin: undefined, commissionMax: undefined })}
       >
         {({ close }) => (
-          <NumberRangeFilter
+          <CommissionFilterInner
+            filters={filters}
+            selected={local.commissions ?? []}
             min={local.commissionMin}
             max={local.commissionMax}
-            onApply={(range) =>
-              onChange({ commissionMin: range.min, commissionMax: range.max })
-            }
-            onClear={() => onChange({ commissionMin: undefined, commissionMax: undefined })}
+            onApplyTicks={(commissions) => onChange({ commissions: commissions.length ? commissions : undefined })}
+            onClearTicks={() => onChange({ commissions: undefined })}
+            onApplyRange={(range) => onChange({ commissionMin: range.min, commissionMax: range.max })}
+            onClearRange={() => onChange({ commissionMin: undefined, commissionMax: undefined })}
             close={close}
           />
         )}
@@ -520,22 +673,65 @@ export function ThCommission({ local, onChange }: OrderThProps) {
   );
 }
 
-/** Cột Đã cọc: tích để chỉ xem đơn khách đã cọc, bỏ tích để xem tất cả */
-export function ThDeposit({ local, onChange }: OrderThProps) {
+/** Bộ lọc Đã cọc */
+function DepositFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: number[];
+  onApply: (deposits: number[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, deposits: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'deposit',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<number>
+      items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm mức cọc..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+/** Cột Đã cọc: danh sách mức cọc (mức 0 hiện là "Chưa cọc") */
+export function ThDeposit({ local, filters, onChange }: OrderThProps) {
   return (
     <ThFilter title="Đã cọc" right>
       <ColumnFilterPopover
         title="Đã cọc"
         align="right"
-        isActive={!!local.depositOnly}
-        onClear={() => onChange({ depositOnly: false })}
+        isActive={(local.deposits ?? []).length > 0}
+        onClear={() => onChange({ deposits: undefined })}
       >
         {({ close }) => (
-          <CheckListFilter<'only'>
-            items={[{ value: 'only', label: 'Chỉ đơn khách đã cọc' }]}
-            selected={local.depositOnly ? ['only'] : []}
-            onApply={(selected) => onChange({ depositOnly: selected.includes('only') })}
-            onClear={() => onChange({ depositOnly: false })}
+          <DepositFilterInner
+            filters={filters}
+            selected={local.deposits ?? []}
+            onApply={(deposits) => onChange({ deposits: deposits.length ? deposits : undefined })}
+            onClear={() => onChange({ deposits: undefined })}
             close={close}
           />
         )}
@@ -551,21 +747,33 @@ export function ThStaff({
   onChange,
   showFilter,
 }: OrderThProps & { showFilter: boolean }) {
-  const staffId = typeof local.staffId === 'number' ? local.staffId : undefined;
+  const selectedStaffIds = useMemo(() => {
+    const list = [...(local.staffIds ?? [])];
+    if (typeof local.staffId === 'number' && local.staffId > 0 && !list.includes(local.staffId)) {
+      list.push(local.staffId);
+    }
+    return list;
+  }, [local.staffIds, local.staffId]);
+
   return (
     <ThFilter title="NV tạo">
       {showFilter && (
         <ColumnFilterPopover
           title="Nhân viên tạo"
-          isActive={staffId !== undefined}
-          onClear={() => onChange({ staffId: 'all' })}
+          isActive={selectedStaffIds.length > 0}
+          onClear={() => onChange({ staffId: 'all', staffIds: [] })}
         >
           {({ close }) => (
             <StaffFilterInner
               filters={filters}
-              selected={staffId !== undefined ? [String(staffId)] : []}
-              onApply={(ids) => onChange({ staffId: ids.length ? Number(ids[0]) : 'all' })}
-              onClear={() => onChange({ staffId: 'all' })}
+              selected={selectedStaffIds}
+              onApply={(ids) =>
+                onChange({
+                  staffIds: ids,
+                  staffId: ids.length === 1 ? ids[0] : 'all',
+                })
+              }
+              onClear={() => onChange({ staffId: 'all', staffIds: [] })}
               close={close}
             />
           )}
@@ -575,25 +783,102 @@ export function ThStaff({
   );
 }
 
-export function ThSms({ local, onChange }: OrderThProps) {
+/** Bộ lọc Tin nhắn */
+function SmsFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: Array<'sms' | 'zalo' | 'unsent'>;
+  onApply: (selected: Array<'sms' | 'zalo' | 'unsent'>) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, smsStatus: undefined, messageStates: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'message',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  const items = useMemo(() => {
+    const fallback: Record<'sms' | 'zalo' | 'unsent', { label: string; count: number }> = {
+      sms: { label: 'Đã gửi SMS', count: 0 },
+      zalo: { label: 'Đã gửi Zalo', count: 0 },
+      unsent: { label: 'Chưa gửi', count: 0 },
+    };
+    for (const d of options) {
+      if (d.value in fallback) {
+        fallback[d.value as 'sms' | 'zalo' | 'unsent'] = { label: d.label, count: d.count };
+      }
+    }
+    const list: Array<{ value: 'sms' | 'zalo' | 'unsent'; label: string; count: number }> = [
+      { value: 'sms', label: fallback.sms.label, count: fallback.sms.count },
+      { value: 'zalo', label: fallback.zalo.label, count: fallback.zalo.count },
+      { value: 'unsent', label: fallback.unsent.label, count: fallback.unsent.count },
+    ];
+    if (debouncedSearch.trim()) {
+      const q = debouncedSearch.trim().toLowerCase();
+      return list.filter(
+        (it) => it.label.toLowerCase().includes(q) || it.value.toLowerCase().includes(q),
+      );
+    }
+    return list;
+  }, [options, debouncedSearch]);
+
+  return (
+    <CheckListFilter<'sms' | 'zalo' | 'unsent'>
+      items={items}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm trạng thái..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+export function ThSms({ local, filters, onChange }: OrderThProps) {
+  const selectedStates = useMemo(() => {
+    if (local.messageStates?.length) return local.messageStates;
+    if (local.smsStatus === 'sent') return ['sms', 'zalo'] as Array<'sms' | 'zalo' | 'unsent'>;
+    if (local.smsStatus === 'unsent') return ['unsent'] as Array<'sms' | 'zalo' | 'unsent'>;
+    return [] as Array<'sms' | 'zalo' | 'unsent'>;
+  }, [local.messageStates, local.smsStatus]);
+
+  const isActive = selectedStates.length > 0;
+
   return (
     <ThFilter title="Tin nhắn">
       <ColumnFilterPopover
         title="Tin nhắn"
-        isActive={!!local.smsStatus}
-        onClear={() => onChange({ smsStatus: undefined })}
+        isActive={isActive}
+        onClear={() => onChange({ messageStates: [], smsStatus: undefined })}
       >
         {({ close }) => (
-          <CheckListFilter<'sent' | 'unsent'>
-            items={[
-              { value: 'sent', label: 'Đã gửi' },
-              { value: 'unsent', label: 'Chưa gửi' },
-            ]}
-            selected={local.smsStatus ? [local.smsStatus] : []}
-            onApply={(selected) =>
-              onChange({ smsStatus: selected.length === 1 ? selected[0] : undefined })
+          <SmsFilterInner
+            filters={filters ?? local}
+            selected={selectedStates}
+            onApply={(states) =>
+              onChange({
+                messageStates: states.length > 0 ? states : [],
+                smsStatus: undefined,
+              })
             }
-            onClear={() => onChange({ smsStatus: undefined })}
+            onClear={() => onChange({ messageStates: [], smsStatus: undefined })}
             close={close}
           />
         )}
@@ -601,3 +886,4 @@ export function ThSms({ local, onChange }: OrderThProps) {
     </ThFilter>
   );
 }
+

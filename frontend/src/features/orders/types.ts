@@ -96,10 +96,14 @@ export interface OrderFilters {
   phones?: string[];
   departureTimes?: string[];
   smsStatus?: 'sent' | 'unsent';
+  messageStates?: Array<'sms' | 'zalo' | 'unsent'>;
   sellPriceMin?: number;
   sellPriceMax?: number;
   commissionMin?: number;
   commissionMax?: number;
+  deposits?: number[];
+  sellPrices?: number[];
+  commissions?: number[];
   orderCode?: string;
 }
 
@@ -142,6 +146,7 @@ export interface KpiRange {
   dateFrom?: string;
   dateTo?: string;
   staffId?: number;
+  staffIds?: number[];
   routeId?: number;
   partner?: string;
   routeIds?: number[];

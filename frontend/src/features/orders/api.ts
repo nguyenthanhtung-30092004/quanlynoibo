@@ -37,22 +37,27 @@ export function filterParams(filters: OrderFilters) {
     phones: filters.phones?.length ? filters.phones.join(',') : undefined,
     departureTimes: filters.departureTimes?.length ? filters.departureTimes.join(',') : undefined,
     smsStatus: filters.smsStatus || undefined,
+    messageStates: filters.messageStates?.length ? filters.messageStates.join(',') : undefined,
     sellPriceMin: filters.sellPriceMin !== undefined ? filters.sellPriceMin : undefined,
     sellPriceMax: filters.sellPriceMax !== undefined ? filters.sellPriceMax : undefined,
     commissionMin: filters.commissionMin !== undefined ? filters.commissionMin : undefined,
     commissionMax: filters.commissionMax !== undefined ? filters.commissionMax : undefined,
+    deposits: filters.deposits?.length ? filters.deposits.join(',') : undefined,
+    sellPrices: filters.sellPrices?.length ? filters.sellPrices.join(',') : undefined,
+    commissions: filters.commissions?.length ? filters.commissions.join(',') : undefined,
     orderCode: filters.orderCode?.trim() || undefined,
   };
 }
 
 /** Danh sách tuyến / đối tác gửi lên dưới dạng chuỗi cách nhau bằng dấu phẩy */
 function kpiQuery(date?: string, range?: KpiRange) {
-  const { routeIds, partners, ...rest } = range ?? {};
+  const { routeIds, partners, staffIds, ...rest } = range ?? {};
   return {
     date,
     ...rest,
     routeIds: routeIds?.length ? routeIds.join(',') : undefined,
     partners: partners?.length ? partners.join(',') : undefined,
+    staffIds: staffIds?.length ? staffIds.join(',') : undefined,
   };
 }
 
@@ -129,7 +134,17 @@ export const ordersApi = {
     apiDownload('orders/export', filterParams(filters)),
 
   columnValues: (
-    column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+    column:
+      | 'customer'
+      | 'phone'
+      | 'staff'
+      | 'route'
+      | 'partner'
+      | 'departureTime'
+      | 'deposit'
+      | 'sellPrice'
+      | 'commission'
+      | 'message',
     filters: OrderFilters,
     q?: string,
     signal?: AbortSignal,

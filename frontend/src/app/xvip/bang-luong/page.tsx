@@ -298,50 +298,6 @@ export default function PayrollPage() {
         ))}
       </div>
 
-      {/* Công thức điền tay */}
-      <Card
-        className="mt-5"
-        title="Công thức tính lương"
-        action={
-          <button
-            type="button"
-            onClick={() => setFormulaOpen((v) => !v)}
-            className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-1 text-xs"
-          >
-            <FunctionIcon size={14} weight="bold" />
-            {formulaOpen ? 'Thu gọn' : 'Chỉnh công thức'}
-            {formulaOpen ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
-          </button>
-        }
-      >
-        {config && data ? (
-          formulaOpen ? (
-            <>
-              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
-                <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) ± Điều chỉnh tay
-                </div>
-                <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
-                  &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
-                  bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> để giữ lại.
-                </p>
-              </div>
-              <FormulaPanel config={config} onChange={setConfig} daysInMonth={data.daysInMonth} />
-            </>
-          ) : (
-            <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
-              Lương cứng ({config.levels.map((l) => `${l.label}: ${money(l.base)}`).join(' · ')}) ÷ {std} công × công thực tế.
-              Đạt {money(config.topBase.threshold)} thì lương cứng {money(config.topBase.base)}. Thưởng ngày{' '}
-              {config.dailyBonuses.map((t) => `≥${money(t.threshold)}: ${money(t.bonus)}`).join(', ')}. Tháng ≥
-              {money(config.monthlyBonus.threshold)}: +{money(config.monthlyBonus.bonus)}. Vượt{' '}
-              {money(config.overRate.threshold)}: {config.overRate.percent}% phần vượt.
-            </p>
-          )
-        ) : (
-          <p className="text-sm text-slate-400">Đang tải...</p>
-        )}
-      </Card>
-
       {/* Bảng lương */}
       <Card
         className="mt-5 !p-0 overflow-hidden"
@@ -574,6 +530,50 @@ export default function PayrollPage() {
             )}
           </table>
         </div>
+      </Card>
+
+      {/* Công thức điền tay */}
+      <Card
+        className="mt-5"
+        title="Công thức tính lương"
+        action={
+          <button
+            type="button"
+            onClick={() => setFormulaOpen((v) => !v)}
+            className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-1 text-xs"
+          >
+            <FunctionIcon size={14} weight="bold" />
+            {formulaOpen ? 'Thu gọn' : 'Chỉnh công thức'}
+            {formulaOpen ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
+          </button>
+        }
+      >
+        {config && data ? (
+          formulaOpen ? (
+            <>
+              <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+                <div className="font-black text-emerald-900 dark:text-emerald-200">
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) ± Điều chỉnh tay
+                </div>
+                <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
+                  &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
+                  bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> để giữ lại.
+                </p>
+              </div>
+              <FormulaPanel config={config} onChange={setConfig} daysInMonth={data.daysInMonth} />
+            </>
+          ) : (
+            <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+              Lương cứng ({config.levels.map((l) => `${l.label}: ${money(l.base)}`).join(' · ')}) ÷ {std} công × công thực tế.
+              Đạt {money(config.topBase.threshold)} thì lương cứng {money(config.topBase.base)}. Thưởng ngày{' '}
+              {config.dailyBonuses.map((t) => `≥${money(t.threshold)}: ${money(t.bonus)}`).join(', ')}. Tháng ≥
+              {money(config.monthlyBonus.threshold)}: +{money(config.monthlyBonus.bonus)}. Vượt{' '}
+              {money(config.overRate.threshold)}: {config.overRate.percent}% phần vượt.
+            </p>
+          )
+        ) : (
+          <p className="text-sm text-slate-400">Đang tải...</p>
+        )}
       </Card>
     </>
   );

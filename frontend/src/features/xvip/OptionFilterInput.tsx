@@ -19,6 +19,7 @@ export function OptionFilterInput({
   onChange,
   allLabel,
   placeholder,
+  customLabel,
 }: {
   options: Option[];
   /** value của mục đang chọn, '' nếu là tất cả */
@@ -26,9 +27,10 @@ export function OptionFilterInput({
   onChange: (value: string) => void;
   allLabel: string;
   placeholder?: string;
+  customLabel?: string;
 }) {
   const selected = options.find((o) => o.value === value);
-  const selectedLabel = selected?.label ?? '';
+  const selectedLabel = customLabel !== undefined ? customLabel : (selected?.label ?? '');
   const [text, setText] = useState(selectedLabel);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);

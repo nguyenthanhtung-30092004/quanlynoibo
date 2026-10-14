@@ -54,6 +54,7 @@ import {
   ThCommission,
   ThCustomer,
   ThDepartureTime,
+  ThDeposit,
   ThOrderCode,
   ThPartner,
   ThRoute,
@@ -371,7 +372,20 @@ export default function TicketManagementPage() {
       setFilters((prev) => ({ ...prev, ...patch, page: 1 })),
   };
   useEffect(() => {
-    setFilters((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
+    setFilters((prev) => {
+      const hasAmounts =
+        (prev.deposits?.length ?? 0) > 0 ||
+        (prev.sellPrices?.length ?? 0) > 0 ||
+        (prev.commissions?.length ?? 0) > 0;
+      if (!hasAmounts && prev.page === 1) return prev;
+      return {
+        ...prev,
+        deposits: undefined,
+        sellPrices: undefined,
+        commissions: undefined,
+        page: 1,
+      };
+    });
   }, [range, basis]);
 
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
@@ -415,25 +429,51 @@ export default function TicketManagementPage() {
     setFilters((prev) => {
       const next = { ...prev };
       let changed = false;
-      if (typeof prev.staffId === 'number' && !filterOptions.staffIds.includes(prev.staffId)) {
+      const validStaff = new Set(filterOptions.staffIds);
+      const validRoutes = new Set(filterOptions.routeIds);
+      const validPartners = new Set(filterOptions.partners.map((n) => n.toLowerCase()));
+
+      if (typeof prev.staffId === 'number' && !validStaff.has(prev.staffId)) {
         next.staffId = ALL;
         next.routeIds = [];
         next.partner = undefined;
+        next.partners = [];
         changed = true;
-      } else {
-        const keepRoutes = (prev.routeIds ?? []).filter((id) => filterOptions.routeIds.includes(id));
-        if (keepRoutes.length !== (prev.routeIds ?? []).length) {
-          next.routeIds = keepRoutes;
-          changed = true;
-        }
-        if (
-          prev.partner &&
-          !filterOptions.partners.some((n) => n.toLowerCase() === prev.partner!.trim().toLowerCase())
-        ) {
-          next.partner = undefined;
+      }
+
+      if (prev.staffIds?.length) {
+        const keep = prev.staffIds.filter((id) => validStaff.has(id));
+        if (keep.length !== prev.staffIds.length) {
+          next.staffIds = keep;
           changed = true;
         }
       }
+
+      const keepRoutes = (prev.routeIds ?? []).filter((id) => validRoutes.has(id));
+      if (keepRoutes.length !== (prev.routeIds ?? []).length) {
+        next.routeIds = keepRoutes;
+        changed = true;
+      }
+
+      if (
+        prev.partner &&
+        !validPartners.has(prev.partner.trim().toLowerCase()) &&
+        prev.partner.toLowerCase() !== 'xvip'
+      ) {
+        next.partner = undefined;
+        changed = true;
+      }
+
+      if (prev.partners?.length) {
+        const keep = prev.partners.filter(
+          (p) => validPartners.has(p.trim().toLowerCase()) || p.toLowerCase() === 'xvip',
+        );
+        if (keep.length !== prev.partners.length) {
+          next.partners = keep;
+          changed = true;
+        }
+      }
+
       return changed ? { ...next, page: 1 } : prev;
     });
   }, [filterOptions]);
@@ -1021,15 +1061,28 @@ export default function TicketManagementPage() {
               </span>
               <OptionFilterInput
                 options={staffOptions.map((s) => ({ value: String(s.id), label: s.fullName }))}
-                value={filters.staffId === ALL ? '' : String(filters.staffId)}
+                value={
+                  filters.staffIds?.length === 1
+                    ? String(filters.staffIds[0])
+                    : filters.staffId === ALL
+                      ? ''
+                      : String(filters.staffId)
+                }
+                customLabel={
+                  filters.staffIds && filters.staffIds.length > 1
+                    ? `${filters.staffIds.length} đã chọn`
+                    : undefined
+                }
                 allLabel="Tất cả nhân viên"
                 onChange={(v) =>
                   setFilters((prev) => ({
                     ...prev,
                     staffId: v === '' ? ALL : Number(v),
+                    staffIds: v === '' ? [] : [Number(v)],
                     // Đổi nhân viên thì bỏ tuyến / đối tác đang chọn vì người mới có thể không có
                     routeIds: [],
                     partner: undefined,
+                    partners: [],
                     page: 1,
                   }))
                 }
@@ -1061,10 +1114,24 @@ export default function TicketManagementPage() {
             </span>
             <OptionFilterInput
               options={partnerFilterOptions.map((p) => ({ value: p.name, label: p.name }))}
-              value={filters.partner ?? ''}
+              value={
+                filters.partners?.length === 1
+                  ? filters.partners[0]
+                  : filters.partner ?? ''
+              }
+              customLabel={
+                filters.partners && filters.partners.length > 1
+                  ? `${filters.partners.length} đã chọn`
+                  : undefined
+              }
               allLabel="Tất cả đối tác"
               onChange={(v) =>
-                setFilters((prev) => ({ ...prev, partner: v || undefined, page: 1 }))
+                setFilters((prev) => ({
+                  ...prev,
+                  partner: v || undefined,
+                  partners: v ? [v] : [],
+                  page: 1,
+                }))
               }
             />
           </label>
@@ -1098,11 +1165,16 @@ export default function TicketManagementPage() {
                 onRemove: () => setFilters((p) => ({ ...p, departureTimes: undefined, page: 1 })),
               });
             }
-            if (localFilters.partner) {
+            const effectivePartners = localFilters.partners?.length
+              ? localFilters.partners
+              : localFilters.partner
+                ? [localFilters.partner]
+                : [];
+            if (effectivePartners.length > 0) {
               chips.push({
-                key: 'partner',
-                label: `Nhà xe: ${localFilters.partner}`,
-                onRemove: () => setFilters((p) => ({ ...p, partner: undefined, page: 1 })),
+                key: 'partners',
+                label: `Nhà xe: ${effectivePartners.join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, partner: undefined, partners: [], page: 1 })),
               });
             }
             if (localFilters.routeIds?.length) {
@@ -1129,13 +1201,37 @@ export default function TicketManagementPage() {
                 onRemove: () => setFilters((p) => ({ ...p, phones: undefined, page: 1 })),
               });
             }
+            if (localFilters.deposits?.length) {
+              const labels = localFilters.deposits
+                .map((d) => (d === 0 ? 'Chưa cọc (0đ)' : `${money(d)}đ`))
+                .join(', ');
+              chips.push({
+                key: 'deposits',
+                label: `Đã cọc: ${labels}`,
+                onRemove: () => setFilters((p) => ({ ...p, deposits: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.sellPrices?.length) {
+              chips.push({
+                key: 'sellPrices',
+                label: `Giá bán: ${localFilters.sellPrices.map((p) => `${money(p)}đ`).join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, sellPrices: undefined, page: 1 })),
+              });
+            }
             if (localFilters.sellPriceMin !== undefined || localFilters.sellPriceMax !== undefined) {
               const minText = localFilters.sellPriceMin ? `${money(localFilters.sellPriceMin)}đ` : '0đ';
               const maxText = localFilters.sellPriceMax ? `${money(localFilters.sellPriceMax)}đ` : '∞';
               chips.push({
                 key: 'sellPrice',
-                label: `Giá bán: ${minText} - ${maxText}`,
+                label: `Giá bán (khoảng): ${minText} - ${maxText}`,
                 onRemove: () => setFilters((p) => ({ ...p, sellPriceMin: undefined, sellPriceMax: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.commissions?.length) {
+              chips.push({
+                key: 'commissions',
+                label: `Hoa hồng: ${localFilters.commissions.map((c) => `${money(c)}đ`).join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, commissions: undefined, page: 1 })),
               });
             }
             if (localFilters.commissionMin !== undefined || localFilters.commissionMax !== undefined) {
@@ -1143,23 +1239,44 @@ export default function TicketManagementPage() {
               const maxText = localFilters.commissionMax ? `${money(localFilters.commissionMax)}đ` : '∞';
               chips.push({
                 key: 'commission',
-                label: `Hoa hồng: ${minText} - ${maxText}`,
+                label: `Hoa hồng (khoảng): ${minText} - ${maxText}`,
                 onRemove: () => setFilters((p) => ({ ...p, commissionMin: undefined, commissionMax: undefined, page: 1 })),
               });
             }
-            if (isAdmin && localFilters.staffId !== ALL && typeof localFilters.staffId === 'number') {
-              const staffName = activeStaff.find((s) => s.id === localFilters.staffId)?.fullName || `#${localFilters.staffId}`;
+            const effectiveStaffIds = localFilters.staffIds?.length
+              ? localFilters.staffIds
+              : typeof localFilters.staffId === 'number'
+                ? [localFilters.staffId]
+                : [];
+            if (isAdmin && effectiveStaffIds.length > 0) {
+              const names = effectiveStaffIds
+                .map((id) => activeStaff.find((s) => s.id === id)?.fullName || `#${id}`)
+                .join(', ');
               chips.push({
-                key: 'staffId',
-                label: `NV: ${staffName}`,
-                onRemove: () => setFilters((p) => ({ ...p, staffId: ALL, page: 1 })),
+                key: 'staffIds',
+                label: `NV: ${names}`,
+                onRemove: () => setFilters((p) => ({ ...p, staffId: ALL, staffIds: [], page: 1 })),
               });
             }
-            if (localFilters.smsStatus) {
+            const effectiveMessageStates = localFilters.messageStates?.length
+              ? localFilters.messageStates
+              : localFilters.smsStatus === 'sent'
+                ? ['sms', 'zalo']
+                : localFilters.smsStatus === 'unsent'
+                  ? ['unsent']
+                  : [];
+            if (effectiveMessageStates.length > 0) {
+              const labelMap: Record<string, string> = {
+                sms: 'Đã gửi SMS',
+                zalo: 'Đã gửi Zalo',
+                unsent: 'Chưa gửi',
+              };
+              const names = effectiveMessageStates.map((s) => labelMap[s] || s).join(', ');
               chips.push({
-                key: 'smsStatus',
-                label: `Tin nhắn: ${localFilters.smsStatus === 'sent' ? 'Đã gửi' : 'Chưa gửi'}`,
-                onRemove: () => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 })),
+                key: 'messageStates',
+                label: `Tin nhắn: ${names}`,
+                onRemove: () =>
+                  setFilters((p) => ({ ...p, messageStates: undefined, smsStatus: undefined, page: 1 })),
               });
             }
 
@@ -1194,15 +1311,21 @@ export default function TicketManagementPage() {
                       orderCode: undefined,
                       departureTimes: undefined,
                       partner: undefined,
+                      partners: [],
                       routeIds: [],
                       customerNames: undefined,
                       phones: undefined,
+                      deposits: undefined,
+                      sellPrices: undefined,
                       sellPriceMin: undefined,
                       sellPriceMax: undefined,
+                      commissions: undefined,
                       commissionMin: undefined,
                       commissionMax: undefined,
                       staffId: ALL,
+                      staffIds: [],
                       smsStatus: undefined,
+                      messageStates: undefined,
                       page: 1,
                     }))
                   }
@@ -1230,6 +1353,7 @@ export default function TicketManagementPage() {
                 <ThCustomer title="Khách hàng" {...colProps} />
                 <ThCustomer title="Số điện thoại" {...colProps} />
                 <ThSellPrice {...colProps} />
+                <ThDeposit {...colProps} />
                 <ThCommission {...colProps} />
                 <ThStaff showFilter={isAdmin} {...colProps} />
                 <ThSms {...colProps} />
@@ -1242,7 +1366,7 @@ export default function TicketManagementPage() {
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={13}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách vé từ cơ sở dữ liệu...
@@ -1251,7 +1375,7 @@ export default function TicketManagementPage() {
               ) : ordersList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={13}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-3">
@@ -1329,7 +1453,12 @@ export default function TicketManagementPage() {
                       {money(t.sellPrice)}đ
                     </td>
 
-                    {/* 9. Hoa hồng */}
+                    {/* 9. Đã cọc */}
+                    <td className={`${TD_CELL} ${NUM} font-bold text-slate-800 dark:text-slate-300`}>
+                      {t.deposit > 0 ? `${money(t.deposit)}đ` : 'Chưa cọc'}
+                    </td>
+
+                    {/* 10. Hoa hồng */}
                     <td className={`${TD_CELL} ${NUM} font-black text-red-600 dark:text-red-400`}>
                       {money(t.commission)}đ
                     </td>

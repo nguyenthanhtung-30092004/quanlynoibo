@@ -628,8 +628,13 @@ export class OrdersService {
     } else {
       qb.andWhere('order.entryDate = :date', { date });
     }
-    if (actor.role === UserRole.ADMIN && query.staffId !== undefined) {
-      qb.andWhere('order.createdById = :staffId', { staffId: query.staffId });
+    if (actor.role === UserRole.ADMIN) {
+      if (query.staffId !== undefined) {
+        qb.andWhere('order.createdById = :staffId', { staffId: query.staffId });
+      }
+      if (query.staffIds?.length) {
+        qb.andWhere('order.createdById IN (:...staffIds)', { staffIds: query.staffIds });
+      }
     }
     if (query.routeId !== undefined) {
       qb.andWhere('order.routeId = :routeId', { routeId: query.routeId });
@@ -1158,7 +1163,17 @@ export class OrdersService {
    * Dùng cùng buildListQuery với các điều kiện của các cột khác để phản ánh tập dữ liệu hiện hành.
    */
   async columnValues(
-    column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+    column:
+      | 'customer'
+      | 'phone'
+      | 'staff'
+      | 'route'
+      | 'partner'
+      | 'departureTime'
+      | 'deposit'
+      | 'sellPrice'
+      | 'commission'
+      | 'message',
     q: string | undefined,
     filter: OrderFilterDto,
     actor: JwtPayload,
@@ -1302,6 +1317,78 @@ export class OrdersService {
         }));
       }
 
+      case 'deposit':
+      case 'sellPrice':
+      case 'commission': {
+        const colField = `order.${column}`;
+        qb.select(colField, 'val')
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy(colField);
+
+        if (keyword) {
+          qb.andWhere(`CAST(${colField} AS text) LIKE :valQ`, {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy(colField, 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: number | string; cnt: string }>();
+        return rows.map((r) => {
+          const num = Number(r.val);
+          const label =
+            column === 'deposit' && num === 0
+              ? 'Chưa cọc (0đ)'
+              : `${num.toLocaleString('vi-VN')}đ`;
+          return {
+            value: String(num),
+            label,
+            count: Number(r.cnt),
+          };
+        });
+      }
+
+      case 'message': {
+        qb.select(
+          `CASE
+            WHEN order.smsSent = true AND order.messageChannel = 'ZALO' THEN 'zalo'
+            WHEN order.smsSent = true AND (order.messageChannel = 'SMS' OR order.messageChannel IS NULL) THEN 'sms'
+            ELSE 'unsent'
+          END`,
+          'val',
+        )
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy(
+            `CASE
+              WHEN order.smsSent = true AND order.messageChannel = 'ZALO' THEN 'zalo'
+              WHEN order.smsSent = true AND (order.messageChannel = 'SMS' OR order.messageChannel IS NULL) THEN 'sms'
+              ELSE 'unsent'
+            END`,
+          );
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        const counts: Record<string, number> = { sms: 0, zalo: 0, unsent: 0 };
+        for (const r of rows) {
+          if (r.val && r.val in counts) {
+            counts[r.val] = Number(r.cnt);
+          }
+        }
+
+        const items = [
+          { value: 'sms', label: 'Đã gửi SMS', count: counts.sms },
+          { value: 'zalo', label: 'Đã gửi Zalo', count: counts.zalo },
+          { value: 'unsent', label: 'Chưa gửi', count: counts.unsent },
+        ];
+
+        if (keyword) {
+          return items.filter(
+            (item) =>
+              item.label.toLowerCase().includes(keyword) ||
+              item.value.toLowerCase().includes(keyword),
+          );
+        }
+        return items;
+      }
+
       default:
         return [];
     }
@@ -1395,12 +1482,30 @@ export class OrdersService {
       qb.andWhere('order.departureDate <= :depTo', { depTo: filter.departureTo });
     }
     if (filter.partner?.trim()) {
-      qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: filter.partner.trim() });
+      const p = filter.partner.trim().toLowerCase();
+      if (p === 'xvip') {
+        qb.andWhere('(order.partner IS NULL OR TRIM(order.partner) = \'\' OR LOWER(order.partner) = \'xvip\')');
+      } else {
+        qb.andWhere('LOWER(order.partner) = LOWER(:partner)', { partner: filter.partner.trim() });
+      }
     }
     if (filter.partners?.length) {
-      qb.andWhere('LOWER(order.partner) IN (:...partners)', {
-        partners: filter.partners.map((p) => p.toLowerCase()),
-      });
+      const lowerPartners = filter.partners.map((p) => p.toLowerCase());
+      const hasXvip = lowerPartners.includes('xvip');
+      const realPartners = lowerPartners.filter((p) => p !== 'xvip');
+
+      if (hasXvip && realPartners.length > 0) {
+        qb.andWhere(
+          '(LOWER(order.partner) IN (:...partners) OR order.partner IS NULL OR TRIM(order.partner) = \'\' OR LOWER(order.partner) = \'xvip\')',
+          { partners: realPartners },
+        );
+      } else if (hasXvip) {
+        qb.andWhere('(order.partner IS NULL OR TRIM(order.partner) = \'\' OR LOWER(order.partner) = \'xvip\')');
+      } else {
+        qb.andWhere('LOWER(order.partner) IN (:...partners)', {
+          partners: realPartners,
+        });
+      }
     }
 
     // Bộ lọc cột Excel
@@ -1441,6 +1546,25 @@ export class OrdersService {
       }
     }
 
+    if (filter.messageStates?.length) {
+      const conds: string[] = [];
+      const uniqueStates = Array.from(new Set(filter.messageStates));
+      for (const st of uniqueStates) {
+        if (st === 'sms') {
+          conds.push(
+            "(order.smsSent = true AND (order.messageChannel = 'SMS' OR order.messageChannel IS NULL))",
+          );
+        } else if (st === 'zalo') {
+          conds.push("(order.smsSent = true AND order.messageChannel = 'ZALO')");
+        } else if (st === 'unsent') {
+          conds.push('(order.smsSent = false OR order.smsSent IS NULL)');
+        }
+      }
+      if (conds.length > 0) {
+        qb.andWhere(`(${conds.join(' OR ')})`);
+      }
+    }
+
     if (filter.sellPriceMin !== undefined) {
       qb.andWhere('order.sellPrice >= :sellPriceMin', { sellPriceMin: filter.sellPriceMin });
     }
@@ -1453,6 +1577,18 @@ export class OrdersService {
     }
     if (filter.commissionMax !== undefined) {
       qb.andWhere('order.commission <= :commissionMax', { commissionMax: filter.commissionMax });
+    }
+
+    if (filter.deposits?.length) {
+      qb.andWhere('order.deposit IN (:...deposits)', { deposits: filter.deposits });
+    }
+
+    if (filter.sellPrices?.length) {
+      qb.andWhere('order.sellPrice IN (:...sellPrices)', { sellPrices: filter.sellPrices });
+    }
+
+    if (filter.commissions?.length) {
+      qb.andWhere('order.commission IN (:...commissions)', { commissions: filter.commissions });
     }
 
     if (filter.orderCode?.trim()) {

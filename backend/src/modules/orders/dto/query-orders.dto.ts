@@ -4,6 +4,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -143,6 +144,24 @@ export class OrderFilterDto {
   @Matches(/^(sent|unsent)$/, { message: 'smsStatus phải là "sent" hoặc "unsent"' })
   smsStatus?: 'sent' | 'unsent';
 
+  @ApiPropertyOptional({
+    description: 'Lọc nhiều trạng thái tin nhắn (sms, zalo, unsent), cách nhau bằng dấu phẩy',
+    isArray: true,
+  })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((v) => v.trim()).filter(Boolean)
+      : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(3)
+  @IsIn(['sms', 'zalo', 'unsent'], {
+    each: true,
+    message: 'messageStates phải gồm các giá trị sms, zalo hoặc unsent',
+  })
+  messageStates?: Array<'sms' | 'zalo' | 'unsent'>;
+
   @ApiPropertyOptional({ description: 'Giá bán tối thiểu (số nguyên không âm)' })
   @IsOptional()
   @Type(() => Number)
@@ -170,6 +189,45 @@ export class OrderFilterDto {
   @IsInt()
   @Min(0)
   commissionMax?: number;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều mức tiền cọc, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((v) => v.trim()).filter((v) => v !== '').map(Number)
+      : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  deposits?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều mức giá bán, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((v) => v.trim()).filter((v) => v !== '').map(Number)
+      : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  sellPrices?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều mức hoa hồng, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string'
+      ? value.split(',').map((v) => v.trim()).filter((v) => v !== '').map(Number)
+      : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  commissions?: number[];
 
   @ApiPropertyOptional({ description: 'Mã đơn (XV116 hoặc 116)' })
   @IsOptional()
@@ -206,6 +264,16 @@ export class KpiQueryDto {
   @Type(() => Number)
   @IsInt()
   staffId?: number;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều nhân viên (chỉ có tác dụng với Admin), cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean).map(Number) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  staffIds?: number[];
 
   @ApiPropertyOptional({ description: 'Lọc theo tuyến đi' })
   @IsOptional()
@@ -263,13 +331,38 @@ export class KpiQueryDto {
 
 export class ColumnValuesQueryDto extends OrderFilterDto {
   @ApiPropertyOptional({
-    enum: ['customer', 'phone', 'staff', 'route', 'partner', 'departureTime'],
+    enum: [
+      'customer',
+      'phone',
+      'staff',
+      'route',
+      'partner',
+      'departureTime',
+      'deposit',
+      'sellPrice',
+      'commission',
+      'message',
+    ],
     description: 'Cột cần lấy danh sách giá trị',
   })
-  @Matches(/^(customer|phone|staff|route|partner|departureTime)$/, {
-    message: 'column phải là customer, phone, staff, route, partner hoặc departureTime',
-  })
-  column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime';
+  @Matches(
+    /^(customer|phone|staff|route|partner|departureTime|deposit|sellPrice|commission|message)$/,
+    {
+      message:
+        'column phải là customer, phone, staff, route, partner, departureTime, deposit, sellPrice, commission hoặc message',
+    },
+  )
+  column:
+    | 'customer'
+    | 'phone'
+    | 'staff'
+    | 'route'
+    | 'partner'
+    | 'departureTime'
+    | 'deposit'
+    | 'sellPrice'
+    | 'commission'
+    | 'message';
 
   @ApiPropertyOptional({ description: 'Từ khóa tìm kiếm trong giá trị' })
   @IsOptional()

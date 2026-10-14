@@ -160,7 +160,17 @@ export function useExportOrders() {
 }
 
 export function useColumnValues(
-  column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+  column:
+    | 'customer'
+    | 'phone'
+    | 'staff'
+    | 'route'
+    | 'partner'
+    | 'departureTime'
+    | 'deposit'
+    | 'sellPrice'
+    | 'commission'
+    | 'message',
   filters: OrderFilters,
   q?: string,
   enabled = true,

@@ -116,11 +116,40 @@ export default function StaffReportPage() {
     [partnerList, partnerIds],
   );
 
+  // Bộ lọc theo cột của bảng đơn (giống trang Quản lý vé)
+  const [colFilters, setColFilters] = useState<Partial<OrderFilters>>({});
+
+  const colPartners = useMemo(() => {
+    const list = [...(colFilters.partners ?? [])];
+    if (colFilters.partner && !list.includes(colFilters.partner)) {
+      list.push(colFilters.partner);
+    }
+    return list;
+  }, [colFilters.partners, colFilters.partner]);
+
+  const effectivePartners = useMemo(() => {
+    return Array.from(new Set([...partnerNames, ...colPartners]));
+  }, [partnerNames, colPartners]);
+
+  const colStaffIds = useMemo(() => {
+    const list = [...(colFilters.staffIds ?? [])];
+    if (typeof colFilters.staffId === 'number' && colFilters.staffId > 0 && !list.includes(colFilters.staffId)) {
+      list.push(colFilters.staffId);
+    }
+    return list;
+  }, [colFilters.staffIds, colFilters.staffId]);
+
+  const effectiveStaffIds = useMemo(() => {
+    const topIds = isAdmin && staffFilter !== 'all' ? [Number(staffFilter)] : [];
+    return Array.from(new Set([...topIds, ...colStaffIds]));
+  }, [isAdmin, staffFilter, colStaffIds]);
+
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, {
     ...dates,
-    staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : undefined,
+    staffId: effectiveStaffIds.length === 1 ? effectiveStaffIds[0] : undefined,
+    staffIds: effectiveStaffIds.length > 0 ? effectiveStaffIds : undefined,
     routeIds,
-    partners: partnerNames,
+    partners: effectivePartners.length > 0 ? effectivePartners : undefined,
   });
   // API người dùng chỉ dành cho Admin
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
@@ -140,8 +169,6 @@ export default function StaffReportPage() {
       );
     }
   };
-  // Bộ lọc theo cột của bảng đơn (giống trang Quản lý vé)
-  const [colFilters, setColFilters] = useState<Partial<OrderFilters>>({});
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
   const ticketFilters = useMemo<OrderFilters>(() => {
     // Lọc tuyến ở cột giao với tuyến đã chọn ở bộ lọc trên cùng
@@ -158,19 +185,14 @@ export default function StaffReportPage() {
     return {
       search: '',
       routeId: 'all',
-      partners: partnerNames,
+      partners: effectivePartners.length > 0 ? effectivePartners : undefined,
       activeOnly: true,
       depositOnly,
       dateFrom: null,
       dateTo: null,
       ...colFilters,
-      // Chọn NV ở cột thì ưu tiên; bỏ chọn thì quay về nhân viên đang chọn ở bộ lọc trên cùng
-      staffId:
-        typeof colFilters.staffId === 'number'
-          ? colFilters.staffId
-          : isAdmin && staffFilter !== 'all'
-            ? Number(staffFilter)
-            : 'all',
+      staffId: effectiveStaffIds.length === 1 ? effectiveStaffIds[0] : 'all',
+      staffIds: effectiveStaffIds.length > 0 ? effectiveStaffIds : undefined,
       routeIds: effectiveRoutes,
       ...dates,
       // Không phân trang: tải hết đơn khớp bộ lọc
@@ -178,14 +200,35 @@ export default function StaffReportPage() {
       pageSize: ORDERS_ALL_SIZE,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, depositOnly, colFilters]);
+  }, [dates, depositOnly, colFilters, effectivePartners, effectiveStaffIds, routeIds]);
   const colProps = {
-    local: { search: '', staffId: 'all', routeId: 'all', dateFrom: null, dateTo: null, ...colFilters, depositOnly } as OrderFilters,
+    local: {
+      search: '',
+      staffId: effectiveStaffIds.length === 1 ? effectiveStaffIds[0] : 'all',
+      staffIds: effectiveStaffIds,
+      routeId: 'all',
+      routeIds: ticketFilters.routeIds ?? [],
+      partner: effectivePartners.length === 1 ? effectivePartners[0] : undefined,
+      partners: effectivePartners,
+      dateFrom: null,
+      dateTo: null,
+      ...colFilters,
+      depositOnly,
+    } as OrderFilters,
     filters: ticketFilters,
     onChange: (patch: Partial<OrderFilters>) => {
       // Lọc "Đã cọc" dùng chung trạng thái với thẻ Đã cọc xvip ở trên
       const { depositOnly: dep, ...rest } = patch;
       if ('depositOnly' in patch) setDepositOnly(!!dep);
+      if ('partners' in patch) {
+        const nextPartners = patch.partners ?? [];
+        const nextIds = partnerList.filter((p) => nextPartners.includes(p.name)).map((p) => p.id);
+        setPartnerIds(nextIds);
+      }
+      if ('staffIds' in patch) {
+        const nextStaff = patch.staffIds ?? [];
+        setStaffFilter(nextStaff.length === 1 ? String(nextStaff[0]) : (nextStaff.length === 0 ? 'all' : staffFilter));
+      }
       if (Object.keys(rest).length) setColFilters((prev) => ({ ...prev, ...rest }));
     },
   };
@@ -209,6 +252,19 @@ export default function StaffReportPage() {
     }
   }, [staffSelected, activeStaffIds, staffFilter]);
 
+  // Đổi ngày thì dọn các mức tiền (cọc, giá bán, hoa hồng) không còn hợp lệ
+  useEffect(() => {
+    setColFilters((prev) => {
+      if (!prev.deposits?.length && !prev.sellPrices?.length && !prev.commissions?.length) return prev;
+      return {
+        ...prev,
+        deposits: undefined,
+        sellPrices: undefined,
+        commissions: undefined,
+      };
+    });
+  }, [range, basis]);
+
   // Đổi ngày / nhân viên mà tuyến hoặc đối tác đang chọn không còn đơn thì bỏ chọn mục đó
   useEffect(() => {
     if (!staffOptions) return;
@@ -224,6 +280,27 @@ export default function StaffReportPage() {
         return !!name && partnerOk.has(name);
       });
       return next.length === prev.length ? prev : next;
+    });
+    setColFilters((prev) => {
+      let changed = false;
+      const next = { ...prev };
+      if (prev.staffIds?.length) {
+        const keepStaff = prev.staffIds.filter((id) => staffOptions.staffIds.includes(id));
+        if (keepStaff.length !== prev.staffIds.length) {
+          next.staffIds = keepStaff;
+          changed = true;
+        }
+      }
+      if (prev.partners?.length) {
+        const keepPartners = prev.partners.filter(
+          (name) => partnerOk.has(name.trim().toLowerCase()) || name.toLowerCase() === 'xvip',
+        );
+        if (keepPartners.length !== prev.partners.length) {
+          next.partners = keepPartners;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
   }, [staffOptions, partnerList]);
 
@@ -298,12 +375,14 @@ export default function StaffReportPage() {
     try {
       const filters: OrderFilters = {
         search: '',
-        staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
+        staffId: effectiveStaffIds.length === 1 ? effectiveStaffIds[0] : 'all',
+        staffIds: effectiveStaffIds.length > 0 ? effectiveStaffIds : undefined,
         routeId: 'all',
-        routeIds,
-        partners: partnerNames,
+        routeIds: ticketFilters.routeIds,
+        partners: effectivePartners.length > 0 ? effectivePartners : undefined,
         dateFrom: null,
         dateTo: null,
+        ...colFilters,
         ...dates,
         page: 1,
       };
@@ -360,10 +439,26 @@ export default function StaffReportPage() {
                   value: String(s.id),
                   label: `${s.fullName} (${s.username})`,
                 }))}
-                value={staffFilter === 'all' ? '' : staffFilter}
+                value={
+                  effectiveStaffIds.length === 1
+                    ? String(effectiveStaffIds[0])
+                    : staffFilter === 'all'
+                      ? ''
+                      : staffFilter
+                }
+                customLabel={
+                  effectiveStaffIds.length > 1
+                    ? `${effectiveStaffIds.length} đã chọn`
+                    : undefined
+                }
                 allLabel="Tất cả nhân viên"
                 onChange={(v) => {
                   setStaffFilter(v || 'all');
+                  setColFilters((prev) => ({
+                    ...prev,
+                    staffId: v ? Number(v) : 'all',
+                    staffIds: v ? [Number(v)] : [],
+                  }));
                   // Đổi nhân viên thì bỏ tuyến / đối tác đã chọn vì có thể người mới không có
                   setRouteIds([]);
                   setPartnerIds([]);
@@ -392,7 +487,11 @@ export default function StaffReportPage() {
             <MultiCheckSelect
               options={partnerOptions.map((p) => ({ value: p.id, label: p.name }))}
               value={partnerIds}
-              onChange={setPartnerIds}
+              onChange={(ids) => {
+                setPartnerIds(ids);
+                const names = partnerList.filter((p) => ids.includes(p.id)).map((p) => p.name);
+                setColFilters((prev) => ({ ...prev, partners: names }));
+              }}
               allLabel="Tất cả đối tác"
               searchPlaceholder="Tìm đối tác..."
             />
@@ -434,6 +533,7 @@ export default function StaffReportPage() {
               onClick={() => {
                 setRouteIds([]);
                 setPartnerIds([]);
+                setColFilters((prev) => ({ ...prev, routeIds: [], partners: [], partner: undefined }));
               }}
             >
               Xóa lọc tuyến &amp; đối tác
