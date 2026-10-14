@@ -1844,7 +1844,7 @@ export default function TicketManagementPage() {
                 </th>
 
                 {/* 8. Thao tác */}
-                <th className={`${TH_STICKY_RIGHT} w-32 text-center`}>Thao tác</th>
+                <th className={`${TH_STICKY_RIGHT} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
@@ -1924,9 +1924,9 @@ export default function TicketManagementPage() {
                       </div>
                     </td>
 
-                    {/* 4. Khách hàng */}
-                    <td className={TD_CELL}>
-                      <div className="font-bold text-slate-900 dark:text-white break-words">
+                    {/* 4. Khách hàng: cố định chiều rộng, tên dài thì xuống dòng */}
+                    <td className={`${TD_CELL} w-48 min-w-48 max-w-48`}>
+                      <div className="font-bold text-slate-900 dark:text-white [overflow-wrap:anywhere]">
                         {t.customerName || 'Khách lẻ'}
                       </div>
                       <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 tnum font-semibold">
@@ -1982,18 +1982,18 @@ export default function TicketManagementPage() {
                           onClick={() => handleOpenRebook(t)}
                           title="Đặt lại (tạo đơn mới từ đơn này)"
                           aria-label="Đặt lại đơn này"
-                          className="btn-3d-mini p-1.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
+                          className="btn-3d btn-3d-green px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                         >
-                          <Repeat size={14} weight="bold" />
+                          <Repeat size={13} weight="bold" /> Đặt lại
                         </button>
                         <button
                           type="button"
                           onClick={() => setHistoryOrderId(t.id)}
                           title="Xem lịch sử thay đổi của đơn"
                           aria-label="Xem lịch sử"
-                          className="btn-3d-mini p-1.5 text-slate-600 hover:text-slate-800 dark:text-slate-300"
+                          className="btn-3d btn-3d-white px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                         >
-                          <ClockCounterClockwise size={14} weight="bold" />
+                          <ClockCounterClockwise size={13} weight="bold" /> Lịch sử
                         </button>
                         {!t.cancelledAt && (
                           <>
@@ -2002,18 +2002,18 @@ export default function TicketManagementPage() {
                               onClick={() => handleOpenEdit(t)}
                               title="Sửa vé"
                               aria-label="Sửa vé"
-                              className="btn-3d-mini p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400"
+                              className="btn-3d btn-3d-amber px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                             >
-                              <PencilSimple size={14} weight="bold" />
+                              <PencilSimple size={13} weight="bold" /> Sửa
                             </button>
                             <button
                               type="button"
                               onClick={() => openCancel(t)}
                               title="Hủy vé (khách không đặt nữa)"
                               aria-label="Hủy vé"
-                              className="btn-3d-mini p-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                              className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                             >
-                              <XCircle size={14} weight="bold" />
+                              <XCircle size={13} weight="bold" /> Hủy
                             </button>
                           </>
                         )}
@@ -2023,9 +2023,9 @@ export default function TicketManagementPage() {
                             onClick={() => setDeleteTarget(t)}
                             title="Xóa vé"
                             aria-label="Xóa vé"
-                            className="btn-3d-mini p-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
+                            className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
                           >
-                            <Trash size={14} weight="bold" />
+                            <Trash size={13} weight="bold" /> Xóa
                           </button>
                         )}
                       </div>
