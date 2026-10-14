@@ -16,7 +16,7 @@ export const DEFAULT_ATTENDANCE_CONFIG: AttendanceConfig = {
 };
 
 /** Lý do một lượt "tôi đang làm việc" được tính hoặc không */
-export type BeatReason = 'ok' | 'not_staff' | 'idle';
+export type BeatReason = 'ok' | 'not_staff';
 
 export interface BeatVerdict {
   counted: boolean;
@@ -44,21 +44,15 @@ export function sanitizeAttendanceConfig(input: unknown): AttendanceConfig {
 }
 
 /**
- * Một lượt "đang online" có được tính một phút công không.
- * Phải là nhân viên (STAFF) và đang có thao tác thật trong 5 phút gần nhất (active = true).
- * Không phụ thuộc định vị, điện thoại hay máy tính đều được tính.
+ * Một lượt "đang online" có được ghi nhận không: chỉ cần là nhân viên (STAFF) đang đăng nhập.
+ * Không đòi thao tác chuột/bàn phím, không phụ thuộc thiết bị.
  */
-export function evaluateBeat(input: {
-  role: string;
-  active?: boolean;
-}): BeatVerdict {
-  const { role, active } = input;
-  if (role !== 'STAFF') return { counted: false, reason: 'not_staff' };
-  if (!active) return { counted: false, reason: 'idle' };
+export function evaluateBeat(input: { role: string }): BeatVerdict {
+  if (input.role !== 'STAFF') return { counted: false, reason: 'not_staff' };
   return { counted: true, reason: 'ok' };
 }
 
-/** Số công của một ngày theo tổng số phút online có thao tác */
+/** Số công của một ngày theo số phút tính từ lần đăng nhập đầu tiên trong ngày */
 export function congFromMinutes(minutes: number, config: AttendanceConfig): number {
   if (minutes >= config.fullMinutes) return 1;
   if (config.halfMinutes > 0 && minutes >= config.halfMinutes) return 0.5;

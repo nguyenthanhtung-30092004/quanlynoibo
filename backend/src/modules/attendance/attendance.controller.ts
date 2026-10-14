@@ -20,13 +20,13 @@ export class AttendanceController {
   /** Nhân viên báo "đang online / thao tác"; mọi người dùng đăng nhập gọi được, server tự quyết có tính công không */
   @Post('heartbeat')
   async heartbeat(
-    @Body() dto: HeartbeatDto,
+    @Body() _dto: HeartbeatDto, // giữ để client cũ còn gửi `active` không bị từ chối; server bỏ qua
     @CurrentUser() user: JwtPayload,
   ) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Đã ghi nhận',
-      data: await this.attendanceService.heartbeat(user, dto),
+      data: await this.attendanceService.heartbeat(user),
     };
   }
 

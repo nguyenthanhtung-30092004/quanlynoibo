@@ -5,11 +5,7 @@ export interface AttendanceConfig {
   halfMinutes: number;
 }
 
-export type BeatReason = 'ok' | 'not_staff' | 'idle';
-
-export interface HeartbeatInput {
-  active?: boolean;
-}
+export type BeatReason = 'ok' | 'not_staff';
 
 export interface TodayStatus {
   minutesToday: number;

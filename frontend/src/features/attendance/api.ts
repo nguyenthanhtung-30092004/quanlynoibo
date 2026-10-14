@@ -2,7 +2,6 @@ import { api, type ApiResponse } from '@/lib/api-client';
 import type {
   AttendanceConfig,
   AttendanceMonth,
-  HeartbeatInput,
   HeartbeatResult,
   MyTodayStatus,
   OnlineUser,
@@ -10,8 +9,8 @@ import type {
 } from './types';
 
 export const attendanceApi = {
-  heartbeat: (input: HeartbeatInput) =>
-    api<ApiResponse<HeartbeatResult>>('attendance/heartbeat', { method: 'POST', body: input }).then((r) => r.data),
+  heartbeat: () =>
+    api<ApiResponse<HeartbeatResult>>('attendance/heartbeat', { method: 'POST', body: {} }).then((r) => r.data),
 
   me: (signal?: AbortSignal) =>
     api<ApiResponse<MyTodayStatus>>('attendance/me', { signal }).then((r) => r.data),

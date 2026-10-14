@@ -8,17 +8,12 @@ import {
 } from './attendance.logic.js';
 
 describe('evaluateBeat', () => {
-  it('nhân viên đang active: được tính', () => {
-    expect(evaluateBeat({ role: 'STAFF', active: true })).toEqual({ counted: true, reason: 'ok' });
-  });
-
-  it('nhân viên nhưng idle (không thao tác): không tính', () => {
-    expect(evaluateBeat({ role: 'STAFF', active: false })).toEqual({ counted: false, reason: 'idle' });
-    expect(evaluateBeat({ role: 'STAFF' })).toEqual({ counted: false, reason: 'idle' });
+  it('nhân viên đăng nhập: được tính, không cần thao tác', () => {
+    expect(evaluateBeat({ role: 'STAFF' })).toEqual({ counted: true, reason: 'ok' });
   });
 
   it('Admin không chấm công', () => {
-    expect(evaluateBeat({ role: 'ADMIN', active: true })).toEqual({ counted: false, reason: 'not_staff' });
+    expect(evaluateBeat({ role: 'ADMIN' })).toEqual({ counted: false, reason: 'not_staff' });
   });
 });
 

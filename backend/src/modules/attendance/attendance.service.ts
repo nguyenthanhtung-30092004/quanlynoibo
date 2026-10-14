@@ -12,9 +12,11 @@ import {
   vietnamClock,
   type AttendanceConfig,
 } from './attendance.logic.js';
-import type { HeartbeatDto } from './dto/attendance.dto.js';
 
 const CONFIG_KEY = 'attendance_config';
+
+/** Số phút từ lần báo online đầu tiên đến lần báo gần nhất trong ngày (đăng nhập/đăng xuất nhiều lần vẫn tính từ lần đầu) */
+const MINUTES_SQL = `(CASE WHEN position('1' in "bits") = 0 THEN 0 ELSE length(rtrim("bits", '0')) - position('1' in "bits") + 1 END)`;
 
 export interface AttendanceDayCell {
   /** Số phút thao tác online */
@@ -52,15 +54,12 @@ export class AttendanceService {
   }
 
   /**
-   * Nhận một lượt "tôi đang thao tác" từ trình duyệt của nhân viên. Giờ do server ghi.
-   * Đủ điều kiện (nhân viên, active trong 5 phút) thì đánh dấu phút hiện tại là có công.
+   * Nhận một lượt "tôi đang online" từ trình duyệt của nhân viên. Giờ do server ghi.
+   * Là nhân viên thì đánh dấu phút hiện tại; số phút trong ngày tính từ lần đầu tiên đến nay.
    */
-  async heartbeat(actor: JwtPayload, dto: HeartbeatDto) {
+  async heartbeat(actor: JwtPayload) {
     const config = await this.loadConfig();
-    const verdict = evaluateBeat({
-      role: actor.role,
-      active: dto.active,
-    });
+    const verdict = evaluateBeat({ role: actor.role });
     const { day, minuteOfDay } = vietnamClock();
 
     const minutes = verdict.counted
@@ -83,7 +82,7 @@ export class AttendanceService {
     if (userIds.length === 0) return new Map();
     const { day } = vietnamClock();
     const rows: Array<{ userId: number; minutes: string }> = await this.dataSource.query(
-      `SELECT "userId", length(replace("bits", '0', '')) AS "minutes" FROM "attendance_days" WHERE "userId" = ANY($1) AND "day" = $2`,
+      `SELECT "userId", ${MINUTES_SQL} AS "minutes" FROM "attendance_days" WHERE "userId" = ANY($1) AND "day" = $2`,
       [userIds, day],
     );
     const map = new Map<number, number>();
@@ -115,7 +114,7 @@ export class AttendanceService {
       overrideNote: string | null;
     }> = await this.dataSource.query(
       `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day",
-              length(replace("bits", '0', '')) AS "minutes",
+              ${MINUTES_SQL} AS "minutes",
               "overrideCong", "overrideNote"
          FROM "attendance_days"
         WHERE "day" >= $1 AND "day" <= $2`,
@@ -186,7 +185,7 @@ export class AttendanceService {
 
   private async minutesOf(userId: number, day: string): Promise<number> {
     const rows: Array<{ minutes: string }> = await this.dataSource.query(
-      `SELECT length(replace("bits", '0', '')) AS "minutes" FROM "attendance_days" WHERE "userId" = $1 AND "day" = $2`,
+      `SELECT ${MINUTES_SQL} AS "minutes" FROM "attendance_days" WHERE "userId" = $1 AND "day" = $2`,
       [userId, day],
     );
     return rows.length ? Number(rows[0].minutes) : 0;
@@ -201,7 +200,7 @@ export class AttendanceService {
        ON CONFLICT ("userId", "day")
        DO UPDATE SET "bits" = overlay("attendance_days"."bits" placing '1' from $3::int for 1),
                      "lastAt" = now()
-       RETURNING length(replace("bits", '0', '')) AS "minutes"`,
+       RETURNING ${MINUTES_SQL} AS "minutes"`,
       [userId, day, position],
     );
     return Number(rows[0].minutes);
