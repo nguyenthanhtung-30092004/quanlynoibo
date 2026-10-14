@@ -2,6 +2,7 @@ import { api, type ApiResponse } from '@/lib/api-client';
 import type {
   AttendanceConfig,
   AttendanceMonth,
+  DayLog,
   HeartbeatResult,
   MyTodayStatus,
   OnlineUser,
@@ -11,6 +12,9 @@ import type {
 export const attendanceApi = {
   heartbeat: () =>
     api<ApiResponse<HeartbeatResult>>('attendance/heartbeat', { method: 'POST', body: {} }).then((r) => r.data),
+
+  dayLog: (signal?: AbortSignal) =>
+    api<ApiResponse<DayLog>>('attendance/day-log', { signal }).then((r) => r.data),
 
   me: (signal?: AbortSignal) =>
     api<ApiResponse<MyTodayStatus>>('attendance/me', { signal }).then((r) => r.data),

@@ -69,6 +69,79 @@ export class AttendanceService {
     return { ...this.statusOf(minutes, config), counted: verdict.counted, reason: verdict.reason };
   }
 
+  /**
+   * Ghi một lần đăng nhập. Nhân viên thì đồng thời đánh dấu phút này luôn,
+   * nên lần đăng nhập đầu tiên trong ngày chính là mốc bắt đầu tính giờ (không chờ heartbeat).
+   */
+  async recordLogin(userId: number, role: string): Promise<void> {
+    const { day, minuteOfDay } = vietnamClock();
+    await this.dataSource.query(`INSERT INTO "attendance_logins" ("userId", "day", "kind") VALUES ($1, $2, 'login')`, [
+      userId,
+      day,
+    ]);
+    if (role === UserRole.STAFF) await this.markMinute(userId, day, minuteOfDay);
+  }
+
+  async recordLogout(userId: number): Promise<void> {
+    const { day } = vietnamClock();
+    await this.dataSource.query(`INSERT INTO "attendance_logins" ("userId", "day", "kind") VALUES ($1, $2, 'logout')`, [
+      userId,
+      day,
+    ]);
+  }
+
+  /**
+   * Tình hình từng nhân viên trong một ngày (mặc định hôm nay): đã vào lúc nào, lần cuối thấy online,
+   * số phút / công tạm tính và lịch sử đăng nhập - đăng xuất. Người chưa đăng nhập vẫn có mặt trong danh sách.
+   */
+  async dayLog(day?: string) {
+    const config = await this.loadConfig();
+    const target = day ?? vietnamClock().day;
+
+    const staff = await this.users.find({
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true },
+      select: { id: true, fullName: true },
+      order: { fullName: 'ASC' },
+    });
+
+    const days: Array<{ userId: number; minutes: string; firstAt: Date | null; lastAt: Date | null; overrideCong: string | null }> =
+      await this.dataSource.query(
+        `SELECT "userId", ${MINUTES_SQL} AS "minutes", "firstAt", "lastAt", "overrideCong"
+           FROM "attendance_days" WHERE "day" = $1`,
+        [target],
+      );
+    const events: Array<{ userId: number; kind: string; at: Date }> = await this.dataSource.query(
+      `SELECT "userId", "kind", "at" FROM "attendance_logins" WHERE "day" = $1 ORDER BY "at" ASC`,
+      [target],
+    );
+
+    const dayBy = new Map(days.map((d) => [d.userId, d]));
+    const eventsBy = new Map<number, Array<{ kind: string; at: string }>>();
+    for (const e of events) {
+      const list = eventsBy.get(e.userId) ?? [];
+      list.push({ kind: e.kind, at: new Date(e.at).toISOString() });
+      eventsBy.set(e.userId, list);
+    }
+
+    return {
+      day: target,
+      staff: staff.map((u) => {
+        const d = dayBy.get(u.id);
+        const minutes = d ? Number(d.minutes) : 0;
+        const autoCong = congFromMinutes(minutes, config);
+        return {
+          userId: u.id,
+          fullName: u.fullName,
+          minutes,
+          cong: d?.overrideCong != null ? Number(d.overrideCong) : autoCong,
+          firstAt: d?.firstAt ? new Date(d.firstAt).toISOString() : null,
+          lastAt: d?.lastAt ? new Date(d.lastAt).toISOString() : null,
+          events: eventsBy.get(u.id) ?? [],
+        };
+      }),
+    };
+  }
+
   /** Số phút và công hôm nay của chính người đăng nhập (cho chip trạng thái ở đầu trang) */
   async today(actor: JwtPayload) {
     const config = await this.loadConfig();

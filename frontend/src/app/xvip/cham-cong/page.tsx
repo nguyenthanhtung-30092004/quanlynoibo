@@ -8,6 +8,7 @@ import { getVnToday } from '@/lib/time';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
 import {
   useAttendanceMonth,
+  useDayLog,
   useOnlineUsers,
   useSaveAttendanceConfig,
   useSetAttendanceOverride,
@@ -64,6 +65,9 @@ export default function AttendancePage() {
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useAttendanceMonth(month);
   const { data: onlineUsers } = useOnlineUsers();
+  const { data: dayLog } = useDayLog();
+  const onlineById = useMemo(() => new Map((onlineUsers ?? []).map((u) => [u.userId, u])), [onlineUsers]);
+  const onlineStaffCount = (dayLog?.staff ?? []).filter((s) => onlineById.has(s.userId)).length;
   const saveConfig = useSaveAttendanceConfig();
   const setOverride = useSetAttendanceOverride();
 
@@ -177,55 +181,78 @@ export default function AttendancePage() {
         </Card>
       )}
 
-      {/* Khối tài khoản đang online */}
+      {/* Tình hình đi làm hôm nay: online, đã offline, chưa đăng nhập + lịch sử vào ra */}
       <Card
         className="mb-5"
-        title={`Đang online (${onlineUsers?.length ?? 0})`}
+        title={`Hôm nay · đang online ${onlineStaffCount}/${dayLog?.staff.length ?? 0} nhân viên`}
         action={
           <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
             <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Trực tiếp (SSE)</span>
+            <span>Trực tiếp</span>
           </div>
         }
       >
-        {!onlineUsers || onlineUsers.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Hiện chưa có tài khoản nào đang online.</p>
+        {!dayLog || dayLog.staff.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có nhân viên nào.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {onlineUsers.map((u) => (
-              <div
-                key={u.userId}
-                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40"
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative">
-                    <Avatar name={u.fullName} />
-                    <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
-                  </div>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
-                      {u.fullName}
+            {dayLog.staff.map((u) => {
+              const online = onlineById.get(u.userId);
+              const started = u.firstAt !== null;
+              const dot = online ? 'bg-emerald-500' : started ? 'bg-slate-400' : 'bg-rose-400';
+              const label = online
+                ? `Đang online · vào lúc ${formatTime(u.firstAt ?? online.onlineSince)}`
+                : started
+                  ? `Đã offline · thấy lần cuối ${formatTime(u.lastAt ?? u.firstAt!)}`
+                  : 'Chưa đăng nhập hôm nay';
+              return (
+                <div
+                  key={u.userId}
+                  className={`rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40 ${
+                    !online && !started ? 'opacity-70' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="relative">
+                        <Avatar name={u.fullName} />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 ${dot}`}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
+                          {u.fullName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{label}</div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
-                      <span className="font-semibold">{u.role === 'ADMIN' ? 'Quản trị' : 'Nhân viên'}</span>
-                      <span>·</span>
-                      <span>Vào lúc {formatTime(u.onlineSince)}</span>
-                      {u.connections > 1 && (
-                        <span className="rounded bg-slate-200 px-1 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                          {u.connections} tab
+                    <div className="shrink-0 text-right">
+                      <div className="text-xs font-black text-blue-600 dark:text-blue-400">{hm(u.minutes)}</div>
+                      <div className="text-[10px] font-medium text-slate-400">
+                        {online ? 'đang tính' : started ? 'tính đến lúc offline' : '0 công'}
+                      </div>
+                    </div>
+                  </div>
+                  {u.events.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 border-t border-slate-200 pt-2 text-[10px] font-bold dark:border-slate-800">
+                      {u.events.map((e, i) => (
+                        <span
+                          key={i}
+                          className={`tnum rounded px-1.5 py-0.5 ${
+                            e.kind === 'login'
+                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                              : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                          }`}
+                        >
+                          {formatTime(e.at)} {e.kind === 'login' ? 'vào' : 'ra'}
                         </span>
-                      )}
+                      ))}
                     </div>
-                  </div>
+                  )}
                 </div>
-                <div className="text-right shrink-0">
-                  <div className="text-xs font-black text-blue-600 dark:text-blue-400">
-                    {hm(u.todayMinutes)}
-                  </div>
-                  <div className="text-[10px] font-medium text-slate-400">online hôm nay</div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>

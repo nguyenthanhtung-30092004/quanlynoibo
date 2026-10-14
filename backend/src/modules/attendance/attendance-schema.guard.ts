@@ -27,6 +27,17 @@ export class AttendanceSchemaGuard implements OnModuleInit {
         "overrideBy" integer,
         PRIMARY KEY ("userId", "day")
       )`);
+      // Nhật ký đăng nhập / đăng xuất: mỗi lần là một dòng, để Admin xem lịch sử vào ra trong ngày của từng người
+      await this.dataSource.query(`CREATE TABLE IF NOT EXISTS "attendance_logins" (
+        "id" serial PRIMARY KEY,
+        "userId" integer NOT NULL,
+        "day" date NOT NULL,
+        "kind" varchar(8) NOT NULL,
+        "at" timestamptz NOT NULL DEFAULT now()
+      )`);
+      await this.dataSource.query(
+        `CREATE INDEX IF NOT EXISTS "attendance_logins_day_idx" ON "attendance_logins" ("day", "userId")`,
+      );
     } catch (err) {
       this.logger.error(`Không tạo được bảng attendance_days: ${(err as Error).message}`);
     }

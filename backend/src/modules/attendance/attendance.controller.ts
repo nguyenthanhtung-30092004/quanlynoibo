@@ -5,6 +5,7 @@ import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
 import { AttendanceService } from './attendance.service.js';
 import {
+  AttendanceDayQueryDto,
   AttendanceMonthQueryDto,
   AttendanceOverrideDto,
   HeartbeatDto,
@@ -36,6 +37,17 @@ export class AttendanceController {
       statusCode: HttpStatus.OK,
       message: 'Lấy chấm công hôm nay thành công',
       data: await this.attendanceService.today(user),
+    };
+  }
+
+  /** Admin: ai đã vào, ai chưa, lịch sử đăng nhập trong ngày */
+  @Get('day-log')
+  @Roles(UserRole.ADMIN)
+  async dayLog(@Query() query: AttendanceDayQueryDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy lịch sử đăng nhập trong ngày thành công',
+      data: await this.attendanceService.dayLog(query.day),
     };
   }
 

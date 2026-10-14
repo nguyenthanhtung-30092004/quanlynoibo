@@ -10,6 +10,12 @@ export class HeartbeatDto {
   active?: boolean;
 }
 
+export class AttendanceDayQueryDto {
+  @IsOptional()
+  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
+  day?: string;
+}
+
 export class AttendanceMonthQueryDto {
   @Matches(MONTH, { message: 'Tháng phải có dạng YYYY-MM' })
   month: string;

@@ -4,11 +4,13 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { AttendanceService } from '../attendance/attendance.service.js';
 import { UsersService } from '../users/users.service.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import type { JwtPayload } from './decorators/current-user.decorator.js';
@@ -24,6 +26,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    @Optional() private readonly attendanceService?: AttendanceService,
   ) {}
 
   /**
@@ -68,6 +71,9 @@ export class AuthService {
       user.id,
       this.hashToken(tokens.refreshToken),
     );
+
+    // Ghi nhật ký đăng nhập; lỗi ghi chấm công không được làm hỏng việc đăng nhập
+    await this.attendanceService?.recordLogin(user.id, user.role).catch(() => undefined);
 
     return { ...tokens, user: this.toProfile(user) };
   }
@@ -114,6 +120,7 @@ export class AuthService {
   /** Đăng xuất: thu hồi refresh token */
   async logout(userId: number) {
     await this.usersService.setRefreshTokenHash(userId, null);
+    await this.attendanceService?.recordLogout(userId).catch(() => undefined);
     return { success: true };
   }
 

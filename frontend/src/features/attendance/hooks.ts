@@ -35,6 +35,15 @@ export function useSetAttendanceOverride() {
   });
 }
 
+export function useDayLog() {
+  return useQuery({
+    queryKey: ['attendance', 'day-log'],
+    queryFn: ({ signal }) => attendanceApi.dayLog(signal),
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+  });
+}
+
 export function useOnlineUsers(enabled = true) {
   return useQuery({
     queryKey: ['online-users'],

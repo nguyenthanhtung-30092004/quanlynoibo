@@ -55,6 +55,26 @@ export interface OverrideInput {
   note?: string;
 }
 
+export interface DayLogEvent {
+  kind: 'login' | 'logout';
+  at: string;
+}
+
+export interface DayLogStaff {
+  userId: number;
+  fullName: string;
+  minutes: number;
+  cong: number;
+  firstAt: string | null;
+  lastAt: string | null;
+  events: DayLogEvent[];
+}
+
+export interface DayLog {
+  day: string;
+  staff: DayLogStaff[];
+}
+
 export interface OnlineUser {
   userId: number;
   fullName: string;
