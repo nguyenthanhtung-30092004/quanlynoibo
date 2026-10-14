@@ -70,6 +70,12 @@ export class OrderFilterDto {
   @IsBoolean()
   activeOnly?: boolean;
 
+  @ApiPropertyOptional({ description: 'true = chỉ lấy đơn khách đã cọc (deposit > 0)' })
+  @IsOptional()
+  @Transform(({ value }) => (value === 'true' || value === true ? true : value === 'false' || value === false ? false : value))
+  @IsBoolean()
+  depositOnly?: boolean;
+
   @ApiPropertyOptional({ description: 'Từ ngày vào sổ (YYYY-MM-DD)' })
   @IsOptional()
   @Matches(DATE_RE, { message: 'dateFrom phải có dạng YYYY-MM-DD' })

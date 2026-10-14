@@ -24,6 +24,7 @@ export function filterParams(filters: OrderFilters) {
     routeId: filters.routeId === 'all' ? undefined : filters.routeId,
     routeIds: filters.routeIds?.length ? filters.routeIds.join(',') : undefined,
     activeOnly: filters.activeOnly ? 'true' : undefined,
+    depositOnly: filters.depositOnly ? 'true' : undefined,
     partner: filters.partner || undefined,
     partners: filters.partners?.length ? filters.partners.join(',') : undefined,
     dateFrom: filters.dateFrom ?? undefined,

@@ -33,7 +33,6 @@ import {
   useCancelOrder,
   useImportOrders,
   useUnlistedPartners,
-  useColumnValues,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -49,23 +48,22 @@ import {
   type OrderFilters,
 } from '@/features/orders/types';
 import { useToast } from '@/features/xvip/toast';
-import { Card, NUM, PageTitle } from '@/features/xvip/ui';
+import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import {
-  ColumnFilterPopover,
-  CheckListFilter,
-  NumberRangeFilter,
-  TextInputFilter,
-} from '@/features/xvip/ColumnFilter';
+  ThCommission,
+  ThCustomer,
+  ThDepartureTime,
+  ThOrderCode,
+  ThPartner,
+  ThRoute,
+  ThSellPrice,
+  ThSms,
+  ThStaff,
+} from '@/features/xvip/OrderColumnFilters';
 
-const TH_CELL = 'whitespace-nowrap bg-slate-100/90 dark:bg-slate-800/90 px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700';
-const TD_CELL = 'border-t border-slate-200 dark:border-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 align-middle';
-
-const TH_STICKY_LEFT = `${TH_CELL} sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
-const TD_STICKY_LEFT = `${TD_CELL} sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
-
-const TH_STICKY_RIGHT = `${TH_CELL} md:sticky md:right-0 md:z-20 md:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
-const TD_STICKY_RIGHT = `${TD_CELL} bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 md:sticky md:right-0 md:z-10 md:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+const TH_CELL = TH;
+const TD_CELL = TD;
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '@/features/orders/parse-order-text';
@@ -321,315 +319,6 @@ interface FormErrors {
   seats?: string;
 }
 
-/** Hook hỗ trợ debounce từ khóa tìm kiếm */
-function useDebounce<T>(value: T, delayMs = 300): T {
-  const [debounced, setDebounced] = useState<T>(value);
-  useEffect(() => {
-    const timer = setTimeout(() => setDebounced(value), delayMs);
-    return () => clearTimeout(timer);
-  }, [value, delayMs]);
-  return debounced;
-}
-
-/** Bộ lọc Giờ xe */
-function DepartureTimeFilterInner({
-  filters,
-  selected,
-  onApply,
-  onClear,
-  close,
-}: {
-  filters: OrderFilters;
-  selected: string[];
-  onApply: (times: string[]) => void;
-  onClear: () => void;
-  close: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
-
-  const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, departureTimes: undefined }),
-    [filters],
-  );
-
-  const { data: options = [], isLoading } = useColumnValues(
-    'departureTime',
-    columnFilterBase,
-    debouncedSearch,
-  );
-
-  return (
-    <CheckListFilter<string>
-      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-      selected={selected}
-      searchQuery={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Tìm giờ xe..."
-      isLoading={isLoading}
-      onApply={onApply}
-      onClear={onClear}
-      close={close}
-    />
-  );
-}
-
-/** Bộ lọc Nhà xe / Đối tác */
-function PartnerFilterInner({
-  filters,
-  selected,
-  onApply,
-  onClear,
-  close,
-}: {
-  filters: OrderFilters;
-  selected: string[];
-  onApply: (partners: string[]) => void;
-  onClear: () => void;
-  close: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
-
-  const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, partner: undefined, partners: undefined }),
-    [filters],
-  );
-
-  const { data: options = [], isLoading } = useColumnValues(
-    'partner',
-    columnFilterBase,
-    debouncedSearch,
-  );
-
-  return (
-    <CheckListFilter<string>
-      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-      selected={selected}
-      searchQuery={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Tìm nhà xe..."
-      isLoading={isLoading}
-      onApply={onApply}
-      onClear={onClear}
-      close={close}
-    />
-  );
-}
-
-/** Bộ lọc Tuyến đường */
-function RouteFilterInner({
-  filters,
-  selected,
-  onApply,
-  onClear,
-  close,
-}: {
-  filters: OrderFilters;
-  selected: number[];
-  onApply: (routeIds: number[]) => void;
-  onClear: () => void;
-  close: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
-
-  const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, routeId: 'all', routeIds: [] }),
-    [filters],
-  );
-
-  const { data: options = [], isLoading } = useColumnValues(
-    'route',
-    columnFilterBase,
-    debouncedSearch,
-  );
-
-  return (
-    <CheckListFilter<number>
-      items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
-      selected={selected}
-      searchQuery={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Tìm tuyến đường..."
-      isLoading={isLoading}
-      onApply={onApply}
-      onClear={onClear}
-      close={close}
-    />
-  );
-}
-
-/** Bộ lọc Khách hàng (hiện cả Tên · SĐT hoặc Tên & SĐT riêng) */
-function CustomerFilterInner({
-  filters,
-  selectedNames,
-  selectedPhones,
-  onApply,
-  onClear,
-  close,
-}: {
-  filters: OrderFilters;
-  selectedNames: string[];
-  selectedPhones: string[];
-  onApply: (data: { names: string[]; phones: string[] }) => void;
-  onClear: () => void;
-  close: () => void;
-}) {
-  const [tab, setTab] = useState<'name' | 'phone'>('name');
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
-
-  const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, customerNames: undefined, phones: undefined }),
-    [filters],
-  );
-
-  const { data: nameOptions = [], isLoading: loadingNames } = useColumnValues(
-    'customer',
-    columnFilterBase,
-    tab === 'name' ? debouncedSearch : undefined,
-  );
-
-  const { data: phoneOptions = [], isLoading: loadingPhones } = useColumnValues(
-    'phone',
-    columnFilterBase,
-    tab === 'phone' ? debouncedSearch : undefined,
-  );
-
-  const [localNames, setLocalNames] = useState<string[]>(selectedNames);
-  const [localPhones, setLocalPhones] = useState<string[]>(selectedPhones);
-
-  useEffect(() => {
-    setLocalNames(selectedNames);
-    setLocalPhones(selectedPhones);
-  }, [selectedNames, selectedPhones]);
-
-  return (
-    <div className="space-y-2.5">
-      <div className="flex rounded border border-slate-200 dark:border-slate-700 p-0.5 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => {
-            setTab('name');
-            setSearch('');
-          }}
-          className={`flex-1 py-1 rounded transition-colors ${
-            tab === 'name'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Tên khách ({localNames.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setTab('phone');
-            setSearch('');
-          }}
-          className={`flex-1 py-1 rounded transition-colors ${
-            tab === 'phone'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Số điện thoại ({localPhones.length})
-        </button>
-      </div>
-
-      {tab === 'name' ? (
-        <CheckListFilter<string>
-          items={nameOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-          selected={localNames}
-          searchQuery={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm tên khách..."
-          isLoading={loadingNames}
-          onApply={(names) => {
-            setLocalNames(names);
-            onApply({ names, phones: localPhones });
-          }}
-          onClear={() => {
-            setLocalNames([]);
-            if (localPhones.length === 0) {
-              onClear();
-            } else {
-              onApply({ names: [], phones: localPhones });
-            }
-          }}
-          close={close}
-        />
-      ) : (
-        <CheckListFilter<string>
-          items={phoneOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-          selected={localPhones}
-          searchQuery={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm số điện thoại..."
-          isLoading={loadingPhones}
-          onApply={(phones) => {
-            setLocalPhones(phones);
-            onApply({ names: localNames, phones });
-          }}
-          onClear={() => {
-            setLocalPhones([]);
-            if (localNames.length === 0) {
-              onClear();
-            } else {
-              onApply({ names: localNames, phones: [] });
-            }
-          }}
-          close={close}
-        />
-      )}
-    </div>
-  );
-}
-
-/** Bộ lọc Nhân viên tạo (chỉ Admin) */
-function StaffFilterInner({
-  filters,
-  selected,
-  onApply,
-  onClear,
-  close,
-}: {
-  filters: OrderFilters;
-  selected: string[];
-  onApply: (staffIds: string[]) => void;
-  onClear: () => void;
-  close: () => void;
-}) {
-  const [search, setSearch] = useState('');
-  const debouncedSearch = useDebounce(search, 300);
-
-  const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, staffId: 'all', staffIds: undefined }),
-    [filters],
-  );
-
-  const { data: options = [], isLoading } = useColumnValues(
-    'staff',
-    columnFilterBase,
-    debouncedSearch,
-  );
-
-  return (
-    <CheckListFilter<string>
-      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-      selected={selected}
-      searchQuery={search}
-      onSearchChange={setSearch}
-      searchPlaceholder="Tìm nhân viên..."
-      isLoading={isLoading}
-      onApply={onApply}
-      onClear={onClear}
-      close={close}
-    />
-  );
-}
-
 export default function TicketManagementPage() {
   const [localFilters, setFilters] = useState<OrderFilters>({
     search: '',
@@ -672,6 +361,14 @@ export default function TicketManagementPage() {
           },
     [localFilters, range, basis, searching],
   );
+
+  // Tham số chung cho các ô tiêu đề có bộ lọc cột
+  const colProps = {
+    local: localFilters,
+    filters,
+    onChange: (patch: Partial<OrderFilters>) =>
+      setFilters((prev) => ({ ...prev, ...patch, page: 1 })),
+  };
   useEffect(() => {
     setFilters((prev) => (prev.page === 1 ? prev : { ...prev, page: 1 }));
   }, [range, basis]);
@@ -1521,337 +1218,30 @@ export default function TicketManagementPage() {
       {/* Bảng danh sách 3D */}
       <Card className="mt-5 overflow-hidden !p-0">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full">
             <thead>
               <tr>
-                <th className={`${TH_STICKY_LEFT} w-12 text-center`}>STT</th>
-
-                {/* 2. Đơn / Giờ xe */}
-                <th className={TH_CELL}>
-                  <div className="inline-flex items-center">
-                    <span>Đơn / Giờ xe</span>
-                    <ColumnFilterPopover
-                      title="Đơn / Giờ xe"
-                      isActive={!!localFilters.orderCode?.trim() || !!localFilters.departureTimes?.length}
-                      onClear={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          orderCode: undefined,
-                          departureTimes: undefined,
-                          page: 1,
-                        }))
-                      }
-                    >
-                      {({ close }) => (
-                        <div className="space-y-3">
-                          <div>
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Mã đơn (XV116 hoặc 116)
-                            </span>
-                            <TextInputFilter
-                              value={localFilters.orderCode}
-                              placeholder="Nhập mã đơn..."
-                              onApply={(code) =>
-                                setFilters((p) => ({ ...p, orderCode: code, page: 1 }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({ ...p, orderCode: undefined, page: 1 }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Giờ xe (HH:mm)
-                            </span>
-                            <DepartureTimeFilterInner
-                              filters={filters}
-                              selected={localFilters.departureTimes ?? []}
-                              onApply={(times) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  departureTimes: times.length ? times : undefined,
-                                  page: 1,
-                                }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({ ...p, departureTimes: undefined, page: 1 }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </ColumnFilterPopover>
-                  </div>
-                </th>
-
-                {/* 3. Nhà xe / Tuyến */}
-                <th className={TH_CELL}>
-                  <div className="inline-flex items-center">
-                    <span>Nhà xe / Tuyến</span>
-                    <ColumnFilterPopover
-                      title="Nhà xe / Tuyến"
-                      isActive={!!localFilters.partner || (localFilters.routeIds ?? []).length > 0}
-                      onClear={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          partner: undefined,
-                          routeIds: [],
-                          page: 1,
-                        }))
-                      }
-                    >
-                      {({ close }) => (
-                        <div className="space-y-3">
-                          <div>
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Nhà xe / Đối tác
-                            </span>
-                            <PartnerFilterInner
-                              filters={filters}
-                              selected={localFilters.partner ? [localFilters.partner] : []}
-                              onApply={(partners) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  partner: partners[0] || undefined,
-                                  page: 1,
-                                }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({ ...p, partner: undefined, page: 1 }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Tuyến đường
-                            </span>
-                            <RouteFilterInner
-                              filters={filters}
-                              selected={localFilters.routeIds ?? []}
-                              onApply={(routeIds) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  routeIds,
-                                  page: 1,
-                                }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({ ...p, routeIds: [], page: 1 }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </ColumnFilterPopover>
-                  </div>
-                </th>
-
-                {/* 4. Khách hàng */}
-                <th className={TH_CELL}>
-                  <div className="inline-flex items-center">
-                    <span>Khách hàng</span>
-                    <ColumnFilterPopover
-                      title="Khách hàng"
-                      isActive={!!localFilters.customerNames?.length || !!localFilters.phones?.length}
-                      onClear={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          customerNames: undefined,
-                          phones: undefined,
-                          page: 1,
-                        }))
-                      }
-                    >
-                      {({ close }) => (
-                        <CustomerFilterInner
-                          filters={filters}
-                          selectedNames={localFilters.customerNames ?? []}
-                          selectedPhones={localFilters.phones ?? []}
-                          onApply={({ names, phones }) =>
-                            setFilters((p) => ({
-                              ...p,
-                              customerNames: names.length ? names : undefined,
-                              phones: phones.length ? phones : undefined,
-                              page: 1,
-                            }))
-                          }
-                          onClear={() =>
-                            setFilters((p) => ({
-                              ...p,
-                              customerNames: undefined,
-                              phones: undefined,
-                              page: 1,
-                            }))
-                          }
-                          close={close}
-                        />
-                      )}
-                    </ColumnFilterPopover>
-                  </div>
-                </th>
-
-                {/* 5. Giá bán / Hoa hồng */}
-                <th className={`${TH_CELL} text-right`}>
-                  <div className="inline-flex items-center justify-end w-full">
-                    <span>Giá bán / Hoa hồng</span>
-                    <ColumnFilterPopover
-                      title="Giá bán / Hoa hồng"
-                      isActive={
-                        localFilters.sellPriceMin !== undefined ||
-                        localFilters.sellPriceMax !== undefined ||
-                        localFilters.commissionMin !== undefined ||
-                        localFilters.commissionMax !== undefined
-                      }
-                      align="right"
-                      onClear={() =>
-                        setFilters((p) => ({
-                          ...p,
-                          sellPriceMin: undefined,
-                          sellPriceMax: undefined,
-                          commissionMin: undefined,
-                          commissionMax: undefined,
-                          page: 1,
-                        }))
-                      }
-                    >
-                      {({ close }) => (
-                        <div className="space-y-3">
-                          <div>
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Giá bán (VNĐ)
-                            </span>
-                            <NumberRangeFilter
-                              min={localFilters.sellPriceMin}
-                              max={localFilters.sellPriceMax}
-                              onApply={(range) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  sellPriceMin: range.min,
-                                  sellPriceMax: range.max,
-                                  page: 1,
-                                }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  sellPriceMin: undefined,
-                                  sellPriceMax: undefined,
-                                  page: 1,
-                                }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
-                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
-                              Hoa hồng (VNĐ)
-                            </span>
-                            <NumberRangeFilter
-                              min={localFilters.commissionMin}
-                              max={localFilters.commissionMax}
-                              onApply={(range) =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  commissionMin: range.min,
-                                  commissionMax: range.max,
-                                  page: 1,
-                                }))
-                              }
-                              onClear={() =>
-                                setFilters((p) => ({
-                                  ...p,
-                                  commissionMin: undefined,
-                                  commissionMax: undefined,
-                                  page: 1,
-                                }))
-                              }
-                              close={close}
-                            />
-                          </div>
-                        </div>
-                      )}
-                    </ColumnFilterPopover>
-                  </div>
-                </th>
-
-                {/* 6. NV tạo */}
-                <th className={TH_CELL}>
-                  <div className="inline-flex items-center">
-                    <span>NV tạo</span>
-                    {isAdmin && (
-                      <ColumnFilterPopover
-                        title="Nhân viên tạo"
-                        isActive={localFilters.staffId !== ALL && typeof localFilters.staffId === 'number'}
-                        onClear={() => setFilters((p) => ({ ...p, staffId: ALL, page: 1 }))}
-                      >
-                        {({ close }) => (
-                          <StaffFilterInner
-                            filters={filters}
-                            selected={
-                              localFilters.staffId !== ALL && typeof localFilters.staffId === 'number'
-                                ? [String(localFilters.staffId)]
-                                : []
-                            }
-                            onApply={(ids) =>
-                              setFilters((p) => ({
-                                ...p,
-                                staffId: ids.length ? Number(ids[0]) : ALL,
-                                page: 1,
-                              }))
-                            }
-                            onClear={() => setFilters((p) => ({ ...p, staffId: ALL, page: 1 }))}
-                            close={close}
-                          />
-                        )}
-                      </ColumnFilterPopover>
-                    )}
-                  </div>
-                </th>
-
-                {/* 7. Tin nhắn */}
-                <th className={TH_CELL}>
-                  <div className="inline-flex items-center">
-                    <span>Tin nhắn</span>
-                    <ColumnFilterPopover
-                      title="Tin nhắn"
-                      isActive={!!localFilters.smsStatus}
-                      onClear={() => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 }))}
-                    >
-                      {({ close }) => (
-                        <CheckListFilter<'sent' | 'unsent'>
-                          items={[
-                            { value: 'sent', label: 'Đã gửi' },
-                            { value: 'unsent', label: 'Chưa gửi' },
-                          ]}
-                          selected={localFilters.smsStatus ? [localFilters.smsStatus] : []}
-                          onApply={(selected) =>
-                            setFilters((p) => ({
-                              ...p,
-                              smsStatus: selected.length === 1 ? selected[0] : undefined,
-                              page: 1,
-                            }))
-                          }
-                          onClear={() => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 }))}
-                          close={close}
-                        />
-                      )}
-                    </ColumnFilterPopover>
-                  </div>
-                </th>
+                <th className={`${TH_CELL} w-12 text-center`}>STT</th>
+                <ThOrderCode {...colProps} />
+                <ThDepartureTime {...colProps} />
+                <ThPartner {...colProps} />
+                <ThRoute {...colProps} />
+                <ThCustomer title="Khách hàng" {...colProps} />
+                <ThCustomer title="Số điện thoại" {...colProps} />
+                <ThSellPrice {...colProps} />
+                <ThCommission {...colProps} />
+                <ThStaff showFilter={isAdmin} {...colProps} />
+                <ThSms {...colProps} />
 
                 {/* 8. Thao tác */}
-                <th className={`${TH_STICKY_RIGHT} text-center`}>Thao tác</th>
+                <th className={`${TH_CELL} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách vé từ cơ sở dữ liệu...
@@ -1860,7 +1250,7 @@ export default function TicketManagementPage() {
               ) : ordersList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-3">
@@ -1890,62 +1280,61 @@ export default function TicketManagementPage() {
                   >
                     {/* 1. STT (Sticky Left) */}
                     <td
-                      className={`${TD_STICKY_LEFT} text-center font-semibold text-slate-500 dark:text-slate-400`}
+                      className={`${TD_CELL} text-center font-semibold text-slate-500 dark:text-slate-400`}
                     >
                       {(currentPage - 1) * pageSize + i + 1}
                     </td>
 
-                    {/* 2. Đơn / Giờ xe */}
-                    <td className={TD_CELL}>
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="font-mono text-xs font-bold text-blue-900 dark:text-blue-400">
-                          {formatOrderCode(t.id)}
+                    {/* 2. Mã đơn */}
+                    <td className={`${TD_CELL} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
+                      {formatOrderCode(t.id)}
+                      {t.cancelledAt && (
+                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          Đã hủy
                         </span>
-                        {t.cancelledAt && (
-                          <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                            Đã hủy
-                          </span>
-                        )}
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                        <span className="font-bold text-blue-700 dark:text-blue-400">{t.departureTime}</span>
-                        {' · '}
-                        <span>{formatDateVN(t.departureDate)}</span>
-                      </div>
+                      )}
                     </td>
 
-                    {/* 3. Nhà xe / Tuyến */}
-                    <td className={TD_CELL}>
-                      <div className="font-bold text-slate-800 dark:text-slate-200">
-                        {t.partner || 'XVIP'}
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 break-words font-medium">
-                        {t.route?.name || 'Tuyến liên tỉnh'}
-                      </div>
+                    {/* 3. Giờ xe */}
+                    <td className={`${TD_CELL} font-bold text-blue-700 dark:text-blue-400`}>
+                      {t.departureTime}
+                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">
+                        {formatDateVN(t.departureDate)}
+                      </span>
                     </td>
 
-                    {/* 4. Khách hàng: cố định chiều rộng, tên dài thì xuống dòng */}
-                    <td className={`${TD_CELL} w-48 min-w-48 max-w-48`}>
-                      <div className="font-bold text-slate-900 dark:text-white [overflow-wrap:anywhere]">
-                        {t.customerName || 'Khách lẻ'}
-                      </div>
-                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 tnum font-semibold">
-                        {t.phone}
-                      </div>
+                    {/* 4. Nhà xe */}
+                    <td className={`${TD_CELL} font-bold text-slate-800 dark:text-slate-200`}>
+                      {t.partner || 'XVIP'}
                     </td>
 
-                    {/* 5. Giá bán / Hoa hồng (căn phải) */}
-                    <td className={`${TD_CELL} text-right`}>
-                      <div className={`${NUM} text-slate-900 dark:text-white font-bold`}>
-                        {money(t.sellPrice)}đ
-                      </div>
-                      <div className={`${NUM} mt-0.5 text-xs font-black text-red-600 dark:text-red-400`}>
-                        {money(t.commission)}đ
-                      </div>
+                    {/* 5. Tuyến đường */}
+                    <td className={`${TD_CELL} font-semibold text-slate-700 dark:text-slate-300`}>
+                      {t.route?.name || 'Tuyến liên tỉnh'}
                     </td>
 
-                    {/* 6. NV tạo */}
-                    <td className={`${TD_CELL} text-slate-800 dark:text-slate-300 font-semibold text-xs`}>
+                    {/* 6. Khách hàng */}
+                    <td className={`${TD_CELL} font-bold text-slate-900 dark:text-white`}>
+                      {t.customerName || 'Khách lẻ'}
+                    </td>
+
+                    {/* 7. Số điện thoại */}
+                    <td className={`${TD_CELL} tnum font-semibold text-slate-600 dark:text-slate-300`}>
+                      {t.phone}
+                    </td>
+
+                    {/* 8. Giá bán */}
+                    <td className={`${TD_CELL} ${NUM} text-slate-900 dark:text-white`}>
+                      {money(t.sellPrice)}đ
+                    </td>
+
+                    {/* 9. Hoa hồng */}
+                    <td className={`${TD_CELL} ${NUM} font-black text-red-600 dark:text-red-400`}>
+                      {money(t.commission)}đ
+                    </td>
+
+                    {/* 10. NV tạo */}
+                    <td className={`${TD_CELL} text-slate-800 dark:text-slate-300 font-semibold`}>
                       {t.staff?.fullName || 'NV'}
                     </td>
 
@@ -1973,10 +1362,10 @@ export default function TicketManagementPage() {
 
                     {/* 8. Thao tác (Sticky Right) */}
                     <td
-                      className={`${TD_STICKY_RIGHT} text-center`}
+                      className={`${TD_CELL} text-center`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex w-44 flex-wrap items-center justify-center gap-1.5 md:w-auto md:flex-nowrap">
+                      <div className="flex items-center justify-center gap-2">
                         <button
                           type="button"
                           onClick={() => handleOpenRebook(t)}

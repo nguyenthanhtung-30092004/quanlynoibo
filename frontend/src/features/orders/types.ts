@@ -76,6 +76,8 @@ export interface OrderFilters {
   routeIds?: number[];
   /** true = bỏ vé đã hủy, để số dòng khớp số đơn của KPI */
   activeOnly?: boolean;
+  /** true = chỉ đơn khách đã cọc (deposit > 0) */
+  depositOnly?: boolean;
   /** Tên đối tác; bỏ trống = tất cả */
   partner?: string;
   /** Lọc nhiều đối tác cùng lúc (tên); rỗng = không lọc */

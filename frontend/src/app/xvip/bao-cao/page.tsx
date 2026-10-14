@@ -24,6 +24,15 @@ import { money } from '@/features/xvip/data';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { Pagination } from '@/features/xvip/Pagination';
 import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
+import {
+  ThCommission,
+  ThCustomer,
+  ThDepartureTime,
+  ThOrderCode,
+  ThPartner,
+  ThRoute,
+  ThSellPrice,
+} from '@/features/xvip/OrderColumnFilters';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import { OptionFilterInput } from '@/features/xvip/OptionFilterInput';
@@ -115,29 +124,53 @@ export default function StaffReportPage() {
 
   // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
   const [ticketPage, setTicketPage] = useState(1);
+  // Bấm thẻ "Đã cọc xvip" thì bảng đơn chỉ còn các đơn khách đã cọc
+  const [depositOnly, setDepositOnly] = useState(false);
+  // Bộ lọc theo cột của bảng đơn (giống trang Quản lý vé)
+  const [colFilters, setColFilters] = useState<Partial<OrderFilters>>({});
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
-  const ticketFilters = useMemo<OrderFilters>(
-    () => ({
+  const ticketFilters = useMemo<OrderFilters>(() => {
+    // Lọc tuyến ở cột giao với tuyến đã chọn ở bộ lọc trên cùng
+    const colRoutes = colFilters.routeIds ?? [];
+    let effectiveRoutes = routeIds;
+    if (colRoutes.length) {
+      if (routeIds.length) {
+        const both = colRoutes.filter((id) => routeIds.includes(id));
+        effectiveRoutes = both.length ? both : [-1];
+      } else {
+        effectiveRoutes = colRoutes;
+      }
+    }
+    return {
       search: '',
       staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
       routeId: 'all',
-      routeIds,
       partners: partnerNames,
       activeOnly: true,
+      depositOnly,
       dateFrom: null,
       dateTo: null,
+      ...colFilters,
+      routeIds: effectiveRoutes,
       ...dates,
       page: ticketPage,
-    }),
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage],
-  );
+  }, [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage, depositOnly, colFilters]);
+  const colProps = {
+    local: { search: '', staffId: 'all', routeId: 'all', dateFrom: null, dateTo: null, ...colFilters } as OrderFilters,
+    filters: ticketFilters,
+    onChange: (patch: Partial<OrderFilters>) => {
+      setColFilters((prev) => ({ ...prev, ...patch }));
+      setTicketPage(1);
+    },
+  };
   const { data: ticketData, isLoading: ticketsLoading } = useOrders(ticketFilters);
   const ticketList = ticketData?.data ?? [];
   const ticketTotal = ticketData?.total ?? 0;
   useEffect(() => {
     setTicketPage(1);
-  }, [staffFilter, routeIds, partnerNames, range, basis]);
+  }, [staffFilter, routeIds, partnerNames, range, basis, depositOnly]);
 
   const allStaff = useMemo(() => usersData?.data ?? [], [usersData]);
   const staffList = useMemo(() => {
@@ -437,11 +470,24 @@ export default function StaffReportPage() {
         </div>
 
         <div
+          role="button"
+          tabIndex={0}
+          aria-pressed={depositOnly}
+          title={depositOnly ? 'Bấm để xem lại tất cả đơn' : 'Bấm để chỉ xem các đơn khách đã cọc'}
+          onClick={() => setDepositOnly((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setDepositOnly((v) => !v);
+            }
+          }}
           style={{
             boxShadow:
               'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #0f766e, 0 12px 24px -4px rgba(15,23,42,0.18)',
           }}
-          className="group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-teal-600 to-teal-700 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
+          className={`group relative flex min-w-0 items-center gap-3 sm:gap-3.5 rounded-2xl bg-gradient-to-b from-teal-600 to-teal-700 p-3.5 sm:p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none ${
+            depositOnly ? 'ring-4 ring-teal-300 dark:ring-teal-400' : ''
+          }`}
         >
           <span className="flex size-10 sm:size-11 xl:size-10 2xl:size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
             <HandCoins size={22} weight="fill" />
@@ -454,7 +500,7 @@ export default function StaffReportPage() {
               {money(totalDeposit)}đ
             </div>
             <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
-              Khách đã đặt cọc trước
+              {depositOnly ? 'Đang lọc đơn đã cọc · bấm để bỏ lọc' : 'Bấm để xem các đơn đã cọc'}
             </div>
           </div>
         </div>
@@ -681,7 +727,7 @@ export default function StaffReportPage() {
 
       {/* Bảng đơn: toàn bộ đơn khớp bộ lọc (chọn nhân viên thì ra mọi đơn của người đó) */}
       <Card
-        title={`Danh sách đơn (${ticketTotal.toLocaleString('vi-VN')})`}
+        title={`${depositOnly ? 'Danh sách đơn đã cọc xvip' : 'Danh sách đơn'} (${ticketTotal.toLocaleString('vi-VN')})`}
         className="mt-5 !p-0 overflow-hidden"
       >
         <div className="overflow-x-auto">
@@ -689,15 +735,15 @@ export default function StaffReportPage() {
             <thead>
               <tr>
                 <th className={TH}>STT</th>
-                <th className={TH}>Mã đơn</th>
-                <th className={TH}>Giờ xe</th>
-                <th className={TH}>Nhà xe</th>
-                <th className={TH}>Tuyến đường</th>
-                <th className={TH}>Khách hàng</th>
-                <th className={TH}>Số điện thoại</th>
-                <th className={`${TH} text-right`}>Giá bán</th>
+                <ThOrderCode {...colProps} />
+                <ThDepartureTime {...colProps} />
+                <ThPartner {...colProps} />
+                <ThRoute {...colProps} />
+                <ThCustomer title="Khách hàng" {...colProps} />
+                <ThCustomer title="Số điện thoại" {...colProps} />
+                <ThSellPrice {...colProps} />
                 <th className={`${TH} text-right`}>Đã cọc</th>
-                <th className={`${TH} text-right`}>Hoa hồng</th>
+                <ThCommission {...colProps} />
                 <th className={TH}>NV tạo</th>
               </tr>
             </thead>

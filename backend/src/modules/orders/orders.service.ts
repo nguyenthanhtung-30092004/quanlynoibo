@@ -1373,6 +1373,9 @@ export class OrdersService {
     if (filter.activeOnly) {
       qb.andWhere('order.cancelledAt IS NULL');
     }
+    if (filter.depositOnly) {
+      qb.andWhere('order.deposit > 0');
+    }
     if (filter.routeId !== undefined) {
       qb.andWhere('order.routeId = :routeId', { routeId: filter.routeId });
     }
