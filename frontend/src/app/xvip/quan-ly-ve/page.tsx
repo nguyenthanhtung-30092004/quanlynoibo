@@ -1220,7 +1220,7 @@ export default function TicketManagementPage() {
       <Card className="mt-5 overflow-hidden !p-0">
         <ScrollTable>
           <table className="w-full">
-            <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
+            <thead>
               <tr>
                 <th className={`${TH_CELL} w-12 text-center`}>STT</th>
                 <ThOrderCode {...colProps} />

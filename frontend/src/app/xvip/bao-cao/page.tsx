@@ -808,7 +808,7 @@ export default function StaffReportPage() {
       >
         <ScrollTable>
           <table className="w-full">
-            <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
+            <thead>
               <tr>
                 <th className={TH}>STT</th>
                 <ThOrderCode {...colProps} />
