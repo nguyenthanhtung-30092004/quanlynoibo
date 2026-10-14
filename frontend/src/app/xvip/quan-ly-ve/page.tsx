@@ -64,8 +64,8 @@ const TD_CELL = 'border-t border-slate-200 dark:border-slate-700 px-3 py-2 text-
 const TH_STICKY_LEFT = `${TH_CELL} sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
 const TD_STICKY_LEFT = `${TD_CELL} sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
 
-const TH_STICKY_RIGHT = `${TH_CELL} sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
-const TD_STICKY_RIGHT = `${TD_CELL} sticky right-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+const TH_STICKY_RIGHT = `${TH_CELL} md:sticky md:right-0 md:z-20 md:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+const TD_STICKY_RIGHT = `${TD_CELL} bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 md:sticky md:right-0 md:z-10 md:shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '@/features/orders/parse-order-text';
@@ -1976,7 +1976,7 @@ export default function TicketManagementPage() {
                       className={`${TD_STICKY_RIGHT} text-center`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-center gap-1.5">
+                      <div className="flex w-44 flex-wrap items-center justify-center gap-1.5 md:w-auto md:flex-nowrap">
                         <button
                           type="button"
                           onClick={() => handleOpenRebook(t)}
