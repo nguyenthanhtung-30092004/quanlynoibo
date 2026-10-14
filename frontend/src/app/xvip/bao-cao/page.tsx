@@ -924,31 +924,31 @@ export default function StaffReportPage() {
           <table className="w-full">
             <thead>
               <tr>
-                <th className={TH}>STT</th>
-                <ThOrderCode {...colProps} />
                 <th className={TH}>Ngày vào sổ</th>
-                <th className={TH}>Ngày khởi hành</th>
-                <ThDepartureTime {...colProps} />
-                <ThPartner {...colProps} />
-                <ThRoute {...colProps} />
-                <th className={TH}>Loại hình</th>
-                <th className={TH}>Điểm đón</th>
-                <th className={TH}>Điểm trả</th>
+                <ThStaff showFilter={isAdmin} {...colProps} />
                 <ThCustomerName {...colProps} />
                 <ThPhone {...colProps} />
-                <th className={`${TH} text-center`}>Số ghế</th>
+                <ThRoute {...colProps} />
+                <ThDepartureTime {...colProps} />
+                <th className={TH}>Ngày khởi hành</th>
+                <th className={TH}>Loại hình</th>
                 <th className={`${TH} text-center`}>Ghế đầu</th>
                 <th className={`${TH} text-center`}>Ghế giữa</th>
                 <th className={`${TH} text-center`}>Ghế cuối</th>
-                <th className={`${TH} text-center`}>Tổng vé</th>
+                <th className={`${TH} text-center`}>Số ghế</th>
                 <th className={`${TH} text-right`}>Giá nhập</th>
                 <ThSellPrice {...colProps} />
                 <ThDeposit {...colProps} />
                 <th className={`${TH} text-right`}>Nhờ thu</th>
                 <ThCommission {...colProps} title="Doanh số" />
-                <ThStaff showFilter={isAdmin} {...colProps} />
-                <ThSms {...colProps} />
+                <ThPartner {...colProps} />
                 <th className={TH}>Ghi chú</th>
+                <th className={TH}>STT</th>
+                <ThOrderCode {...colProps} />
+                <th className={TH}>Điểm đón</th>
+                <th className={TH}>Điểm trả</th>
+                <th className={`${TH} text-center`}>Tổng vé</th>
+                <ThSms {...colProps} />
                 <th className={TH}>Lý do hủy</th>
               </tr>
             </thead>
@@ -981,40 +981,11 @@ export default function StaffReportPage() {
                       t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
                     }`}
                   >
-                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
-                      {i + 1}
-                    </td>
-                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
-                      {formatOrderCode(t.id)}
-                      {t.cancelledAt && (
-                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                          Đã hủy
-                        </span>
-                      )}
-                    </td>
                     <td className={`${TD} text-slate-700 dark:text-slate-300 tnum`}>
                       {formatDateVN(t.entryDate)}
                     </td>
-                    <td className={`${TD} text-slate-800 dark:text-slate-200 font-bold tnum`}>
-                      {formatDateVN(t.departureDate)}
-                    </td>
-                    <td className={`${TD} font-bold text-blue-700 dark:text-blue-400 tnum`}>
-                      {t.departureTime}
-                    </td>
-                    <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
-                      {t.partner || 'XVIP'}
-                    </td>
-                    <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
-                      {t.route?.name || 'Tuyến liên tỉnh'}
-                    </td>
-                    <td className={`${TD} text-slate-700 dark:text-slate-300`}>
-                      {t.vehicleType || '—'}
-                    </td>
-                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
-                      {t.pickupPoint || '—'}
-                    </td>
-                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
-                      {t.dropoffPoint || '—'}
+                    <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
+                      {t.staff?.fullName || 'NV'}
                     </td>
                     <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] font-bold text-slate-900 dark:text-white`}>
                       {t.customerName || 'Khách lẻ'}
@@ -1022,8 +993,17 @@ export default function StaffReportPage() {
                     <td className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}>
                       {t.phone}
                     </td>
-                    <td className={`${TD} text-center font-bold tnum text-slate-800 dark:text-slate-200`}>
-                      {t.seatCount ?? 0}
+                    <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
+                      {t.route?.name || 'Tuyến liên tỉnh'}
+                    </td>
+                    <td className={`${TD} font-bold text-blue-700 dark:text-blue-400 tnum`}>
+                      {t.departureTime}
+                    </td>
+                    <td className={`${TD} text-slate-800 dark:text-slate-200 font-bold tnum`}>
+                      {formatDateVN(t.departureDate)}
+                    </td>
+                    <td className={`${TD} text-slate-700 dark:text-slate-300`}>
+                      {t.vehicleType || '—'}
                     </td>
                     <td className={`${TD} text-center tnum text-slate-700 dark:text-slate-300`}>
                       {t.seatFront ?? 0}
@@ -1034,8 +1014,8 @@ export default function StaffReportPage() {
                     <td className={`${TD} text-center tnum text-slate-700 dark:text-slate-300`}>
                       {t.seatBack ?? 0}
                     </td>
-                    <td className={`${TD} text-center font-black tnum text-blue-700 dark:text-blue-400`}>
-                      {t.tickets ?? t.seatCount ?? 0}
+                    <td className={`${TD} text-center font-bold tnum text-slate-800 dark:text-slate-200`}>
+                      {t.seatCount ?? 0}
                     </td>
                     <td className={`${TD} ${NUM} text-slate-700 dark:text-slate-300`}>
                       {money(t.costPrice)}đ
@@ -1052,8 +1032,31 @@ export default function StaffReportPage() {
                     <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
                       {money(t.commission)}đ
                     </td>
-                    <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
-                      {t.staff?.fullName || 'NV'}
+                    <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
+                      {t.partner || 'XVIP'}
+                    </td>
+                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-600 dark:text-slate-300 text-xs`}>
+                      {t.note || '—'}
+                    </td>
+                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
+                      {i + 1}
+                    </td>
+                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
+                      {formatOrderCode(t.id)}
+                      {t.cancelledAt && (
+                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          Đã hủy
+                        </span>
+                      )}
+                    </td>
+                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
+                      {t.pickupPoint || '—'}
+                    </td>
+                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
+                      {t.dropoffPoint || '—'}
+                    </td>
+                    <td className={`${TD} text-center font-black tnum text-blue-700 dark:text-blue-400`}>
+                      {t.tickets ?? t.seatCount ?? 0}
                     </td>
                     <td className={TD}>
                       {t.smsSent ? (
@@ -1075,9 +1078,6 @@ export default function StaffReportPage() {
                           Chưa gửi
                         </span>
                       )}
-                    </td>
-                    <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-600 dark:text-slate-300 text-xs`}>
-                      {t.note || '—'}
                     </td>
                     <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-rose-600 dark:text-rose-400 text-xs`}>
                       {t.cancelledAt && t.cancelReason ? t.cancelReason : '—'}
