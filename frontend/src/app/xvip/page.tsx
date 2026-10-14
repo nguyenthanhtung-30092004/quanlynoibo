@@ -97,7 +97,11 @@ function OverviewContent() {
   ];
 
   // Doanh số theo đối tác: lấy từ KPI (toàn bộ vé trong khoảng lọc), top theo doanh thu
-  const carrierStats = useMemo(() => kpiData?.byPartner ?? [], [kpiData]);
+  // Đối tác nhiều vé xếp trước; bằng vé thì hoa hồng cao hơn trước
+  const carrierStats = useMemo(
+    () => [...(kpiData?.byPartner ?? [])].sort((a, b) => b.seats - a.seats || b.commission - a.commission),
+    [kpiData],
+  );
 
   // Tỷ lệ vé theo tuyến: hiển thị hết tất cả các tuyến đường có doanh thu / có vé
   const routeStats = useMemo(() => {
