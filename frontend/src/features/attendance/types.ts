@@ -23,7 +23,7 @@ export interface HeartbeatResult extends TodayStatus {
   reason: BeatReason;
 }
 
-export interface MyTodayStatus extends TodayStatus {}
+export type MyTodayStatus = TodayStatus;
 
 export interface AttendanceDayCell {
   minutes: number;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Circle, UserCheck } from '@phosphor-icons/react';
+import { Circle } from '@phosphor-icons/react';
 import { attendanceApi } from './api';
 import { useMyAttendanceToday } from './hooks';
 import type { HeartbeatResult } from './types';
