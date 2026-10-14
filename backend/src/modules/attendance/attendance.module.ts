@@ -10,5 +10,6 @@ import { AttendanceService } from './attendance.service.js';
   imports: [TypeOrmModule.forFeature([AppSetting, User])],
   controllers: [AttendanceController],
   providers: [AttendanceService, AttendanceSchemaGuard],
+  exports: [AttendanceService],
 })
 export class AttendanceModule {}

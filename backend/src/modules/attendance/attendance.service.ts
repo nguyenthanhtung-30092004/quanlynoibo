@@ -17,7 +17,7 @@ import type { HeartbeatDto } from './dto/attendance.dto.js';
 const CONFIG_KEY = 'attendance_config';
 
 export interface AttendanceDayCell {
-  /** Số phút thao tác tại công ty */
+  /** Số phút thao tác online */
   minutes: number;
   /** Số công cuối cùng của ngày (đã tính cả chỉnh tay) */
   cong: number;
@@ -53,25 +53,21 @@ export class AttendanceService {
 
   /**
    * Nhận một lượt "tôi đang thao tác" từ trình duyệt của nhân viên. Giờ do server ghi.
-   * Đủ điều kiện (máy tính, ở công ty, đã bật định vị) thì đánh dấu phút hiện tại là có công.
+   * Đủ điều kiện (nhân viên, active trong 5 phút) thì đánh dấu phút hiện tại là có công.
    */
-  async heartbeat(actor: JwtPayload, dto: HeartbeatDto, userAgent: string | undefined) {
+  async heartbeat(actor: JwtPayload, dto: HeartbeatDto) {
     const config = await this.loadConfig();
     const verdict = evaluateBeat({
-      config,
       role: actor.role,
-      userAgent,
-      lat: dto.lat,
-      lng: dto.lng,
-      accuracy: dto.accuracy,
+      active: dto.active,
     });
     const { day, minuteOfDay } = vietnamClock();
 
     const minutes = verdict.counted
-      ? await this.markMinute(actor.sub, day, minuteOfDay, verdict.distanceM)
+      ? await this.markMinute(actor.sub, day, minuteOfDay)
       : await this.minutesOf(actor.sub, day);
 
-    return { ...this.statusOf(minutes, config), counted: verdict.counted, reason: verdict.reason, distanceM: verdict.distanceM };
+    return { ...this.statusOf(minutes, config), counted: verdict.counted, reason: verdict.reason };
   }
 
   /** Số phút và công hôm nay của chính người đăng nhập (cho chip trạng thái ở đầu trang) */
@@ -79,10 +75,22 @@ export class AttendanceService {
     const config = await this.loadConfig();
     const { day } = vietnamClock();
     const minutes = await this.minutesOf(actor.sub, day);
-    return {
-      ...this.statusOf(minutes, config),
-      configured: config.workplace.lat !== null && config.workplace.lng !== null,
-    };
+    return this.statusOf(minutes, config);
+  }
+
+  /** Số phút online hôm nay của một danh sách nhân viên */
+  async getTodayMinutesMap(userIds: number[]): Promise<Map<number, number>> {
+    if (userIds.length === 0) return new Map();
+    const { day } = vietnamClock();
+    const rows: Array<{ userId: number; minutes: string }> = await this.dataSource.query(
+      `SELECT "userId", length(replace("bits", '0', '')) AS "minutes" FROM "attendance_days" WHERE "userId" = ANY($1) AND "day" = $2`,
+      [userIds, day],
+    );
+    const map = new Map<number, number>();
+    for (const r of rows) {
+      map.set(Number(r.userId), Number(r.minutes));
+    }
+    return map;
   }
 
   /** Bảng chấm công cả tháng cho Admin: từng nhân viên, từng ngày, tổng công */
@@ -172,6 +180,7 @@ export class AttendanceService {
       minutesToday: minutes,
       congToday: congFromMinutes(minutes, config),
       fullMinutes: config.fullMinutes,
+      halfMinutes: config.halfMinutes,
     };
   }
 
@@ -184,17 +193,16 @@ export class AttendanceService {
   }
 
   /** Đánh dấu phút `minuteOfDay` của ngày đó là có công, trả về tổng số phút trong ngày */
-  private async markMinute(userId: number, day: string, minuteOfDay: number, distanceM: number | null): Promise<number> {
+  private async markMinute(userId: number, day: string, minuteOfDay: number): Promise<number> {
     const position = minuteOfDay + 1; // overlay đánh số vị trí từ 1
     const rows: Array<{ minutes: string }> = await this.dataSource.query(
-      `INSERT INTO "attendance_days" ("userId", "day", "bits", "firstAt", "lastAt", "lastDistanceM")
-       VALUES ($1, $2, overlay(repeat('0', 1440) placing '1' from $3::int for 1), now(), now(), $4)
+      `INSERT INTO "attendance_days" ("userId", "day", "bits", "firstAt", "lastAt")
+       VALUES ($1, $2, overlay(repeat('0', 1440) placing '1' from $3::int for 1), now(), now())
        ON CONFLICT ("userId", "day")
        DO UPDATE SET "bits" = overlay("attendance_days"."bits" placing '1' from $3::int for 1),
-                     "lastAt" = now(),
-                     "lastDistanceM" = $4
+                     "lastAt" = now()
        RETURNING length(replace("bits", '0', '')) AS "minutes"`,
-      [userId, day, position, distanceM],
+      [userId, day, position],
     );
     return Number(rows[0].minutes);
   }

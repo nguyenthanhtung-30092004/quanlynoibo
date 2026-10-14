@@ -53,11 +53,49 @@ export default function PayrollPage() {
   // Bản đang sửa tay (chưa lưu); đồng bộ lại từ server mỗi khi tải xong tháng mới hoặc vừa lưu
   const [config, setConfig] = useState<PayrollConfig | null>(null);
   const [entries, setEntries] = useState<Entries>({});
+  const [autoFilledIds, setAutoFilledIds] = useState<Set<number>>(new Set());
+
   useEffect(() => {
     if (!data) return;
     setConfig(data.config);
     setEntries(entriesOf(data));
-  }, [data]);
+    setAutoFilledIds(new Set());
+
+    // Tự động điền công từ chấm công cho nhân viên chưa có số công đã lưu (workDays === null)
+    let cancelled = false;
+    attendanceApi
+      .month(data.month)
+      .then((att) => {
+        if (cancelled) return;
+        const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
+        const newAuto = new Set<number>();
+        setEntries((prev) => {
+          const next = { ...prev };
+          let changed = false;
+          for (const s of data.staff) {
+            // Chỉ tự điền cho người chưa có số công đã lưu trong DB (workDays === null)
+            if (s.entry.workDays === null) {
+              const cong = congById.get(s.id);
+              if (typeof cong === 'number') {
+                next[s.id] = { ...(prev[s.id] ?? s.entry), workDays: Math.min(31, cong) };
+                newAuto.add(s.id);
+                changed = true;
+              }
+            }
+          }
+          return changed ? next : prev;
+        });
+        setAutoFilledIds(newAuto);
+      })
+      .catch(() => {
+        // Lỗi gọi chấm công không được chặn việc mở bảng lương: bỏ qua và hiện toast
+        showToast('Lưu ý: Không tự động lấy được số liệu chấm công cho tháng này.');
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [data, showToast]);
 
   const baseline = useMemo(
     () => (data ? JSON.stringify({ config: data.config, entries: entriesOf(data) }) : ''),
@@ -142,6 +180,11 @@ export default function PayrollPage() {
       const att = await attendanceApi.month(month);
       const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
       const targets = data.staff.filter((s) => (congById.get(s.id) ?? 0) > 0);
+      setAutoFilledIds((prev) => {
+        const next = new Set(prev);
+        for (const s of targets) next.add(s.id);
+        return next;
+      });
       setEntries((prev) => {
         const next = { ...prev };
         for (const s of targets) {
@@ -407,14 +450,25 @@ export default function PayrollPage() {
                             aria-label={`Số công của ${staff.fullName}`}
                             placeholder={String(std)}
                             value={entry.workDays ?? ''}
-                            onChange={(e) =>
+                            onChange={(e) => {
+                              setAutoFilledIds((prev) => {
+                                if (!prev.has(staff.id)) return prev;
+                                const next = new Set(prev);
+                                next.delete(staff.id);
+                                return next;
+                              });
                               patchEntry(staff.id, {
                                 workDays: e.target.value === '' ? null : Math.min(31, Math.max(0, Number(e.target.value))),
-                              })
-                            }
+                              });
+                            }}
                             className="input-3d tnum !h-9 !w-20 !py-1 !px-2 text-right text-sm"
                           />
                           <span className="block text-[11px] text-slate-400">/ {std} công</span>
+                          {autoFilledIds.has(staff.id) && (
+                            <span className="mt-0.5 inline-block rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                              từ chấm công{month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}
+                            </span>
+                          )}
                         </td>
                         <td className={`${TD} text-right`}>
                           <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.commission)}</span>

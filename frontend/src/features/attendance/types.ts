@@ -1,46 +1,29 @@
 export interface AttendanceConfig {
-  /** Số phút làm việc từ mức này trở lên được 1 công (420 = 7 tiếng) */
+  /** Số phút làm việc từ mức này trở lên được 1 công (mặc định 480 = 8 tiếng) */
   fullMinutes: number;
-  /** Từ mức này được nửa công; 0 = không tính nửa công */
+  /** Từ mức này được nửa công (mặc định 240 = 4 tiếng); 0 = không tính nửa công */
   halfMinutes: number;
-  /** Vị trí công ty; null = chưa cài, khi đó chưa ai được tính công */
-  workplace: { lat: number | null; lng: number | null };
-  /** Bán kính coi là đang ở công ty (mét) */
-  radiusM: number;
-  /** Sai số định vị tối đa chấp nhận được (mét) */
-  maxAccuracyM: number;
 }
 
-export type BeatReason =
-  | 'ok'
-  | 'not_staff'
-  | 'mobile'
-  | 'not_configured'
-  | 'no_location'
-  | 'low_accuracy'
-  | 'out_of_range';
+export type BeatReason = 'ok' | 'not_staff' | 'idle';
 
 export interface HeartbeatInput {
-  lat?: number;
-  lng?: number;
-  accuracy?: number;
+  active?: boolean;
 }
 
 export interface TodayStatus {
   minutesToday: number;
   congToday: number;
   fullMinutes: number;
+  halfMinutes?: number;
 }
 
 export interface HeartbeatResult extends TodayStatus {
   counted: boolean;
   reason: BeatReason;
-  distanceM: number | null;
 }
 
-export interface MyTodayStatus extends TodayStatus {
-  configured: boolean;
-}
+export interface MyTodayStatus extends TodayStatus {}
 
 export interface AttendanceDayCell {
   minutes: number;
@@ -74,4 +57,14 @@ export interface OverrideInput {
   /** null = bỏ chỉnh tay */
   cong: number | null;
   note?: string;
+}
+
+export interface OnlineUser {
+  userId: number;
+  fullName: string;
+  role: string;
+  connections: number;
+  onlineSince: string;
+  lastSeenAt: string;
+  todayMinutes: number;
 }

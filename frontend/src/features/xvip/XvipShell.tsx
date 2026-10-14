@@ -23,6 +23,7 @@ import { cn } from '@/lib/cn';
 import { useCurrentUser, useLogout } from '@/features/auth/hooks';
 import { useSettings } from '@/features/settings/hooks';
 import { AttendanceChip } from '@/features/attendance/AttendanceChip';
+import { useOnlineUsers } from '@/features/attendance/hooks';
 import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
@@ -64,6 +65,24 @@ function initialsOf(fullName: string) {
 function StaffAttendance() {
   const { data: me } = useCurrentUser();
   return me?.role === 'STAFF' ? <AttendanceChip /> : null;
+}
+
+/** Huy hiệu báo số người đang online dành riêng cho Admin */
+function AdminOnlineIndicator() {
+  const { data: me } = useCurrentUser();
+  const { data: onlineUsers } = useOnlineUsers(me?.role === 'ADMIN');
+  if (me?.role !== 'ADMIN') return null;
+  const count = onlineUsers?.length ?? 0;
+  return (
+    <Link
+      href="/xvip/cham-cong"
+      title={`Có ${count} tài khoản đang online (bấm để xem chi tiết ở Chấm công)`}
+      className="hidden items-center gap-1.5 rounded-lg border border-emerald-300 bg-emerald-50 px-2.5 py-1 text-xs font-bold text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300 sm:inline-flex"
+    >
+      <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+      <span>{count} online</span>
+    </Link>
+  );
 }
 
 /** Khối người dùng ở header: bấm để mở menu có nút Đăng xuất */
@@ -269,6 +288,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
 
               <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
                 <StaffAttendance />
+                <AdminOnlineIndicator />
                 <NotificationBell />
                 <UserMenu />
               </div>

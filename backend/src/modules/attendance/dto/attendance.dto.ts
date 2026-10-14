@@ -1,27 +1,13 @@
-import { IsInt, IsNumber, IsObject, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsBoolean, IsInt, IsNumber, IsObject, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 
-/** Mỗi lượt báo "tôi đang thao tác" kèm vị trí hiện tại của trình duyệt */
+/** Mỗi lượt báo "tôi đang online / thao tác" */
 export class HeartbeatDto {
   @IsOptional()
-  @IsNumber({}, { message: 'Vĩ độ không hợp lệ' })
-  @Min(-90)
-  @Max(90)
-  lat?: number;
-
-  @IsOptional()
-  @IsNumber({}, { message: 'Kinh độ không hợp lệ' })
-  @Min(-180)
-  @Max(180)
-  lng?: number;
-
-  /** Sai số định vị (mét) do trình duyệt báo */
-  @IsOptional()
-  @IsNumber({}, { message: 'Sai số định vị không hợp lệ' })
-  @Min(0)
-  accuracy?: number;
+  @IsBoolean({ message: 'Trạng thái hoạt động không hợp lệ' })
+  active?: boolean;
 }
 
 export class AttendanceMonthQueryDto {

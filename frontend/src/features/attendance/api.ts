@@ -5,6 +5,7 @@ import type {
   HeartbeatInput,
   HeartbeatResult,
   MyTodayStatus,
+  OnlineUser,
   OverrideInput,
 } from './types';
 
@@ -23,4 +24,7 @@ export const attendanceApi = {
 
   override: (input: OverrideInput) =>
     api<ApiResponse<{ ok: boolean }>>('attendance/override', { method: 'PUT', body: input }).then((r) => r.data),
+
+  onlineUsers: (signal?: AbortSignal) =>
+    api<ApiResponse<OnlineUser[]>>('realtime/online', { signal }).then((r) => r.data),
 };

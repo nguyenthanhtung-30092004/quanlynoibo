@@ -1,48 +1,55 @@
 'use client';
 
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { CaretLeft, CaretRight, CrosshairSimple, FloppyDisk, MapPin } from '@phosphor-icons/react';
+import { useEffect, useMemo, useState } from 'react';
+import { CaretLeft, CaretRight, FloppyDisk, UserCheck, Users } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
-import { useAttendanceMonth, useSaveAttendanceConfig, useSetAttendanceOverride } from '@/features/attendance/hooks';
+import {
+  useAttendanceMonth,
+  useOnlineUsers,
+  useSaveAttendanceConfig,
+  useSetAttendanceOverride,
+} from '@/features/attendance/hooks';
 import type { AttendanceConfig, AttendanceStaff } from '@/features/attendance/types';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 
-const hm = (minutes: number) => `${Math.floor(minutes / 60)}g${String(minutes % 60).padStart(2, '0')}`;
+const hm = (minutes: number) => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h}g` : `${h}g${String(m).padStart(2, '0')}`;
+};
+
 const congText = (n: number) => (n === 0.5 ? '½' : String(n));
 const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 
+const formatTime = (isoString: string) => {
+  try {
+    const d = new Date(isoString);
+    return new Intl.DateTimeFormat('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(d);
+  } catch {
+    return '—';
+  }
+};
+
 interface ConfigDraft {
-  lat: string;
-  lng: string;
-  radiusM: number;
-  maxAccuracyM: number;
   fullMinutes: number;
   halfMinutes: number;
 }
 
 const toDraft = (c: AttendanceConfig): ConfigDraft => ({
-  lat: c.workplace.lat === null ? '' : String(c.workplace.lat),
-  lng: c.workplace.lng === null ? '' : String(c.workplace.lng),
-  radiusM: c.radiusM,
-  maxAccuracyM: c.maxAccuracyM,
   fullMinutes: c.fullMinutes,
   halfMinutes: c.halfMinutes,
 });
 
-/** Chuỗi nhập tay → số toạ độ; rỗng = chưa cài; sai khoảng = lỗi */
-function parseCoord(text: string, min: number, max: number): number | null | 'invalid' {
-  const s = text.trim().replace(',', '.');
-  if (s === '') return null;
-  const n = Number(s);
-  return Number.isFinite(n) && n >= min && n <= max ? n : 'invalid';
-}
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block min-w-0">
       <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">{label}</span>
@@ -56,10 +63,11 @@ export default function AttendancePage() {
   const showToast = useToast();
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useAttendanceMonth(month);
+  const { data: onlineUsers } = useOnlineUsers();
   const saveConfig = useSaveAttendanceConfig();
   const setOverride = useSetAttendanceOverride();
 
-  // Bản cấu hình đang sửa; chỉ đồng bộ lại khi cấu hình trên server thật sự đổi (đổi tháng không làm mất phần đang sửa)
+  // Bản cấu hình đang sửa; chỉ đồng bộ lại khi cấu hình trên server thật sự đổi
   const [draft, setDraft] = useState<ConfigDraft | null>(null);
   const configKey = data ? JSON.stringify(data.config) : '';
   useEffect(() => {
@@ -68,56 +76,13 @@ export default function AttendancePage() {
   }, [configKey]);
 
   const draftDirty = !!data && !!draft && JSON.stringify(draft) !== JSON.stringify(toDraft(data.config));
-  const configured = !!data && data.config.workplace.lat !== null && data.config.workplace.lng !== null;
-
-  const [locating, setLocating] = useState(false);
-  const [locateInfo, setLocateInfo] = useState('');
-
-  const useMyLocation = () => {
-    if (!('geolocation' in navigator)) {
-      showToast('Lỗi: Trình duyệt này không hỗ trợ định vị.');
-      return;
-    }
-    setLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setDraft((d) =>
-          d ? { ...d, lat: pos.coords.latitude.toFixed(6), lng: pos.coords.longitude.toFixed(6) } : d,
-        );
-        setLocateInfo(`Đã lấy vị trí của bạn (sai số khoảng ${Math.round(pos.coords.accuracy)} mét). Bấm Lưu để áp dụng.`);
-        setLocating(false);
-      },
-      (err) => {
-        showToast(
-          err.code === err.PERMISSION_DENIED
-            ? 'Lỗi: Trình duyệt đang chặn vị trí. Hãy cho phép Vị trí cho trang này rồi thử lại.'
-            : 'Lỗi: Không lấy được vị trí, thử lại sau.',
-        );
-        setLocating(false);
-      },
-      { enableHighAccuracy: true, timeout: 20_000 },
-    );
-  };
 
   const save = async () => {
     if (!draft) return;
-    const lat = parseCoord(draft.lat, -90, 90);
-    const lng = parseCoord(draft.lng, -180, 180);
-    if (lat === 'invalid' || lng === 'invalid') {
-      showToast('Lỗi: Vĩ độ phải từ -90 đến 90 và kinh độ từ -180 đến 180.');
-      return;
-    }
-    if ((lat === null) !== (lng === null)) {
-      showToast('Lỗi: Cần nhập đủ cả vĩ độ và kinh độ (hoặc để trống cả hai).');
-      return;
-    }
     try {
       await saveConfig.mutateAsync({
         fullMinutes: draft.fullMinutes,
         halfMinutes: draft.halfMinutes,
-        workplace: { lat, lng },
-        radiusM: draft.radiusM,
-        maxAccuracyM: draft.maxAccuracyM,
       });
       showToast('Đã lưu cấu hình chấm công.');
     } catch (err) {
@@ -212,107 +177,102 @@ export default function AttendancePage() {
         </Card>
       )}
 
-      {data && !configured && (
-        <div className="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-200">
-          Chưa cài vị trí công ty nên hiện <b>chưa ai được tính công</b>. Hãy cài vị trí ở khung bên dưới.
-        </div>
-      )}
+      {/* Khối tài khoản đang online */}
+      <Card
+        className="mb-5"
+        title={`Đang online (${onlineUsers?.length ?? 0})`}
+        action={
+          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Trực tiếp (SSE)</span>
+          </div>
+        }
+      >
+        {!onlineUsers || onlineUsers.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Hiện chưa có tài khoản nào đang online.</p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {onlineUsers.map((u) => (
+              <div
+                key={u.userId}
+                className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative">
+                    <Avatar name={u.fullName} />
+                    <span className="absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
+                      {u.fullName}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-500 dark:text-slate-400">
+                      <span className="font-semibold">{u.role === 'ADMIN' ? 'Quản trị' : 'Nhân viên'}</span>
+                      <span>·</span>
+                      <span>Vào lúc {formatTime(u.onlineSince)}</span>
+                      {u.connections > 1 && (
+                        <span className="rounded bg-slate-200 px-1 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                          {u.connections} tab
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs font-black text-blue-600 dark:text-blue-400">
+                    {hm(u.todayMinutes)}
+                  </div>
+                  <div className="text-[10px] font-medium text-slate-400">online hôm nay</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
 
-      {/* Quy tắc + vị trí công ty */}
-      <Card title="Quy tắc và vị trí công ty">
+      {/* Quy tắc chấm công */}
+      <Card title="Quy tắc tính công theo giờ online">
         {draft ? (
-          <div className="space-y-5">
+          <div className="space-y-4">
             <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-300">
-              Nhân viên dùng <b>máy tính</b>, <b>có thao tác</b> chuột hoặc bàn phím (trong 3 phút gần nhất) và đang ở trong
-              bán kính công ty thì mỗi phút đó được tính. Cuối ngày đủ số phút bên dưới thì được 1 công. Điện thoại và máy
-              tính bảng không tính.
+              Hệ thống tự động tính công theo thời gian nhân viên đăng nhập và thao tác trong ngày (chuột, bàn phím, chuyển tab
+              trong 5 phút gần nhất). Không bắt buộc định vị, dùng máy tính hay điện thoại đều được tính.
             </p>
 
-            <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-                <h3 className="flex items-center gap-1.5 text-sm font-black text-slate-900 dark:text-white">
-                  <MapPin size={16} weight="fill" className="text-blue-600" /> Vị trí công ty
-                </h3>
-                <button
-                  type="button"
-                  onClick={useMyLocation}
-                  disabled={locating}
-                  className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-1.5 text-xs disabled:opacity-50"
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
+                <Field
+                  label="Số phút để được 1 công"
+                  hint={`Hiện tại: ${draft.fullMinutes} phút = ${(draft.fullMinutes / 60).toFixed(1).replace('.0', '')} giờ`}
                 >
-                  <CrosshairSimple size={14} weight="bold" />
-                  {locating ? 'Đang lấy vị trí...' : 'Lấy vị trí hiện tại của tôi'}
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="Vĩ độ (lat)">
-                  <input
-                    className="input-3d !h-10 tnum"
-                    inputMode="decimal"
-                    placeholder="VD: 21.028511"
-                    value={draft.lat}
-                    onChange={(e) => setDraft({ ...draft, lat: e.target.value })}
-                  />
-                </Field>
-                <Field label="Kinh độ (lng)">
-                  <input
-                    className="input-3d !h-10 tnum"
-                    inputMode="decimal"
-                    placeholder="VD: 105.804817"
-                    value={draft.lng}
-                    onChange={(e) => setDraft({ ...draft, lng: e.target.value })}
-                  />
-                </Field>
-                <Field label="Bán kính cho phép (mét)" hint="Cách công ty không quá mức này mới tính.">
                   <MoneyInput
                     className="!h-10"
-                    ariaLabel="Bán kính cho phép"
-                    value={draft.radiusM}
-                    onChange={(radiusM) => setDraft({ ...draft, radiusM })}
+                    ariaLabel="Số phút để được 1 công"
+                    value={draft.fullMinutes}
+                    onChange={(fullMinutes) => setDraft({ ...draft, fullMinutes: Math.min(1440, fullMinutes) })}
                   />
                 </Field>
-                <Field label="Sai số định vị tối đa (mét)" hint="Định vị thô hơn mức này thì không tin.">
-                  <MoneyInput
-                    className="!h-10"
-                    ariaLabel="Sai số định vị tối đa"
-                    value={draft.maxAccuracyM}
-                    onChange={(maxAccuracyM) => setDraft({ ...draft, maxAccuracyM })}
-                  />
-                </Field>
+                <div className="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  👉 Đủ {(draft.fullMinutes / 60).toFixed(1).replace('.0', '')} giờ = 1 công
+                </div>
               </div>
-              {locateInfo && <p className="mt-2 text-xs font-semibold text-emerald-700 dark:text-emerald-400">{locateInfo}</p>}
-              {draft.lat && draft.lng && parseCoord(draft.lat, -90, 90) !== 'invalid' && parseCoord(draft.lng, -180, 180) !== 'invalid' && (
-                <a
-                  href={`https://www.google.com/maps?q=${draft.lat.trim().replace(',', '.')},${draft.lng.trim().replace(',', '.')}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-2 inline-block text-xs font-bold text-blue-600 hover:underline dark:text-blue-400"
-                >
-                  Xem vị trí này trên bản đồ
-                </a>
-              )}
-              <p className="mt-2 text-[11px] leading-snug text-slate-400">
-                Mẹo: ngồi tại công ty, dùng máy tính có Wi-Fi rồi bấm &ldquo;Lấy vị trí hiện tại của tôi&rdquo;. Định vị trên máy
-                tính dựa vào Wi-Fi và mạng nên thường lệch vài chục đến vài trăm mét, đừng đặt bán kính quá nhỏ.
-              </p>
-            </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Số phút để được 1 công" hint={`${hm(draft.fullMinutes)} (420 phút = 7 tiếng)`}>
-                <MoneyInput
-                  className="!h-10"
-                  ariaLabel="Số phút để được 1 công"
-                  value={draft.fullMinutes}
-                  onChange={(fullMinutes) => setDraft({ ...draft, fullMinutes: Math.min(1440, fullMinutes) })}
-                />
-              </Field>
-              <Field label="Số phút để được nửa công" hint="Để trống / 0 nếu không tính nửa công.">
-                <MoneyInput
-                  className="!h-10"
-                  ariaLabel="Số phút để được nửa công"
-                  value={draft.halfMinutes}
-                  onChange={(halfMinutes) => setDraft({ ...draft, halfMinutes: Math.min(1440, halfMinutes) })}
-                />
-              </Field>
+              <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
+                <Field
+                  label="Số phút để được nửa công (0,5 công)"
+                  hint={`Hiện tại: ${draft.halfMinutes} phút = ${(draft.halfMinutes / 60).toFixed(1).replace('.0', '')} giờ (đặt 0 nếu tắt)`}
+                >
+                  <MoneyInput
+                    className="!h-10"
+                    ariaLabel="Số phút để được nửa công"
+                    value={draft.halfMinutes}
+                    onChange={(halfMinutes) => setDraft({ ...draft, halfMinutes: Math.min(1440, halfMinutes) })}
+                  />
+                </Field>
+                <div className="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                  👉 Đủ {(draft.halfMinutes / 60).toFixed(1).replace('.0', '')} giờ = 0,5 công
+                </div>
+              </div>
             </div>
 
             <button
@@ -336,7 +296,7 @@ export default function AttendancePage() {
         title={`Bảng chấm công ${monthLabel(month).toLowerCase()}`}
         action={
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Bấm vào một ô để xem giờ làm hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay
+            Bấm vào một ô để xem giờ online hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay
           </span>
         }
       >
@@ -400,7 +360,7 @@ export default function AttendancePage() {
                             ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
                             : 'text-slate-300 dark:text-slate-600';
                       const title = cell
-                        ? `${s.fullName} · ${String(d.d).padStart(2, '0')}/${data.month.slice(5)}\n${hm(cell.minutes)} có thao tác tại công ty → tự tính ${cell.autoCong} công${
+                        ? `${s.fullName} · ${String(d.d).padStart(2, '0')}/${data.month.slice(5)}\n${hm(cell.minutes)} online có thao tác → tự tính ${cell.autoCong} công${
                             cell.overridden ? `\nĐã chỉnh tay: ${cell.cong} công${cell.note ? ` (${cell.note})` : ''}` : ''
                           }`
                         : `${s.fullName} · ${String(d.d).padStart(2, '0')}/${data.month.slice(5)}\nChưa có dữ liệu`;
@@ -429,7 +389,7 @@ export default function AttendancePage() {
           </table>
         </div>
         <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          Số công này điền thẳng vào Bảng lương được bằng nút &ldquo;Điền công từ chấm công&rdquo; ở trang Bảng lương.
+          Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương (hoặc có thể bấm nút &ldquo;Điền công từ chấm công&rdquo; để điền lại thủ công).
         </p>
       </Card>
 
@@ -442,7 +402,7 @@ export default function AttendancePage() {
             <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-800/50">
               {editingCell ? (
                 <>
-                  Có thao tác tại công ty <b className="tnum">{hm(editingCell.minutes)}</b> → hệ thống tự tính{' '}
+                  Online có thao tác <b className="tnum">{hm(editingCell.minutes)}</b> → hệ thống tự tính{' '}
                   <b>{congText(editingCell.autoCong)} công</b>.
                 </>
               ) : (

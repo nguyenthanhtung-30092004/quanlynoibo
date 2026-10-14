@@ -34,3 +34,12 @@ export function useSetAttendanceOverride() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance', 'month'] }),
   });
 }
+
+export function useOnlineUsers(enabled = true) {
+  return useQuery({
+    queryKey: ['online-users'],
+    queryFn: ({ signal }) => attendanceApi.onlineUsers(signal),
+    enabled,
+    refetchOnWindowFocus: true,
+  });
+}

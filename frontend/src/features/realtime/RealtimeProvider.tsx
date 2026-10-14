@@ -10,6 +10,7 @@ const TOPIC_KEYS: Record<string, QueryKey[]> = {
   routes: [['routes']],
   carriers: [['carriers']],
   users: [['users']],
+  presence: [['online-users']],
 };
 
 /** Gom các sự kiện dồn dập (vd. nhập nhiều vé liền) thành một lần tải lại */

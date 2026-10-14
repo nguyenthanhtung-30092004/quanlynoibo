@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, HttpStatus, Post, Put, Query } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Post, Put, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
@@ -17,17 +17,16 @@ import {
 export class AttendanceController {
   constructor(private readonly attendanceService: AttendanceService) {}
 
-  /** Nhân viên báo "đang thao tác" kèm vị trí; mọi người dùng đăng nhập gọi được, server tự quyết có tính công không */
+  /** Nhân viên báo "đang online / thao tác"; mọi người dùng đăng nhập gọi được, server tự quyết có tính công không */
   @Post('heartbeat')
   async heartbeat(
     @Body() dto: HeartbeatDto,
     @CurrentUser() user: JwtPayload,
-    @Headers('user-agent') userAgent?: string,
   ) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Đã ghi nhận',
-      data: await this.attendanceService.heartbeat(user, dto, userAgent),
+      data: await this.attendanceService.heartbeat(user, dto),
     };
   }
 
