@@ -87,6 +87,24 @@ export interface OrderFilters {
   departureFrom?: string | null;
   departureTo?: string | null;
   page: number;
+
+  /** Bộ lọc cột kiểu Excel */
+  staffIds?: number[];
+  customerNames?: string[];
+  phones?: string[];
+  departureTimes?: string[];
+  smsStatus?: 'sent' | 'unsent';
+  sellPriceMin?: number;
+  sellPriceMax?: number;
+  commissionMin?: number;
+  commissionMax?: number;
+  orderCode?: string;
+}
+
+export interface ColumnValueOption {
+  value: string;
+  label: string;
+  count: number;
 }
 
 export interface CreateOrderInput {

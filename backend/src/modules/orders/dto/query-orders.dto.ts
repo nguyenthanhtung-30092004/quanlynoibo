@@ -89,6 +89,87 @@ export class OrderFilterDto {
   @IsOptional()
   @Matches(DATE_RE, { message: 'departureTo phải có dạng YYYY-MM-DD' })
   departureTo?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều tên khách hàng, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  customerNames?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều số điện thoại, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(100, { each: true })
+  phones?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều nhân viên (chỉ có tác dụng với Admin), cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').filter(Boolean).map(Number) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  staffIds?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều giờ khởi hành HH:mm, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { each: true, message: 'departureTimes phải có định dạng HH:mm' })
+  departureTimes?: string[];
+
+  @ApiPropertyOptional({ enum: ['sent', 'unsent'], description: 'Trạng thái tin nhắn đã gửi hoặc chưa gửi' })
+  @IsOptional()
+  @Matches(/^(sent|unsent)$/, { message: 'smsStatus phải là "sent" hoặc "unsent"' })
+  smsStatus?: 'sent' | 'unsent';
+
+  @ApiPropertyOptional({ description: 'Giá bán tối thiểu (số nguyên không âm)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sellPriceMin?: number;
+
+  @ApiPropertyOptional({ description: 'Giá bán tối đa (số nguyên không âm)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  sellPriceMax?: number;
+
+  @ApiPropertyOptional({ description: 'Hoa hồng tối thiểu (số nguyên không âm)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  commissionMin?: number;
+
+  @ApiPropertyOptional({ description: 'Hoa hồng tối đa (số nguyên không âm)' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  commissionMax?: number;
+
+  @ApiPropertyOptional({ description: 'Mã đơn (XV116 hoặc 116)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  orderCode?: string;
 }
 
 export class QueryOrdersDto extends OrderFilterDto {
@@ -172,4 +253,21 @@ export class KpiQueryDto {
   @IsOptional()
   @Matches(DATE_RE, { message: 'departureTo phải có dạng YYYY-MM-DD' })
   departureTo?: string;
+}
+
+export class ColumnValuesQueryDto extends OrderFilterDto {
+  @ApiPropertyOptional({
+    enum: ['customer', 'phone', 'staff', 'route', 'partner', 'departureTime'],
+    description: 'Cột cần lấy danh sách giá trị',
+  })
+  @Matches(/^(customer|phone|staff|route|partner|departureTime)$/, {
+    message: 'column phải là customer, phone, staff, route, partner hoặc departureTime',
+  })
+  column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime';
+
+  @ApiPropertyOptional({ description: 'Từ khóa tìm kiếm trong giá trị' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  q?: string;
 }

@@ -26,6 +26,7 @@ import { UserRole } from '../users/entities/user.entity.js';
 import { CancelOrderDto } from './dto/cancel-order.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import {
+  ColumnValuesQueryDto,
   KpiQueryDto,
   OrderFilterDto,
   QueryOrdersDto,
@@ -90,6 +91,20 @@ export class OrdersController {
       statusCode: HttpStatus.OK,
       message: 'Lấy tùy chọn bộ lọc thành công',
       data: await this.ordersService.kpiFilterOptions(query, user),
+    };
+  }
+
+  /** Lấy danh sách giá trị kèm số đơn cho bộ lọc cột kiểu Excel */
+  @Get('column-values')
+  async columnValues(
+    @Query() query: ColumnValuesQueryDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    const { column, q, ...filter } = query;
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy danh sách giá trị cột thành công',
+      data: await this.ordersService.columnValues(column, q, filter, user),
     };
   }
 

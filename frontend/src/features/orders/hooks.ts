@@ -158,3 +158,17 @@ export function useExportOrders() {
     },
   });
 }
+
+export function useColumnValues(
+  column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+  filters: OrderFilters,
+  q?: string,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [...ORDERS_KEY, 'column-values', column, filters, q],
+    queryFn: ({ signal }) => ordersApi.columnValues(column, filters, q, signal),
+    enabled,
+    placeholderData: keepPreviousData,
+  });
+}

@@ -1153,6 +1153,160 @@ export class OrdersService {
     return Buffer.from(await workbook.xlsx.writeBuffer());
   }
 
+  /**
+   * Lấy danh sách giá trị kèm số lượng đơn cho bộ lọc cột kiểu Excel.
+   * Dùng cùng buildListQuery với các điều kiện của các cột khác để phản ánh tập dữ liệu hiện hành.
+   */
+  async columnValues(
+    column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+    q: string | undefined,
+    filter: OrderFilterDto,
+    actor: JwtPayload,
+  ): Promise<Array<{ value: string; label: string; count: number }>> {
+    // buildListQuery tôn trọng quyền: nhân viên chỉ thấy vé của mình trừ khi có tìm kiếm tổng
+    const qb = this.buildListQuery(filter, actor);
+
+    // Không lấy các bản ghi đã hủy nếu activeOnly đang bật (đã có trong buildListQuery)
+    const keyword = q?.trim() ? q.trim().toLowerCase() : undefined;
+
+    switch (column) {
+      case 'customer': {
+        // customerName có thể null hoặc rỗng -> Khách lẻ
+        qb.select(
+          `COALESCE(NULLIF(TRIM(order.customerName), ''), 'Khách lẻ')`,
+          'val',
+        )
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy(`COALESCE(NULLIF(TRIM(order.customerName), ''), 'Khách lẻ')`);
+
+        if (keyword) {
+          qb.andWhere(
+            `LOWER(COALESCE(NULLIF(TRIM(order.customerName), ''), 'Khách lẻ')) LIKE :valQ`,
+            { valQ: `%${this.escapeLike(keyword)}%` },
+          );
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('val', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: r.val,
+          label: r.val,
+          count: Number(r.cnt),
+        }));
+      }
+
+      case 'phone': {
+        qb.select('order.phone', 'val')
+          .addSelect('COUNT(*)', 'cnt')
+          .andWhere("order.phone IS NOT NULL AND order.phone != ''")
+          .groupBy('order.phone');
+
+        if (keyword) {
+          qb.andWhere('order.phone LIKE :valQ', {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('val', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: r.val,
+          label: r.val,
+          count: Number(r.cnt),
+        }));
+      }
+
+      case 'staff': {
+        qb.select('staff.id', 'valId')
+          .addSelect('staff.fullName', 'valLabel')
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy('staff.id')
+          .addGroupBy('staff.fullName');
+
+        if (keyword) {
+          qb.andWhere('LOWER(staff.fullName) LIKE :valQ', {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('valLabel', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ valId: number; valLabel: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: String(r.valId),
+          label: r.valLabel || 'NV',
+          count: Number(r.cnt),
+        }));
+      }
+
+      case 'route': {
+        qb.select('route.id', 'valId')
+          .addSelect('route.name', 'valLabel')
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy('route.id')
+          .addGroupBy('route.name');
+
+        if (keyword) {
+          qb.andWhere('LOWER(route.name) LIKE :valQ', {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('valLabel', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ valId: number; valLabel: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: String(r.valId),
+          label: r.valLabel || 'Tuyến',
+          count: Number(r.cnt),
+        }));
+      }
+
+      case 'partner': {
+        qb.select(`COALESCE(NULLIF(TRIM(order.partner), ''), 'XVIP')`, 'val')
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy(`COALESCE(NULLIF(TRIM(order.partner), ''), 'XVIP')`);
+
+        if (keyword) {
+          qb.andWhere(
+            `LOWER(COALESCE(NULLIF(TRIM(order.partner), ''), 'XVIP')) LIKE :valQ`,
+            { valQ: `%${this.escapeLike(keyword)}%` },
+          );
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('val', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: r.val,
+          label: r.val,
+          count: Number(r.cnt),
+        }));
+      }
+
+      case 'departureTime': {
+        qb.select('order.departureTime', 'val')
+          .addSelect('COUNT(*)', 'cnt')
+          .andWhere("order.departureTime IS NOT NULL AND order.departureTime != ''")
+          .groupBy('order.departureTime');
+
+        if (keyword) {
+          qb.andWhere('order.departureTime LIKE :valQ', {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('val', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => ({
+          value: r.val,
+          label: r.val,
+          count: Number(r.cnt),
+        }));
+      }
+
+      default:
+        return [];
+    }
+  }
+
   // ---------------------------------------------------------------- helpers
 
   private async assertRouteUsable(routeId: number) {
@@ -1207,6 +1361,9 @@ export class OrdersService {
       if (filter.staffId !== undefined) {
         qb.andWhere('order.createdById = :staffId', { staffId: filter.staffId });
       }
+      if (filter.staffIds?.length) {
+        qb.andWhere('order.createdById IN (:...staffIds)', { staffIds: filter.staffIds });
+      }
     } else if (!filter.search?.trim()) {
       // Quyền truy cập do server quyết định, bỏ qua staffId client gửi lên.
       // Khi tìm kiếm thì nhân viên được xem vé phù hợp của cả nhân viên khác.
@@ -1241,6 +1398,70 @@ export class OrdersService {
       qb.andWhere('LOWER(order.partner) IN (:...partners)', {
         partners: filter.partners.map((p) => p.toLowerCase()),
       });
+    }
+
+    // Bộ lọc cột Excel
+    if (filter.customerNames?.length) {
+      const lowerNames = filter.customerNames.map((n) => n.toLowerCase());
+      const hasRetail = lowerNames.includes('khách lẻ');
+      const realNames = lowerNames.filter((n) => n !== 'khách lẻ');
+
+      if (hasRetail && realNames.length > 0) {
+        qb.andWhere(
+          '(LOWER(order.customerName) IN (:...realNames) OR order.customerName IS NULL OR order.customerName = \'\')',
+          { realNames },
+        );
+      } else if (hasRetail) {
+        qb.andWhere('(order.customerName IS NULL OR order.customerName = \'\')');
+      } else {
+        qb.andWhere('LOWER(order.customerName) IN (:...customerNames)', {
+          customerNames: realNames,
+        });
+      }
+    }
+
+    if (filter.phones?.length) {
+      qb.andWhere('order.phone IN (:...phones)', { phones: filter.phones });
+    }
+
+    if (filter.departureTimes?.length) {
+      qb.andWhere('order.departureTime IN (:...departureTimes)', {
+        departureTimes: filter.departureTimes,
+      });
+    }
+
+    if (filter.smsStatus) {
+      if (filter.smsStatus === 'sent') {
+        qb.andWhere('order.smsSent = true');
+      } else if (filter.smsStatus === 'unsent') {
+        qb.andWhere('(order.smsSent = false OR order.smsSent IS NULL)');
+      }
+    }
+
+    if (filter.sellPriceMin !== undefined) {
+      qb.andWhere('order.sellPrice >= :sellPriceMin', { sellPriceMin: filter.sellPriceMin });
+    }
+    if (filter.sellPriceMax !== undefined) {
+      qb.andWhere('order.sellPrice <= :sellPriceMax', { sellPriceMax: filter.sellPriceMax });
+    }
+
+    if (filter.commissionMin !== undefined) {
+      qb.andWhere('order.commission >= :commissionMin', { commissionMin: filter.commissionMin });
+    }
+    if (filter.commissionMax !== undefined) {
+      qb.andWhere('order.commission <= :commissionMax', { commissionMax: filter.commissionMax });
+    }
+
+    if (filter.orderCode?.trim()) {
+      const code = filter.orderCode.trim();
+      const match = /^xv\s*(\d{1,9})$/i.exec(code);
+      const orderId = match ? Number(match[1]) : /^\d+$/.test(code) ? Number(code) : null;
+      if (orderId !== null) {
+        qb.andWhere('order.id = :orderCodeId', { orderCodeId: orderId });
+      } else {
+        // Gõ mã không đúng dạng số hoặc XV thì không khớp đơn nào
+        qb.andWhere('1 = 0');
+      }
     }
     if (filter.search?.trim()) {
       const keyword = filter.search.trim();

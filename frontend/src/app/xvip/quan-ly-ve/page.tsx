@@ -19,6 +19,7 @@ import {
   Copy,
   Repeat,
   Trash,
+  X,
   XCircle,
   WarningCircle,
   Ticket as TicketIcon,
@@ -32,6 +33,7 @@ import {
   useCancelOrder,
   useImportOrders,
   useUnlistedPartners,
+  useColumnValues,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -47,8 +49,23 @@ import {
   type OrderFilters,
 } from '@/features/orders/types';
 import { useToast } from '@/features/xvip/toast';
-import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { Card, NUM, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
+import {
+  ColumnFilterPopover,
+  CheckListFilter,
+  NumberRangeFilter,
+  TextInputFilter,
+} from '@/features/xvip/ColumnFilter';
+
+const TH_CELL = 'whitespace-nowrap bg-slate-100/90 dark:bg-slate-800/90 px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wider text-slate-700 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700';
+const TD_CELL = 'border-t border-slate-200 dark:border-slate-700 px-3 py-2 text-sm text-slate-800 dark:text-slate-200 align-middle';
+
+const TH_STICKY_LEFT = `${TH_CELL} sticky left-0 z-20 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+const TD_STICKY_LEFT = `${TD_CELL} sticky left-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+
+const TH_STICKY_RIGHT = `${TH_CELL} sticky right-0 z-20 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
+const TD_STICKY_RIGHT = `${TD_CELL} sticky right-0 z-10 bg-white dark:bg-slate-900 group-hover:bg-blue-50/90 dark:group-hover:bg-slate-800 shadow-[-2px_0_5px_-2px_rgba(0,0,0,0.1)]`;
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '@/features/orders/parse-order-text';
@@ -302,6 +319,315 @@ interface FormErrors {
   partner?: string;
   vehicleType?: string;
   seats?: string;
+}
+
+/** Hook hỗ trợ debounce từ khóa tìm kiếm */
+function useDebounce<T>(value: T, delayMs = 300): T {
+  const [debounced, setDebounced] = useState<T>(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delayMs);
+    return () => clearTimeout(timer);
+  }, [value, delayMs]);
+  return debounced;
+}
+
+/** Bộ lọc Giờ xe */
+function DepartureTimeFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: string[];
+  onApply: (times: string[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, departureTimes: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'departureTime',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<string>
+      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm giờ xe..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+/** Bộ lọc Nhà xe / Đối tác */
+function PartnerFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: string[];
+  onApply: (partners: string[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, partner: undefined, partners: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'partner',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<string>
+      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm nhà xe..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+/** Bộ lọc Tuyến đường */
+function RouteFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: number[];
+  onApply: (routeIds: number[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, routeId: 'all', routeIds: [] }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'route',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<number>
+      items={options.map((o) => ({ value: Number(o.value), label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm tuyến đường..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+/** Bộ lọc Khách hàng (hiện cả Tên · SĐT hoặc Tên & SĐT riêng) */
+function CustomerFilterInner({
+  filters,
+  selectedNames,
+  selectedPhones,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selectedNames: string[];
+  selectedPhones: string[];
+  onApply: (data: { names: string[]; phones: string[] }) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [tab, setTab] = useState<'name' | 'phone'>('name');
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, customerNames: undefined, phones: undefined }),
+    [filters],
+  );
+
+  const { data: nameOptions = [], isLoading: loadingNames } = useColumnValues(
+    'customer',
+    columnFilterBase,
+    tab === 'name' ? debouncedSearch : undefined,
+  );
+
+  const { data: phoneOptions = [], isLoading: loadingPhones } = useColumnValues(
+    'phone',
+    columnFilterBase,
+    tab === 'phone' ? debouncedSearch : undefined,
+  );
+
+  const [localNames, setLocalNames] = useState<string[]>(selectedNames);
+  const [localPhones, setLocalPhones] = useState<string[]>(selectedPhones);
+
+  useEffect(() => {
+    setLocalNames(selectedNames);
+    setLocalPhones(selectedPhones);
+  }, [selectedNames, selectedPhones]);
+
+  return (
+    <div className="space-y-2.5">
+      <div className="flex rounded border border-slate-200 dark:border-slate-700 p-0.5 text-xs font-semibold">
+        <button
+          type="button"
+          onClick={() => {
+            setTab('name');
+            setSearch('');
+          }}
+          className={`flex-1 py-1 rounded transition-colors ${
+            tab === 'name'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+          }`}
+        >
+          Tên khách ({localNames.length})
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setTab('phone');
+            setSearch('');
+          }}
+          className={`flex-1 py-1 rounded transition-colors ${
+            tab === 'phone'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+          }`}
+        >
+          Số điện thoại ({localPhones.length})
+        </button>
+      </div>
+
+      {tab === 'name' ? (
+        <CheckListFilter<string>
+          items={nameOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+          selected={localNames}
+          searchQuery={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tìm tên khách..."
+          isLoading={loadingNames}
+          onApply={(names) => {
+            setLocalNames(names);
+            onApply({ names, phones: localPhones });
+          }}
+          onClear={() => {
+            setLocalNames([]);
+            if (localPhones.length === 0) {
+              onClear();
+            } else {
+              onApply({ names: [], phones: localPhones });
+            }
+          }}
+          close={close}
+        />
+      ) : (
+        <CheckListFilter<string>
+          items={phoneOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+          selected={localPhones}
+          searchQuery={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Tìm số điện thoại..."
+          isLoading={loadingPhones}
+          onApply={(phones) => {
+            setLocalPhones(phones);
+            onApply({ names: localNames, phones });
+          }}
+          onClear={() => {
+            setLocalPhones([]);
+            if (localNames.length === 0) {
+              onClear();
+            } else {
+              onApply({ names: localNames, phones: [] });
+            }
+          }}
+          close={close}
+        />
+      )}
+    </div>
+  );
+}
+
+/** Bộ lọc Nhân viên tạo (chỉ Admin) */
+function StaffFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: string[];
+  onApply: (staffIds: string[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, staffId: 'all', staffIds: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'staff',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<string>
+      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm nhân viên..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
 }
 
 export default function TicketManagementPage() {
@@ -1050,33 +1376,482 @@ export default function TicketManagementPage() {
             ? 'Đang tìm trong tất cả vé, không theo bộ lọc ngày, tuyến, đối tác, nhân viên. Xóa ô tìm kiếm để quay lại bộ lọc.'
             : `Đang lọc theo ${BASIS_LABEL[basis].toLowerCase()}: ${rangeLabel}.`}
         </p>
+
+        {/* Thanh chip bộ lọc cột đang bật */}
+        {searching ? (
+          <div className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+            Đang tìm kiếm: bộ lọc cột tạm không áp dụng.
+          </div>
+        ) : (
+          (() => {
+            const chips: Array<{ key: string; label: string; onRemove: () => void }> = [];
+
+            if (localFilters.orderCode?.trim()) {
+              chips.push({
+                key: 'orderCode',
+                label: `Mã đơn: ${localFilters.orderCode}`,
+                onRemove: () => setFilters((p) => ({ ...p, orderCode: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.departureTimes?.length) {
+              chips.push({
+                key: 'departureTimes',
+                label: `Giờ xe: ${localFilters.departureTimes.join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, departureTimes: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.partner) {
+              chips.push({
+                key: 'partner',
+                label: `Nhà xe: ${localFilters.partner}`,
+                onRemove: () => setFilters((p) => ({ ...p, partner: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.routeIds?.length) {
+              const names = localFilters.routeIds
+                .map((id) => activeRoutes.find((r) => r.id === id)?.name || `#${id}`)
+                .join(', ');
+              chips.push({
+                key: 'routeIds',
+                label: `Tuyến: ${names}`,
+                onRemove: () => setFilters((p) => ({ ...p, routeIds: [], page: 1 })),
+              });
+            }
+            if (localFilters.customerNames?.length) {
+              chips.push({
+                key: 'customerNames',
+                label: `Khách: ${localFilters.customerNames.join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, customerNames: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.phones?.length) {
+              chips.push({
+                key: 'phones',
+                label: `SĐT: ${localFilters.phones.join(', ')}`,
+                onRemove: () => setFilters((p) => ({ ...p, phones: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.sellPriceMin !== undefined || localFilters.sellPriceMax !== undefined) {
+              const minText = localFilters.sellPriceMin ? `${money(localFilters.sellPriceMin)}đ` : '0đ';
+              const maxText = localFilters.sellPriceMax ? `${money(localFilters.sellPriceMax)}đ` : '∞';
+              chips.push({
+                key: 'sellPrice',
+                label: `Giá bán: ${minText} - ${maxText}`,
+                onRemove: () => setFilters((p) => ({ ...p, sellPriceMin: undefined, sellPriceMax: undefined, page: 1 })),
+              });
+            }
+            if (localFilters.commissionMin !== undefined || localFilters.commissionMax !== undefined) {
+              const minText = localFilters.commissionMin ? `${money(localFilters.commissionMin)}đ` : '0đ';
+              const maxText = localFilters.commissionMax ? `${money(localFilters.commissionMax)}đ` : '∞';
+              chips.push({
+                key: 'commission',
+                label: `Hoa hồng: ${minText} - ${maxText}`,
+                onRemove: () => setFilters((p) => ({ ...p, commissionMin: undefined, commissionMax: undefined, page: 1 })),
+              });
+            }
+            if (isAdmin && localFilters.staffId !== ALL && typeof localFilters.staffId === 'number') {
+              const staffName = activeStaff.find((s) => s.id === localFilters.staffId)?.fullName || `#${localFilters.staffId}`;
+              chips.push({
+                key: 'staffId',
+                label: `NV: ${staffName}`,
+                onRemove: () => setFilters((p) => ({ ...p, staffId: ALL, page: 1 })),
+              });
+            }
+            if (localFilters.smsStatus) {
+              chips.push({
+                key: 'smsStatus',
+                label: `Tin nhắn: ${localFilters.smsStatus === 'sent' ? 'Đã gửi' : 'Chưa gửi'}`,
+                onRemove: () => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 })),
+              });
+            }
+
+            if (chips.length === 0) return null;
+
+            return (
+              <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  Bộ lọc đang bật:
+                </span>
+                {chips.map((chip) => (
+                  <span
+                    key={chip.key}
+                    className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950/60 dark:text-blue-300"
+                  >
+                    <span>{chip.label}</span>
+                    <button
+                      type="button"
+                      onClick={chip.onRemove}
+                      title="Gỡ bộ lọc này"
+                      className="rounded-full p-0.5 hover:bg-blue-200/60 dark:hover:bg-blue-800/60"
+                    >
+                      <X size={11} weight="bold" />
+                    </button>
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFilters((p) => ({
+                      ...p,
+                      orderCode: undefined,
+                      departureTimes: undefined,
+                      partner: undefined,
+                      routeIds: [],
+                      customerNames: undefined,
+                      phones: undefined,
+                      sellPriceMin: undefined,
+                      sellPriceMax: undefined,
+                      commissionMin: undefined,
+                      commissionMax: undefined,
+                      staffId: ALL,
+                      smsStatus: undefined,
+                      page: 1,
+                    }))
+                  }
+                  className="text-xs font-semibold text-rose-600 hover:underline dark:text-rose-400 ml-1"
+                >
+                  Xóa tất cả bộ lọc cột
+                </button>
+              </div>
+            );
+          })()
+        )}
       </Card>
 
       {/* Bảng danh sách 3D */}
       <Card className="mt-5 overflow-hidden !p-0">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full border-collapse">
             <thead>
               <tr>
-                <th className={TH}>STT</th>
-                <th className={TH}>Mã đơn</th>
-                <th className={TH}>Giờ xe</th>
-                <th className={TH}>Nhà xe</th>
-                <th className={TH}>Tuyến đường</th>
-                <th className={TH}>Khách hàng</th>
-                <th className={TH}>Số điện thoại</th>
-                <th className={`${TH} text-right`}>Giá bán</th>
-                <th className={`${TH} text-right`}>Hoa hồng</th>
-                <th className={TH}>NV tạo</th>
-                <th className={TH}>Tin nhắn</th>
-                <th className={`${TH} text-center`}>Thao tác</th>
+                <th className={`${TH_STICKY_LEFT} w-12 text-center`}>STT</th>
+
+                {/* 2. Đơn / Giờ xe */}
+                <th className={TH_CELL}>
+                  <div className="inline-flex items-center">
+                    <span>Đơn / Giờ xe</span>
+                    <ColumnFilterPopover
+                      title="Đơn / Giờ xe"
+                      isActive={!!localFilters.orderCode?.trim() || !!localFilters.departureTimes?.length}
+                      onClear={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          orderCode: undefined,
+                          departureTimes: undefined,
+                          page: 1,
+                        }))
+                      }
+                    >
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div>
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Mã đơn (XV116 hoặc 116)
+                            </span>
+                            <TextInputFilter
+                              value={localFilters.orderCode}
+                              placeholder="Nhập mã đơn..."
+                              onApply={(code) =>
+                                setFilters((p) => ({ ...p, orderCode: code, page: 1 }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({ ...p, orderCode: undefined, page: 1 }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Giờ xe (HH:mm)
+                            </span>
+                            <DepartureTimeFilterInner
+                              filters={filters}
+                              selected={localFilters.departureTimes ?? []}
+                              onApply={(times) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  departureTimes: times.length ? times : undefined,
+                                  page: 1,
+                                }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({ ...p, departureTimes: undefined, page: 1 }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </ColumnFilterPopover>
+                  </div>
+                </th>
+
+                {/* 3. Nhà xe / Tuyến */}
+                <th className={TH_CELL}>
+                  <div className="inline-flex items-center">
+                    <span>Nhà xe / Tuyến</span>
+                    <ColumnFilterPopover
+                      title="Nhà xe / Tuyến"
+                      isActive={!!localFilters.partner || (localFilters.routeIds ?? []).length > 0}
+                      onClear={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          partner: undefined,
+                          routeIds: [],
+                          page: 1,
+                        }))
+                      }
+                    >
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div>
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Nhà xe / Đối tác
+                            </span>
+                            <PartnerFilterInner
+                              filters={filters}
+                              selected={localFilters.partner ? [localFilters.partner] : []}
+                              onApply={(partners) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  partner: partners[0] || undefined,
+                                  page: 1,
+                                }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({ ...p, partner: undefined, page: 1 }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Tuyến đường
+                            </span>
+                            <RouteFilterInner
+                              filters={filters}
+                              selected={localFilters.routeIds ?? []}
+                              onApply={(routeIds) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  routeIds,
+                                  page: 1,
+                                }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({ ...p, routeIds: [], page: 1 }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </ColumnFilterPopover>
+                  </div>
+                </th>
+
+                {/* 4. Khách hàng */}
+                <th className={TH_CELL}>
+                  <div className="inline-flex items-center">
+                    <span>Khách hàng</span>
+                    <ColumnFilterPopover
+                      title="Khách hàng"
+                      isActive={!!localFilters.customerNames?.length || !!localFilters.phones?.length}
+                      onClear={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          customerNames: undefined,
+                          phones: undefined,
+                          page: 1,
+                        }))
+                      }
+                    >
+                      {({ close }) => (
+                        <CustomerFilterInner
+                          filters={filters}
+                          selectedNames={localFilters.customerNames ?? []}
+                          selectedPhones={localFilters.phones ?? []}
+                          onApply={({ names, phones }) =>
+                            setFilters((p) => ({
+                              ...p,
+                              customerNames: names.length ? names : undefined,
+                              phones: phones.length ? phones : undefined,
+                              page: 1,
+                            }))
+                          }
+                          onClear={() =>
+                            setFilters((p) => ({
+                              ...p,
+                              customerNames: undefined,
+                              phones: undefined,
+                              page: 1,
+                            }))
+                          }
+                          close={close}
+                        />
+                      )}
+                    </ColumnFilterPopover>
+                  </div>
+                </th>
+
+                {/* 5. Giá bán / Hoa hồng */}
+                <th className={`${TH_CELL} text-right`}>
+                  <div className="inline-flex items-center justify-end w-full">
+                    <span>Giá bán / Hoa hồng</span>
+                    <ColumnFilterPopover
+                      title="Giá bán / Hoa hồng"
+                      isActive={
+                        localFilters.sellPriceMin !== undefined ||
+                        localFilters.sellPriceMax !== undefined ||
+                        localFilters.commissionMin !== undefined ||
+                        localFilters.commissionMax !== undefined
+                      }
+                      align="right"
+                      onClear={() =>
+                        setFilters((p) => ({
+                          ...p,
+                          sellPriceMin: undefined,
+                          sellPriceMax: undefined,
+                          commissionMin: undefined,
+                          commissionMax: undefined,
+                          page: 1,
+                        }))
+                      }
+                    >
+                      {({ close }) => (
+                        <div className="space-y-3">
+                          <div>
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Giá bán (VNĐ)
+                            </span>
+                            <NumberRangeFilter
+                              min={localFilters.sellPriceMin}
+                              max={localFilters.sellPriceMax}
+                              onApply={(range) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  sellPriceMin: range.min,
+                                  sellPriceMax: range.max,
+                                  page: 1,
+                                }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  sellPriceMin: undefined,
+                                  sellPriceMax: undefined,
+                                  page: 1,
+                                }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                          <div className="border-t border-slate-100 pt-2 dark:border-slate-800">
+                            <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+                              Hoa hồng (VNĐ)
+                            </span>
+                            <NumberRangeFilter
+                              min={localFilters.commissionMin}
+                              max={localFilters.commissionMax}
+                              onApply={(range) =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  commissionMin: range.min,
+                                  commissionMax: range.max,
+                                  page: 1,
+                                }))
+                              }
+                              onClear={() =>
+                                setFilters((p) => ({
+                                  ...p,
+                                  commissionMin: undefined,
+                                  commissionMax: undefined,
+                                  page: 1,
+                                }))
+                              }
+                              close={close}
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </ColumnFilterPopover>
+                  </div>
+                </th>
+
+                {/* 6. NV tạo */}
+                <th className={TH_CELL}>
+                  <div className="inline-flex items-center">
+                    <span>NV tạo</span>
+                    {isAdmin && (
+                      <ColumnFilterPopover
+                        title="Nhân viên tạo"
+                        isActive={localFilters.staffId !== ALL && typeof localFilters.staffId === 'number'}
+                        onClear={() => setFilters((p) => ({ ...p, staffId: ALL, page: 1 }))}
+                      >
+                        {({ close }) => (
+                          <StaffFilterInner
+                            filters={filters}
+                            selected={
+                              localFilters.staffId !== ALL && typeof localFilters.staffId === 'number'
+                                ? [String(localFilters.staffId)]
+                                : []
+                            }
+                            onApply={(ids) =>
+                              setFilters((p) => ({
+                                ...p,
+                                staffId: ids.length ? Number(ids[0]) : ALL,
+                                page: 1,
+                              }))
+                            }
+                            onClear={() => setFilters((p) => ({ ...p, staffId: ALL, page: 1 }))}
+                            close={close}
+                          />
+                        )}
+                      </ColumnFilterPopover>
+                    )}
+                  </div>
+                </th>
+
+                {/* 7. Tin nhắn */}
+                <th className={TH_CELL}>
+                  <div className="inline-flex items-center">
+                    <span>Tin nhắn</span>
+                    <ColumnFilterPopover
+                      title="Tin nhắn"
+                      isActive={!!localFilters.smsStatus}
+                      onClear={() => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 }))}
+                    >
+                      {({ close }) => (
+                        <CheckListFilter<'sent' | 'unsent'>
+                          items={[
+                            { value: 'sent', label: 'Đã gửi' },
+                            { value: 'unsent', label: 'Chưa gửi' },
+                          ]}
+                          selected={localFilters.smsStatus ? [localFilters.smsStatus] : []}
+                          onApply={(selected) =>
+                            setFilters((p) => ({
+                              ...p,
+                              smsStatus: selected.length === 1 ? selected[0] : undefined,
+                              page: 1,
+                            }))
+                          }
+                          onClear={() => setFilters((p) => ({ ...p, smsStatus: undefined, page: 1 }))}
+                          close={close}
+                        />
+                      )}
+                    </ColumnFilterPopover>
+                  </div>
+                </th>
+
+                {/* 8. Thao tác */}
+                <th className={`${TH_STICKY_RIGHT} w-32 text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={8}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách vé từ cơ sở dữ liệu...
@@ -1085,7 +1860,7 @@ export default function TicketManagementPage() {
               ) : ordersList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={8}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-3">
@@ -1107,111 +1882,118 @@ export default function TicketManagementPage() {
                     key={t.id}
                     onClick={() => setDetailOrder(t)}
                     title="Bấm để xem chi tiết"
-                    className={`cursor-pointer hover:bg-blue-50 dark:hover:bg-slate-800 transition-colors ${
+                    className={`group cursor-pointer hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition-colors ${
                       t.cancelledAt
                         ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60'
                         : ''
                     }`}
                   >
+                    {/* 1. STT (Sticky Left) */}
                     <td
-                      className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}
+                      className={`${TD_STICKY_LEFT} text-center font-semibold text-slate-500 dark:text-slate-400`}
                     >
                       {(currentPage - 1) * pageSize + i + 1}
                     </td>
-                    <td
-                      className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}
-                    >
-                      {formatOrderCode(t.id)}
-                      {t.cancelledAt && (
-                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                          Đã hủy
+
+                    {/* 2. Đơn / Giờ xe */}
+                    <td className={TD_CELL}>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-mono text-xs font-bold text-blue-900 dark:text-blue-400">
+                          {formatOrderCode(t.id)}
                         </span>
-                      )}
+                        {t.cancelledAt && (
+                          <span className="rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                            Đã hủy
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                        <span className="font-bold text-blue-700 dark:text-blue-400">{t.departureTime}</span>
+                        {' · '}
+                        <span>{formatDateVN(t.departureDate)}</span>
+                      </div>
                     </td>
-                    <td
-                      className={`${TD} font-bold text-blue-700 dark:text-blue-400`}
-                    >
-                      {t.departureTime}
-                      <span className="mt-0.5 block text-[13px] font-bold text-slate-800 dark:text-slate-200">
-                        {formatDateVN(t.departureDate)}
-                      </span>
+
+                    {/* 3. Nhà xe / Tuyến */}
+                    <td className={TD_CELL}>
+                      <div className="font-bold text-slate-800 dark:text-slate-200">
+                        {t.partner || 'XVIP'}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 break-words font-medium">
+                        {t.route?.name || 'Tuyến liên tỉnh'}
+                      </div>
                     </td>
-                    <td
-                      className={`${TD} font-bold text-slate-800 dark:text-slate-200`}
-                    >
-                      {t.partner || 'XVIP'}
+
+                    {/* 4. Khách hàng */}
+                    <td className={TD_CELL}>
+                      <div className="font-bold text-slate-900 dark:text-white break-words">
+                        {t.customerName || 'Khách lẻ'}
+                      </div>
+                      <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-400 tnum font-semibold">
+                        {t.phone}
+                      </div>
                     </td>
-                    <td
-                      className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}
-                    >
-                      {t.route?.name || 'Tuyến liên tỉnh'}
+
+                    {/* 5. Giá bán / Hoa hồng (căn phải) */}
+                    <td className={`${TD_CELL} text-right`}>
+                      <div className={`${NUM} text-slate-900 dark:text-white font-bold`}>
+                        {money(t.sellPrice)}đ
+                      </div>
+                      <div className={`${NUM} mt-0.5 text-xs font-black text-red-600 dark:text-red-400`}>
+                        {money(t.commission)}đ
+                      </div>
                     </td>
-                    <td
-                      className={`${TD} font-bold text-slate-900 dark:text-white`}
-                    >
-                      {t.customerName || 'Khách lẻ'}
-                    </td>
-                    <td
-                      className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}
-                    >
-                      {t.phone}
-                    </td>
-                    <td
-                      className={`${TD} ${NUM} text-slate-900 dark:text-white`}
-                    >
-                      {money(t.sellPrice)}đ
-                    </td>
-                    <td
-                      className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}
-                    >
-                      {money(t.commission)}đ
-                    </td>
-                    <td
-                      className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}
-                    >
+
+                    {/* 6. NV tạo */}
+                    <td className={`${TD_CELL} text-slate-800 dark:text-slate-300 font-semibold text-xs`}>
                       {t.staff?.fullName || 'NV'}
                     </td>
-                    <td className={TD}>
+
+                    {/* 7. Tin nhắn */}
+                    <td className={TD_CELL}>
                       {t.smsSent ? (
                         <div className="flex items-center gap-1.5">
                           <CheckCircle
-                            size={17}
+                            size={16}
                             weight="fill"
-                            className="text-emerald-600"
+                            className="text-emerald-600 shrink-0"
                           />
-                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
                             {t.messageChannel === 'ZALO'
                               ? 'Đã gửi Zalo'
                               : 'Đã gửi SMS'}
                           </span>
                         </div>
                       ) : (
-                        <span className="text-xs font-semibold text-slate-400">
+                        <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
                           Chưa gửi
                         </span>
                       )}
                     </td>
+
+                    {/* 8. Thao tác (Sticky Right) */}
                     <td
-                      className={`${TD} text-center`}
+                      className={`${TD_STICKY_RIGHT} text-center`}
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-center gap-2">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button
                           type="button"
                           onClick={() => handleOpenRebook(t)}
                           title="Đặt lại (tạo đơn mới từ đơn này)"
-                          className="btn-3d btn-3d-green px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                          aria-label="Đặt lại đơn này"
+                          className="btn-3d-mini p-1.5 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400"
                         >
-                          <Repeat size={13} weight="bold" /> Đặt lại
+                          <Repeat size={14} weight="bold" />
                         </button>
                         <button
                           type="button"
                           onClick={() => setHistoryOrderId(t.id)}
                           title="Xem lịch sử thay đổi của đơn"
-                          className="btn-3d btn-3d-white px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                          aria-label="Xem lịch sử"
+                          className="btn-3d-mini p-1.5 text-slate-600 hover:text-slate-800 dark:text-slate-300"
                         >
-                          <ClockCounterClockwise size={13} weight="bold" /> Lịch
-                          sử
+                          <ClockCounterClockwise size={14} weight="bold" />
                         </button>
                         {!t.cancelledAt && (
                           <>
@@ -1219,17 +2001,19 @@ export default function TicketManagementPage() {
                               type="button"
                               onClick={() => handleOpenEdit(t)}
                               title="Sửa vé"
-                              className="btn-3d btn-3d-amber px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                              aria-label="Sửa vé"
+                              className="btn-3d-mini p-1.5 text-amber-600 hover:text-amber-700 dark:text-amber-400"
                             >
-                              <PencilSimple size={13} weight="bold" /> Sửa
+                              <PencilSimple size={14} weight="bold" />
                             </button>
                             <button
                               type="button"
                               onClick={() => openCancel(t)}
                               title="Hủy vé (khách không đặt nữa)"
-                              className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
+                              aria-label="Hủy vé"
+                              className="btn-3d-mini p-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
                             >
-                              <XCircle size={13} weight="bold" /> Hủy
+                              <XCircle size={14} weight="bold" />
                             </button>
                           </>
                         )}
@@ -1238,9 +2022,10 @@ export default function TicketManagementPage() {
                             type="button"
                             onClick={() => setDeleteTarget(t)}
                             title="Xóa vé"
-                            className="btn-3d-mini text-rose-600 hover:text-rose-700"
+                            aria-label="Xóa vé"
+                            className="btn-3d-mini p-1.5 text-rose-600 hover:text-rose-700 dark:text-rose-400"
                           >
-                            <Trash size={16} weight="bold" />
+                            <Trash size={14} weight="bold" />
                           </button>
                         )}
                       </div>

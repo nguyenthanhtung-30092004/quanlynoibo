@@ -207,14 +207,9 @@ function OverviewContent() {
       </div>
 
       <div className="mt-5 grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
-        {/* Hoa hồng & số vé theo đối tác: rê chuột vào thanh để xem chi tiết */}
+        {/* Hoa hồng & số vé theo đối tác */}
         <Card
           title="Hoa hồng, số đơn & vé theo đối tác"
-          action={
-            <Link href="/xvip/doi-tac" className="btn-3d btn-3d-white px-3 py-1 text-xs">
-              Xem chi tiết
-            </Link>
-          }
         >
           {carrierStats.length === 0 ? (
             <div className="py-8 text-center text-xs font-bold text-slate-400">
@@ -228,11 +223,6 @@ function OverviewContent() {
         {/* Tỷ lệ vé theo tuyến thật */}
         <Card
           title="Tỷ lệ vé theo tuyến đường"
-          action={
-            <Link href="/xvip/tuyen-duong" className="btn-3d btn-3d-white px-3 py-1 text-xs">
-              Xem chi tiết
-            </Link>
-          }
         >
           {routeStats.length === 0 ? (
             <div className="py-8 text-center text-xs font-bold text-slate-400">

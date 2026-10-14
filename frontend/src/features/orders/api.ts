@@ -9,6 +9,7 @@ import type {
   OrderFilters,
   OrderActivity,
   OrderHistoryEntry,
+  ColumnValueOption,
   ImportResult,
   PartnerDebt,
   UnlistedPartnerInfo,
@@ -16,7 +17,7 @@ import type {
 } from './types';
 
 /** Tham số lọc dùng chung cho danh sách và xuất Excel */
-function filterParams(filters: OrderFilters) {
+export function filterParams(filters: OrderFilters) {
   return {
     search: filters.search.trim() || undefined,
     staffId: filters.staffId === 'all' ? undefined : filters.staffId,
@@ -29,6 +30,17 @@ function filterParams(filters: OrderFilters) {
     dateTo: filters.dateTo ?? undefined,
     departureFrom: filters.departureFrom ?? undefined,
     departureTo: filters.departureTo ?? undefined,
+    // Bộ lọc cột
+    staffIds: filters.staffIds?.length ? filters.staffIds.join(',') : undefined,
+    customerNames: filters.customerNames?.length ? filters.customerNames.join(',') : undefined,
+    phones: filters.phones?.length ? filters.phones.join(',') : undefined,
+    departureTimes: filters.departureTimes?.length ? filters.departureTimes.join(',') : undefined,
+    smsStatus: filters.smsStatus || undefined,
+    sellPriceMin: filters.sellPriceMin !== undefined ? filters.sellPriceMin : undefined,
+    sellPriceMax: filters.sellPriceMax !== undefined ? filters.sellPriceMax : undefined,
+    commissionMin: filters.commissionMin !== undefined ? filters.commissionMin : undefined,
+    commissionMax: filters.commissionMax !== undefined ? filters.commissionMax : undefined,
+    orderCode: filters.orderCode?.trim() || undefined,
   };
 }
 
@@ -114,6 +126,21 @@ export const ordersApi = {
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),
+
+  columnValues: (
+    column: 'customer' | 'phone' | 'staff' | 'route' | 'partner' | 'departureTime',
+    filters: OrderFilters,
+    q?: string,
+    signal?: AbortSignal,
+  ) =>
+    api<ApiResponse<ColumnValueOption[]>>('orders/column-values', {
+      signal,
+      query: {
+        ...filterParams(filters),
+        column,
+        q: q?.trim() || undefined,
+      },
+    }).then((res) => res.data),
 
   /** Nhập đơn từ file Excel (chỉ Admin) */
   importExcel: (file: File) => {
