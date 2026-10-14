@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { Funnel, X, ArrowCounterClockwise } from '@phosphor-icons/react';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
 
@@ -22,13 +23,43 @@ export function ColumnFilterPopover({
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
+
+  // Panel render qua portal (position: fixed) để không bị bảng overflow cắt mất.
+  useLayoutEffect(() => {
+    if (!open) {
+      setPos(null);
+      return;
+    }
+    const update = () => {
+      const btn = buttonRef.current;
+      if (!btn) return;
+      const r = btn.getBoundingClientRect();
+      const width = panelRef.current?.offsetWidth ?? 260;
+      const margin = 8;
+      let left = align === 'right' ? r.right - width : r.left;
+      left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
+      const top = r.bottom + 8;
+      setPos({ top, left, maxHeight: Math.max(160, window.innerHeight - top - margin) });
+    };
+    update();
+    window.addEventListener('resize', update);
+    window.addEventListener('scroll', update, true);
+    return () => {
+      window.removeEventListener('resize', update);
+      window.removeEventListener('scroll', update, true);
+    };
+  }, [open, align]);
 
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(target) &&
+        !panelRef.current?.contains(target)
       ) {
         setOpen(false);
       }
@@ -72,12 +103,17 @@ export function ColumnFilterPopover({
         )}
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
+          ref={panelRef}
           onClick={(e) => e.stopPropagation()}
-          className={`absolute top-full z-50 mt-2 min-w-[260px] max-w-sm rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          }`}
+          style={{
+            top: pos?.top ?? 0,
+            left: pos?.left ?? 0,
+            maxHeight: pos?.maxHeight,
+            visibility: pos ? 'visible' : 'hidden',
+          }}
+          className="fixed z-[60] min-w-[260px] max-w-[min(24rem,calc(100vw-16px))] overflow-y-auto rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900"
         >
           <div className="mb-2.5 flex items-center justify-between border-b border-slate-100 pb-2 dark:border-slate-800">
             <span className="text-xs font-bold text-slate-800 dark:text-slate-200">
@@ -108,7 +144,8 @@ export function ColumnFilterPopover({
           </div>
 
           {children({ close: () => setOpen(false) })}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
