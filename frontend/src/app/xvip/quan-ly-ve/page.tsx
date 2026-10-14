@@ -1217,9 +1217,9 @@ export default function TicketManagementPage() {
 
       {/* Bảng danh sách 3D */}
       <Card className="mt-5 overflow-hidden !p-0">
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-auto">
           <table className="w-full">
-            <thead>
+            <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
               <tr>
                 <th className={`${TH_CELL} w-12 text-center`}>STT</th>
                 <ThOrderCode {...colProps} />
@@ -1314,7 +1314,7 @@ export default function TicketManagementPage() {
                     </td>
 
                     {/* 6. Khách hàng */}
-                    <td className={`${TD_CELL} font-bold text-slate-900 dark:text-white`}>
+                    <td className={`${TD_CELL} w-56 min-w-56 max-w-56 !whitespace-normal [overflow-wrap:anywhere] font-bold text-slate-900 dark:text-white`}>
                       {t.customerName || 'Khách lẻ'}
                     </td>
 

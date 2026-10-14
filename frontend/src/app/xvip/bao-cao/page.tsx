@@ -738,9 +738,9 @@ export default function StaffReportPage() {
         title={`${depositOnly ? 'Danh sách đơn đã cọc xvip' : 'Danh sách đơn'} (${ticketTotal.toLocaleString('vi-VN')})`}
         className="mt-5 !p-0 overflow-hidden"
       >
-        <div className="overflow-x-auto">
+        <div className="max-h-[70vh] overflow-auto">
           <table className="w-full">
-            <thead>
+            <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
               <tr>
                 <th className={TH}>STT</th>
                 <ThOrderCode {...colProps} />
@@ -807,7 +807,7 @@ export default function StaffReportPage() {
                     <td className={`${TD} font-semibold text-slate-700 dark:text-slate-300`}>
                       {t.route?.name || 'Tuyến liên tỉnh'}
                     </td>
-                    <td className={`${TD} font-bold text-slate-900 dark:text-white`}>
+                    <td className={`${TD} w-56 min-w-56 max-w-56 !whitespace-normal [overflow-wrap:anywhere] font-bold text-slate-900 dark:text-white`}>
                       {t.customerName || 'Khách lẻ'}
                     </td>
                     <td className={`${TD} tnum font-semibold text-slate-600 dark:text-slate-300`}>
