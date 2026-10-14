@@ -23,6 +23,7 @@ import { usePartners } from '@/features/partners/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { ORDERS_ALL_SIZE } from '@/features/orders/constants';
+import { ScrollTable } from '@/features/xvip/ScrollTable';
 import {
   ThCommission,
   ThCustomer,
@@ -805,7 +806,7 @@ export default function StaffReportPage() {
         title={`${depositOnly ? 'Danh sách đơn đã cọc xvip' : 'Danh sách đơn'} (${ticketTotal.toLocaleString('vi-VN')})`}
         className="mt-5 !p-0 overflow-hidden"
       >
-        <div className="max-h-[70vh] overflow-auto">
+        <ScrollTable>
           <table className="w-full">
             <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
               <tr>
@@ -897,7 +898,7 @@ export default function StaffReportPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
       </Card>
 
       {detailOrder && (

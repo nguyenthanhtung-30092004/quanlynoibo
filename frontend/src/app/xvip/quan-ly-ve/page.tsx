@@ -73,6 +73,7 @@ import { handleArrowNav } from '@/features/xvip/arrow-nav';
 import { OrderDetailModal } from '@/features/orders/components/OrderDetailModal';
 import { OrderHistoryModal } from '@/features/orders/components/OrderHistoryModal';
 import { Pagination } from '@/features/xvip/Pagination';
+import { ScrollTable } from '@/features/xvip/ScrollTable';
 import { ORDERS_ALL_SIZE, ORDERS_PAGE_SIZE } from '@/features/orders/constants';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
@@ -1217,7 +1218,7 @@ export default function TicketManagementPage() {
 
       {/* Bảng danh sách 3D */}
       <Card className="mt-5 overflow-hidden !p-0">
-        <div className="max-h-[70vh] overflow-auto">
+        <ScrollTable>
           <table className="w-full">
             <thead className="[&_th]:sticky [&_th]:top-0 [&_th]:z-10">
               <tr>
@@ -1424,7 +1425,7 @@ export default function TicketManagementPage() {
               )}
             </tbody>
           </table>
-        </div>
+        </ScrollTable>
         {!isLoading && totalOrders > pageSize && (
           <Pagination
             page={currentPage}
