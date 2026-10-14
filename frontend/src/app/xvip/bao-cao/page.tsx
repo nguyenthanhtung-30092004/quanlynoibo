@@ -3,6 +3,7 @@
 import { useToast } from '@/features/xvip/toast';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  CheckCircle,
   ClipboardText,
   FileXls,
   HandCoins,
@@ -27,11 +28,14 @@ import { ScrollTable } from '@/features/xvip/ScrollTable';
 import {
   ThCommission,
   ThCustomer,
+  ThDeposit,
   ThDepartureTime,
   ThOrderCode,
   ThPartner,
   ThRoute,
   ThSellPrice,
+  ThSms,
+  ThStaff,
 } from '@/features/xvip/OrderColumnFilters';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { MultiCheckSelect } from '@/features/xvip/MultiCheckSelect';
@@ -153,7 +157,6 @@ export default function StaffReportPage() {
     }
     return {
       search: '',
-      staffId: isAdmin && staffFilter !== 'all' ? Number(staffFilter) : 'all',
       routeId: 'all',
       partners: partnerNames,
       activeOnly: true,
@@ -161,6 +164,13 @@ export default function StaffReportPage() {
       dateFrom: null,
       dateTo: null,
       ...colFilters,
+      // Chọn NV ở cột thì ưu tiên; bỏ chọn thì quay về nhân viên đang chọn ở bộ lọc trên cùng
+      staffId:
+        typeof colFilters.staffId === 'number'
+          ? colFilters.staffId
+          : isAdmin && staffFilter !== 'all'
+            ? Number(staffFilter)
+            : 'all',
       routeIds: effectiveRoutes,
       ...dates,
       // Không phân trang: tải hết đơn khớp bộ lọc
@@ -170,10 +180,13 @@ export default function StaffReportPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, depositOnly, colFilters]);
   const colProps = {
-    local: { search: '', staffId: 'all', routeId: 'all', dateFrom: null, dateTo: null, ...colFilters } as OrderFilters,
+    local: { search: '', staffId: 'all', routeId: 'all', dateFrom: null, dateTo: null, ...colFilters, depositOnly } as OrderFilters,
     filters: ticketFilters,
     onChange: (patch: Partial<OrderFilters>) => {
-      setColFilters((prev) => ({ ...prev, ...patch }));
+      // Lọc "Đã cọc" dùng chung trạng thái với thẻ Đã cọc xvip ở trên
+      const { depositOnly: dep, ...rest } = patch;
+      if ('depositOnly' in patch) setDepositOnly(!!dep);
+      if (Object.keys(rest).length) setColFilters((prev) => ({ ...prev, ...rest }));
     },
   };
   const { data: ticketData, isLoading: ticketsLoading } = useOrders(ticketFilters);
@@ -818,16 +831,17 @@ export default function StaffReportPage() {
                 <ThCustomer title="Khách hàng" {...colProps} />
                 <ThCustomer title="Số điện thoại" {...colProps} />
                 <ThSellPrice {...colProps} />
-                <th className={`${TH} text-right`}>Đã cọc</th>
+                <ThDeposit {...colProps} />
                 <ThCommission {...colProps} />
-                <th className={TH}>NV tạo</th>
+                <ThStaff showFilter={isAdmin} {...colProps} />
+                <ThSms {...colProps} />
               </tr>
             </thead>
             <tbody>
               {ticketsLoading ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách đơn...
@@ -836,7 +850,7 @@ export default function StaffReportPage() {
               ) : ticketList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={11}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có đơn nào khớp bộ lọc đã chọn.
@@ -892,6 +906,20 @@ export default function StaffReportPage() {
                     </td>
                     <td className={`${TD} text-slate-800 dark:text-slate-300 font-semibold`}>
                       {t.staff?.fullName || 'NV'}
+                    </td>
+                    <td className={TD}>
+                      {t.smsSent ? (
+                        <div className="flex items-center gap-1.5">
+                          <CheckCircle size={16} weight="fill" className="text-emerald-600 shrink-0" />
+                          <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 whitespace-nowrap">
+                            {t.messageChannel === 'ZALO' ? 'Đã gửi Zalo' : 'Đã gửi SMS'}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-semibold text-slate-400 whitespace-nowrap">
+                          Chưa gửi
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))

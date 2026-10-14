@@ -245,7 +245,7 @@ function OverviewContent() {
                   </span>
                 </div>
               </div>
-              <ul className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs font-semibold text-slate-700 dark:text-slate-300">
+              <ul className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs lg:max-h-none lg:overflow-visible font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
                     <div
@@ -278,7 +278,7 @@ function OverviewContent() {
               Chưa có nhân viên nào trong cơ sở dữ liệu.
             </div>
           ) : (
-            <ol className="space-y-3 pt-1 max-h-[380px] overflow-y-auto pr-1">
+            <ol className="space-y-3 pt-1 max-h-[380px] overflow-y-auto pr-1 lg:max-h-none lg:overflow-visible">
               {staffPodium.map((s, i) => (
                 <li
                   key={s.staffId || s.fullName}

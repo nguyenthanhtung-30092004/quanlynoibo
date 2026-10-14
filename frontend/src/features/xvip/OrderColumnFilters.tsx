@@ -520,6 +520,30 @@ export function ThCommission({ local, onChange }: OrderThProps) {
   );
 }
 
+/** Cột Đã cọc: tích để chỉ xem đơn khách đã cọc, bỏ tích để xem tất cả */
+export function ThDeposit({ local, onChange }: OrderThProps) {
+  return (
+    <ThFilter title="Đã cọc" right>
+      <ColumnFilterPopover
+        title="Đã cọc"
+        align="right"
+        isActive={!!local.depositOnly}
+        onClear={() => onChange({ depositOnly: false })}
+      >
+        {({ close }) => (
+          <CheckListFilter<'only'>
+            items={[{ value: 'only', label: 'Chỉ đơn khách đã cọc' }]}
+            selected={local.depositOnly ? ['only'] : []}
+            onApply={(selected) => onChange({ depositOnly: selected.includes('only') })}
+            onClear={() => onChange({ depositOnly: false })}
+            close={close}
+          />
+        )}
+      </ColumnFilterPopover>
+    </ThFilter>
+  );
+}
+
 /** Cột NV tạo: chỉ Admin có biểu tượng lọc */
 export function ThStaff({
   local,
