@@ -1,7 +1,7 @@
 'use client';
 
 import { useToast } from '@/features/xvip/toast';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ClipboardText,
   FileXls,
@@ -22,8 +22,7 @@ import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
-import { Pagination } from '@/features/xvip/Pagination';
-import { ORDERS_PAGE_SIZE } from '@/features/orders/constants';
+import { ORDERS_ALL_SIZE } from '@/features/orders/constants';
 import {
   ThCommission,
   ThCustomer,
@@ -123,9 +122,19 @@ export default function StaffReportPage() {
   const showToast = useToast();
 
   // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
-  const [ticketPage, setTicketPage] = useState(1);
   // Bấm thẻ "Đã cọc xvip" thì bảng đơn chỉ còn các đơn khách đã cọc
   const [depositOnly, setDepositOnly] = useState(false);
+  const orderListRef = useRef<HTMLDivElement>(null);
+  const toggleDepositOnly = () => {
+    const next = !depositOnly;
+    setDepositOnly(next);
+    // Bật lọc thì cuộn xuống bảng đơn để xem ngay
+    if (next) {
+      requestAnimationFrame(() =>
+        orderListRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+      );
+    }
+  };
   // Bộ lọc theo cột của bảng đơn (giống trang Quản lý vé)
   const [colFilters, setColFilters] = useState<Partial<OrderFilters>>({});
   const [detailOrder, setDetailOrder] = useState<Order | null>(null);
@@ -153,24 +162,22 @@ export default function StaffReportPage() {
       ...colFilters,
       routeIds: effectiveRoutes,
       ...dates,
-      page: ticketPage,
+      // Không phân trang: tải hết đơn khớp bộ lọc
+      page: 1,
+      pageSize: ORDERS_ALL_SIZE,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, ticketPage, depositOnly, colFilters]);
+  }, [isAdmin, staffFilter, routeIds, partnerNames, dates.dateFrom, dates.dateTo, dates.departureFrom, dates.departureTo, depositOnly, colFilters]);
   const colProps = {
     local: { search: '', staffId: 'all', routeId: 'all', dateFrom: null, dateTo: null, ...colFilters } as OrderFilters,
     filters: ticketFilters,
     onChange: (patch: Partial<OrderFilters>) => {
       setColFilters((prev) => ({ ...prev, ...patch }));
-      setTicketPage(1);
     },
   };
   const { data: ticketData, isLoading: ticketsLoading } = useOrders(ticketFilters);
   const ticketList = ticketData?.data ?? [];
   const ticketTotal = ticketData?.total ?? 0;
-  useEffect(() => {
-    setTicketPage(1);
-  }, [staffFilter, routeIds, partnerNames, range, basis, depositOnly]);
 
   const allStaff = useMemo(() => usersData?.data ?? [], [usersData]);
   const staffList = useMemo(() => {
@@ -474,11 +481,11 @@ export default function StaffReportPage() {
           tabIndex={0}
           aria-pressed={depositOnly}
           title={depositOnly ? 'Bấm để xem lại tất cả đơn' : 'Bấm để chỉ xem các đơn khách đã cọc'}
-          onClick={() => setDepositOnly((v) => !v)}
+          onClick={toggleDepositOnly}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
-              setDepositOnly((v) => !v);
+              toggleDepositOnly();
             }
           }}
           style={{
@@ -726,6 +733,7 @@ export default function StaffReportPage() {
       </Card>
 
       {/* Bảng đơn: toàn bộ đơn khớp bộ lọc (chọn nhân viên thì ra mọi đơn của người đó) */}
+      <div ref={orderListRef} className="scroll-mt-20" />
       <Card
         title={`${depositOnly ? 'Danh sách đơn đã cọc xvip' : 'Danh sách đơn'} (${ticketTotal.toLocaleString('vi-VN')})`}
         className="mt-5 !p-0 overflow-hidden"
@@ -777,7 +785,7 @@ export default function StaffReportPage() {
                     }`}
                   >
                     <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
-                      {(ticketPage - 1) * ORDERS_PAGE_SIZE + i + 1}
+                      {i + 1}
                     </td>
                     <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
                       {formatOrderCode(t.id)}
@@ -823,14 +831,6 @@ export default function StaffReportPage() {
             </tbody>
           </table>
         </div>
-        {!ticketsLoading && ticketTotal > 0 && (
-          <Pagination
-            page={ticketPage}
-            pageSize={ORDERS_PAGE_SIZE}
-            total={ticketTotal}
-            onChange={setTicketPage}
-          />
-        )}
       </Card>
 
       {detailOrder && (
