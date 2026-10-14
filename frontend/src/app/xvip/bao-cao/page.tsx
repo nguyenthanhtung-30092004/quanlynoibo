@@ -621,7 +621,74 @@ export default function StaffReportPage() {
 
       {/* 3D Table List */}
       <Card className="mt-5 !p-0 overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* Điện thoại: danh sách thẻ, tên xuống dòng đầy đủ */}
+        <ol className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {kpiLoading ? (
+            <li className="p-6 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+              Đang tải dữ liệu báo cáo hiệu suất...
+            </li>
+          ) : sortedStaff.length === 0 ? (
+            <li className="p-6 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+              Không có dữ liệu nào khớp bộ lọc đã chọn.
+            </li>
+          ) : (
+            sortedStaff.map((staff, index) => (
+              <li
+                key={staff.id || staff.name}
+                className={`flex items-start gap-3 px-3 py-3 ${
+                  !isAdmin && staff.id === me?.id ? 'bg-blue-50 dark:bg-blue-950/40' : ''
+                }`}
+              >
+                <span
+                  className={`mt-1 flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-black shadow-sm ${
+                    index === 0
+                      ? 'bg-amber-400 text-slate-950'
+                      : index === 1
+                        ? 'bg-slate-300 text-slate-900'
+                        : index === 2
+                          ? 'bg-amber-600 text-white'
+                          : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                  }`}
+                >
+                  {index + 1}
+                </span>
+                <Avatar name={staff.name} />
+                <div className="min-w-0 flex-1">
+                  <div className="break-words font-extrabold text-slate-900 dark:text-white">
+                    {staff.name}
+                    {!isAdmin && staff.id === me?.id && (
+                      <span className="ml-2 rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-extrabold uppercase text-white">
+                        Bạn
+                      </span>
+                    )}
+                  </div>
+                  <div className="tnum mt-0.5 text-xs font-bold">
+                    <span className="text-purple-700 dark:text-purple-400">
+                      {staff.orders.toLocaleString('vi-VN')} đơn
+                    </span>
+                    <span className="text-slate-400"> · </span>
+                    <span className="text-blue-700 dark:text-blue-400">
+                      {staff.tickets.toLocaleString('vi-VN')} vé
+                    </span>
+                  </div>
+                  {isAdmin && (
+                    <div className="tnum mt-1 flex flex-wrap items-center justify-between gap-x-3 text-xs font-bold">
+                      <span className="text-teal-700 dark:text-teal-400">
+                        Cọc xvip: {money(staff.deposit)}đ
+                      </span>
+                      <span className="font-black text-emerald-600 dark:text-emerald-400">
+                        DS: {money(staff.commission)}đ
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))
+          )}
+        </ol>
+
+        {/* Máy tính: bảng đầy đủ cột */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr>
