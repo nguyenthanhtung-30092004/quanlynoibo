@@ -288,13 +288,17 @@ function OverviewContent() {
                     {i + 1}
                   </span>
                   <Avatar name={s.fullName} />
-                  <span className="flex-1 truncate font-semibold text-slate-800 dark:text-slate-200">
-                    {s.fullName}
-                  </span>
-                  <span className="tnum shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} đơn · {s.seats} vé</span>
-                  <span className="tnum w-24 shrink-0 text-right font-black text-emerald-700 dark:text-emerald-400">
-                    {money(s.commission || 0)}đ
-                  </span>
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5 sm:flex-row sm:items-center sm:gap-3">
+                    <span className="min-w-0 break-words font-semibold text-slate-800 dark:text-slate-200 sm:flex-1">
+                      {s.fullName}
+                    </span>
+                    <div className="flex items-center justify-between gap-3 sm:justify-end">
+                      <span className="tnum shrink-0 text-xs font-bold text-slate-500 dark:text-slate-400">{s.total} đơn · {s.seats} vé</span>
+                      <span className="tnum shrink-0 text-right font-black text-emerald-700 dark:text-emerald-400 sm:w-24">
+                        {money(s.commission || 0)}đ
+                      </span>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ol>
