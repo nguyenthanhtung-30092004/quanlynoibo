@@ -201,7 +201,7 @@ describe('OrdersService - column filter logic and columnValues', () => {
     ]);
   });
 
-  it('lọc deposits=0 ra đơn chưa cọc', () => {
+  it('lọc deposits=0 ra đơn cọc 0đ', () => {
     const qb = createMockQb();
     const service = setupService(qb);
 
@@ -245,7 +245,7 @@ describe('OrdersService - column filter logic and columnValues', () => {
     expect(commissionClause.params.commissions).toEqual([50000]);
   });
 
-  it('columnValues(deposit) sắp tăng dần và có mức 0 với nhãn Chưa cọc (0đ)', async () => {
+  it('columnValues(deposit) sắp tăng dần và có mức 0 với nhãn 0đ', async () => {
     const qb = createMockQb();
     qb.getRawMany.mockResolvedValue([
       { val: 0, cnt: '3' },
@@ -257,7 +257,7 @@ describe('OrdersService - column filter logic and columnValues', () => {
 
     expect(qb.orderBys).toEqual([{ sort: 'order.deposit', order: 'ASC' }]);
     expect(result).toEqual([
-      { value: '0', label: 'Chưa cọc (0đ)', count: 3 },
+      { value: '0', label: '0đ', count: 3 },
       { value: '200000', label: '200.000đ', count: 5 },
     ]);
   });

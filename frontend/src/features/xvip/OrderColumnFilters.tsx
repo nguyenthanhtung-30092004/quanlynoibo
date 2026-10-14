@@ -150,130 +150,89 @@ function RouteFilterInner({
   );
 }
 
-/** Bộ lọc Khách hàng (hiện cả Tên · SĐT hoặc Tên & SĐT riêng) */
-function CustomerFilterInner({
+/** Bộ lọc Tên khách hàng */
+function CustomerNameFilterInner({
   filters,
-  selectedNames,
-  selectedPhones,
+  selected,
   onApply,
   onClear,
   close,
 }: {
   filters: OrderFilters;
-  selectedNames: string[];
-  selectedPhones: string[];
-  onApply: (data: { names: string[]; phones: string[] }) => void;
+  selected: string[];
+  onApply: (names: string[]) => void;
   onClear: () => void;
   close: () => void;
 }) {
-  const [tab, setTab] = useState<'name' | 'phone'>('name');
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
   const columnFilterBase = useMemo<OrderFilters>(
-    () => ({ ...filters, customerNames: undefined, phones: undefined }),
+    () => ({ ...filters, customerNames: undefined }),
     [filters],
   );
 
-  const { data: nameOptions = [], isLoading: loadingNames } = useColumnValues(
+  const { data: options = [], isLoading } = useColumnValues(
     'customer',
     columnFilterBase,
-    tab === 'name' ? debouncedSearch : undefined,
+    debouncedSearch,
   );
-
-  const { data: phoneOptions = [], isLoading: loadingPhones } = useColumnValues(
-    'phone',
-    columnFilterBase,
-    tab === 'phone' ? debouncedSearch : undefined,
-  );
-
-  const [localNames, setLocalNames] = useState<string[]>(selectedNames);
-  const [localPhones, setLocalPhones] = useState<string[]>(selectedPhones);
-
-  useEffect(() => {
-    setLocalNames(selectedNames);
-    setLocalPhones(selectedPhones);
-  }, [selectedNames, selectedPhones]);
 
   return (
-    <div className="space-y-2.5">
-      <div className="flex rounded border border-slate-200 dark:border-slate-700 p-0.5 text-xs font-semibold">
-        <button
-          type="button"
-          onClick={() => {
-            setTab('name');
-            setSearch('');
-          }}
-          className={`flex-1 py-1 rounded transition-colors ${
-            tab === 'name'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Tên khách ({localNames.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            setTab('phone');
-            setSearch('');
-          }}
-          className={`flex-1 py-1 rounded transition-colors ${
-            tab === 'phone'
-              ? 'bg-blue-600 text-white shadow-sm'
-              : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
-          }`}
-        >
-          Số điện thoại ({localPhones.length})
-        </button>
-      </div>
+    <CheckListFilter<string>
+      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm tên khách..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
 
-      {tab === 'name' ? (
-        <CheckListFilter<string>
-          items={nameOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-          selected={localNames}
-          searchQuery={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm tên khách..."
-          isLoading={loadingNames}
-          onApply={(names) => {
-            setLocalNames(names);
-            onApply({ names, phones: localPhones });
-          }}
-          onClear={() => {
-            setLocalNames([]);
-            if (localPhones.length === 0) {
-              onClear();
-            } else {
-              onApply({ names: [], phones: localPhones });
-            }
-          }}
-          close={close}
-        />
-      ) : (
-        <CheckListFilter<string>
-          items={phoneOptions.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
-          selected={localPhones}
-          searchQuery={search}
-          onSearchChange={setSearch}
-          searchPlaceholder="Tìm số điện thoại..."
-          isLoading={loadingPhones}
-          onApply={(phones) => {
-            setLocalPhones(phones);
-            onApply({ names: localNames, phones });
-          }}
-          onClear={() => {
-            setLocalPhones([]);
-            if (localNames.length === 0) {
-              onClear();
-            } else {
-              onApply({ names: localNames, phones: [] });
-            }
-          }}
-          close={close}
-        />
-      )}
-    </div>
+/** Bộ lọc Số điện thoại */
+function PhoneFilterInner({
+  filters,
+  selected,
+  onApply,
+  onClear,
+  close,
+}: {
+  filters: OrderFilters;
+  selected: string[];
+  onApply: (phones: string[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, phones: undefined }),
+    [filters],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(
+    'phone',
+    columnFilterBase,
+    debouncedSearch,
+  );
+
+  return (
+    <CheckListFilter<string>
+      items={options.map((o) => ({ value: o.value, label: o.label, count: o.count }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder="Tìm số điện thoại..."
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
   );
 }
 
@@ -451,32 +410,42 @@ export function ThRoute({ local, filters, onChange }: OrderThProps) {
   );
 }
 
-/** Dùng cho cả cột Khách hàng và Số điện thoại (chung một hộp lọc) */
-export function ThCustomer({
-  title,
-  local,
-  filters,
-  onChange,
-}: OrderThProps & { title: string }) {
+export function ThCustomerName({ local, filters, onChange }: OrderThProps) {
   return (
-    <ThFilter title={title}>
+    <ThFilter title="Khách hàng">
       <ColumnFilterPopover
-        title="Khách hàng / SĐT"
-        isActive={!!local.customerNames?.length || !!local.phones?.length}
-        onClear={() => onChange({ customerNames: undefined, phones: undefined })}
+        title="Khách hàng"
+        isActive={(local.customerNames ?? []).length > 0}
+        onClear={() => onChange({ customerNames: [] })}
       >
         {({ close }) => (
-          <CustomerFilterInner
+          <CustomerNameFilterInner
             filters={filters}
-            selectedNames={local.customerNames ?? []}
-            selectedPhones={local.phones ?? []}
-            onApply={({ names, phones }) =>
-              onChange({
-                customerNames: names.length ? names : undefined,
-                phones: phones.length ? phones : undefined,
-              })
-            }
-            onClear={() => onChange({ customerNames: undefined, phones: undefined })}
+            selected={local.customerNames ?? []}
+            onApply={(customerNames) => onChange({ customerNames })}
+            onClear={() => onChange({ customerNames: [] })}
+            close={close}
+          />
+        )}
+      </ColumnFilterPopover>
+    </ThFilter>
+  );
+}
+
+export function ThPhone({ local, filters, onChange }: OrderThProps) {
+  return (
+    <ThFilter title="Số điện thoại">
+      <ColumnFilterPopover
+        title="Số điện thoại"
+        isActive={(local.phones ?? []).length > 0}
+        onClear={() => onChange({ phones: [] })}
+      >
+        {({ close }) => (
+          <PhoneFilterInner
+            filters={filters}
+            selected={local.phones ?? []}
+            onApply={(phones) => onChange({ phones })}
+            onClear={() => onChange({ phones: [] })}
             close={close}
           />
         )}
@@ -590,6 +559,7 @@ function CommissionFilterInner({
   onApplyRange,
   onClearRange,
   close,
+  title = 'Hoa hồng',
 }: {
   filters: OrderFilters;
   selected: number[];
@@ -600,6 +570,7 @@ function CommissionFilterInner({
   onApplyRange: (range: { min?: number; max?: number }) => void;
   onClearRange: () => void;
   close: () => void;
+  title?: string;
 }) {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -622,7 +593,7 @@ function CommissionFilterInner({
         selected={selected}
         searchQuery={search}
         onSearchChange={setSearch}
-        searchPlaceholder="Tìm mức hoa hồng..."
+        searchPlaceholder={`Tìm mức ${title.toLowerCase()}...`}
         isLoading={isLoading}
         onApply={onApplyTicks}
         onClear={onClearTicks}
@@ -644,13 +615,18 @@ function CommissionFilterInner({
   );
 }
 
-export function ThCommission({ local, filters, onChange }: OrderThProps) {
+export function ThCommission({
+  local,
+  filters,
+  onChange,
+  title = 'Hoa hồng',
+}: OrderThProps & { title?: string }) {
   const isTicksActive = (local.commissions ?? []).length > 0;
   const isRangeActive = local.commissionMin !== undefined || local.commissionMax !== undefined;
   return (
-    <ThFilter title="Hoa hồng" right>
+    <ThFilter title={title} right>
       <ColumnFilterPopover
-        title="Hoa hồng"
+        title={title}
         align="right"
         isActive={isTicksActive || isRangeActive}
         onClear={() => onChange({ commissions: undefined, commissionMin: undefined, commissionMax: undefined })}
@@ -666,6 +642,7 @@ export function ThCommission({ local, filters, onChange }: OrderThProps) {
             onApplyRange={(range) => onChange({ commissionMin: range.min, commissionMax: range.max })}
             onClearRange={() => onChange({ commissionMin: undefined, commissionMax: undefined })}
             close={close}
+            title={title}
           />
         )}
       </ColumnFilterPopover>
@@ -716,7 +693,7 @@ function DepositFilterInner({
   );
 }
 
-/** Cột Đã cọc: danh sách mức cọc (mức 0 hiện là "Chưa cọc") */
+/** Cột Đã cọc: danh sách mức cọc (mức 0 hiện là "0đ") */
 export function ThDeposit({ local, filters, onChange }: OrderThProps) {
   return (
     <ThFilter title="Đã cọc" right>

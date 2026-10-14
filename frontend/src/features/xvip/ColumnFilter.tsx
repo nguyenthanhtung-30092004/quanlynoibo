@@ -24,6 +24,7 @@ export function ColumnFilterPopover({
   const containerRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState<{ top: number; left: number; maxHeight: number } | null>(null);
 
   // Panel render qua portal (position: fixed) để không bị bảng overflow cắt mất.
@@ -40,13 +41,37 @@ export function ColumnFilterPopover({
       const margin = 8;
       let left = align === 'right' ? r.right - width : r.left;
       left = Math.max(margin, Math.min(left, window.innerWidth - width - margin));
-      const top = r.bottom + 8;
-      setPos({ top, left, maxHeight: Math.max(160, window.innerHeight - top - margin) });
+      // Chiều cao thật của nội dung hộp (scrollHeight không bị max-height cắt)
+      const natural = panelRef.current?.scrollHeight ?? 320;
+      const gap = 8;
+      const spaceBelow = window.innerHeight - r.bottom - gap - margin;
+      const spaceAbove = r.top - gap - margin;
+      const viewportMax = window.innerHeight - margin * 2;
+      let top: number;
+      let maxHeight: number;
+      if (natural <= spaceBelow) {
+        // Đủ chỗ phía dưới tiêu đề cột
+        top = r.bottom + gap;
+        maxHeight = spaceBelow;
+      } else if (natural <= spaceAbove) {
+        // Bảng ngắn (ít vé) nằm sát đáy màn hình: bật hộp lên phía trên tiêu đề
+        maxHeight = spaceAbove;
+        top = r.top - gap - Math.min(natural, spaceAbove);
+      } else {
+        // Không bên nào đủ: cho hộp nổi giữa màn hình, tận dụng tối đa chiều cao
+        maxHeight = viewportMax;
+        top = Math.max(margin, Math.min(r.bottom + gap, window.innerHeight - Math.min(natural, viewportMax) - margin));
+      }
+      setPos({ top, left, maxHeight });
     };
     update();
     window.addEventListener('resize', update);
     window.addEventListener('scroll', update, true);
+    // Danh sách giá trị tải xong làm hộp cao thêm: đặt lại vị trí cho vừa màn hình
+    const ro = new ResizeObserver(update);
+    if (contentRef.current) ro.observe(contentRef.current);
     return () => {
+      ro.disconnect();
       window.removeEventListener('resize', update);
       window.removeEventListener('scroll', update, true);
     };
@@ -143,7 +168,7 @@ export function ColumnFilterPopover({
             </div>
           </div>
 
-          {children({ close: () => setOpen(false) })}
+          <div ref={contentRef}>{children({ close: () => setOpen(false) })}</div>
         </div>,
         document.body,
       )}

@@ -1335,13 +1335,9 @@ export class OrdersService {
         const rows = await qb.getRawMany<{ val: number | string; cnt: string }>();
         return rows.map((r) => {
           const num = Number(r.val);
-          const label =
-            column === 'deposit' && num === 0
-              ? 'Chưa cọc (0đ)'
-              : `${num.toLocaleString('vi-VN')}đ`;
           return {
             value: String(num),
-            label,
+            label: `${num.toLocaleString('vi-VN')}đ`,
             count: Number(r.cnt),
           };
         });

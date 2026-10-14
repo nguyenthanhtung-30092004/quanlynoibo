@@ -52,11 +52,12 @@ import { Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import {
   ThCommission,
-  ThCustomer,
+  ThCustomerName,
   ThDepartureTime,
   ThDeposit,
   ThOrderCode,
   ThPartner,
+  ThPhone,
   ThRoute,
   ThSellPrice,
   ThSms,
@@ -1203,7 +1204,7 @@ export default function TicketManagementPage() {
             }
             if (localFilters.deposits?.length) {
               const labels = localFilters.deposits
-                .map((d) => (d === 0 ? 'Chưa cọc (0đ)' : `${money(d)}đ`))
+                .map((d) => `${money(d)}đ`)
                 .join(', ');
               chips.push({
                 key: 'deposits',
@@ -1350,8 +1351,8 @@ export default function TicketManagementPage() {
                 <ThDepartureTime {...colProps} />
                 <ThPartner {...colProps} />
                 <ThRoute {...colProps} />
-                <ThCustomer title="Khách hàng" {...colProps} />
-                <ThCustomer title="Số điện thoại" {...colProps} />
+                <ThCustomerName {...colProps} />
+                <ThPhone {...colProps} />
                 <ThSellPrice {...colProps} />
                 <ThDeposit {...colProps} />
                 <ThCommission {...colProps} />
@@ -1455,7 +1456,7 @@ export default function TicketManagementPage() {
 
                     {/* 9. Đã cọc */}
                     <td className={`${TD_CELL} ${NUM} font-bold text-slate-800 dark:text-slate-300`}>
-                      {t.deposit > 0 ? `${money(t.deposit)}đ` : 'Chưa cọc'}
+                      {money(t.deposit)}đ
                     </td>
 
                     {/* 10. Hoa hồng */}
