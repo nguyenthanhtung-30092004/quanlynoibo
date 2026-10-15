@@ -62,7 +62,7 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
 
 const REQUIRED_FIELDS: FieldKey[] = ['phone', 'route', 'date'];
 const HEADER_SEARCH_ROWS = 15;
-export const IMPORT_MAX_ROWS = 1000;
+export const IMPORT_MAX_ROWS = 10000;
 
 /** Bỏ dấu, khoảng trắng và ký tự lạ để so khớp tên cột/tuyến/nhân viên */
 export function normalizeKey(text: string): string {
