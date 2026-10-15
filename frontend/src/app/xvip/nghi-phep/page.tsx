@@ -145,7 +145,7 @@ export default function LeavePage() {
       {isAdmin && (
         <Card title="Giới hạn số người nghỉ mỗi ngày" className="mb-5">
           <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-            <Field label="Đầu tuần (T2, T3, T4, T5)">
+            <Field label="Đầu tuần (T2, T3, T4, T5) - màu xanh trời">
               <input
                 type="number"
                 min={0}
@@ -155,7 +155,7 @@ export default function LeavePage() {
                 onChange={(e) => setDraft((d) => (d ? { ...d, earlyMax: e.target.value } : d))}
               />
             </Field>
-            <Field label="Cuối tuần (T6, T7, CN)">
+            <Field label="Cuối tuần (T6, T7, CN) - màu cam">
               <input
                 type="number"
                 min={0}
@@ -194,8 +194,13 @@ export default function LeavePage() {
         ) : (
           <>
             <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-              {HEADERS.map((h) => (
-                <div key={h} className="pb-1 text-center text-xs font-extrabold text-slate-500 dark:text-slate-400">
+              {HEADERS.map((h, i) => (
+                <div
+                  key={h}
+                  className={`pb-1 text-center text-xs font-extrabold ${
+                    i >= 4 ? 'text-orange-600 dark:text-orange-400' : 'text-sky-700 dark:text-sky-400'
+                  }`}
+                >
                   {h}
                 </div>
               ))}
@@ -206,11 +211,17 @@ export default function LeavePage() {
                 <DayCell key={d.day} d={d} today={today} onClick={() => setSelectedDay(d.day)} />
               ))}
             </div>
-            <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <Legend className="bg-emerald-100 dark:bg-emerald-900/40" text="Còn chỗ" />
-              <Legend className="bg-amber-100 dark:bg-amber-900/40" text="Gần đủ" />
-              <Legend className="bg-rose-100 dark:bg-rose-900/40" text="Đủ người / khóa" />
-              {!isAdmin && <Legend className="bg-blue-500" text="Ngày bạn đã đăng ký" />}
+            <div className="mt-4 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                <Legend className="bg-sky-100 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:ring-sky-700" text="Đầu tuần (T2-T5)" />
+                <Legend className="bg-orange-100 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:ring-orange-700" text="Cuối tuần (T6-CN)" />
+                {!isAdmin && <Legend className="bg-slate-700 dark:bg-slate-200" text="Ngày bạn đã đăng ký (tô đậm)" />}
+              </div>
+              <div>
+                Số <b className="text-emerald-600 dark:text-emerald-400">xanh</b> còn chỗ ·{' '}
+                <b className="text-amber-600 dark:text-amber-400">vàng</b> gần đủ ·{' '}
+                <b className="text-rose-600 dark:text-rose-400">đỏ</b> đã đủ người
+              </div>
             </div>
           </>
         )}
@@ -266,23 +277,31 @@ function DayCell({ d, today, onClick }: { d: LeaveDay; today: string; onClick: (
   const locked = d.limit === 0;
   const full = d.count >= d.limit;
   const almost = !full && d.limit > 0 && d.count >= d.limit - 1;
-  const tone = d.mine
-    ? 'bg-blue-500 text-white ring-2 ring-blue-300 dark:ring-blue-700'
+  // Màu nền phân biệt nhóm ngày: đầu tuần (T2-T5) xanh trời, cuối tuần (T6-CN) cam
+  const late = weekdayOf(d.day) === 5 || weekdayOf(d.day) === 6 || weekdayOf(d.day) === 0;
+  const base = late
+    ? 'bg-orange-100 text-orange-950 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:text-orange-50 dark:ring-orange-700'
+    : 'bg-sky-100 text-sky-950 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:text-sky-50 dark:ring-sky-700';
+  // Ngày mình đã đăng ký: tô đậm cùng tông của nhóm
+  const mine = late ? 'bg-orange-500 text-white ring-1 ring-orange-600' : 'bg-sky-600 text-white ring-1 ring-sky-700';
+  // Tình trạng chỗ trống thể hiện ở màu chữ của số lượng
+  const countTone = d.mine
+    ? 'text-white'
     : full || locked
-      ? 'bg-rose-100 text-rose-900 dark:bg-rose-900/40 dark:text-rose-100'
+      ? 'text-rose-600 dark:text-rose-400'
       : almost
-        ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
-        : 'bg-emerald-100 text-emerald-900 dark:bg-emerald-900/40 dark:text-emerald-100';
+        ? 'text-amber-600 dark:text-amber-400'
+        : 'text-emerald-600 dark:text-emerald-400';
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1.5 transition-transform hover:scale-[1.04] sm:min-h-16 ${tone} ${
-        past ? 'opacity-50' : ''
-      } ${d.day === today ? 'outline outline-2 outline-offset-1 outline-slate-900 dark:outline-white' : ''}`}
+      className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1.5 transition-transform hover:scale-[1.04] sm:min-h-16 ${
+        d.mine ? mine : base
+      } ${past ? 'opacity-50' : ''} ${d.day === today ? 'outline outline-2 outline-offset-1 outline-slate-900 dark:outline-white' : ''}`}
     >
       <span className="tnum text-sm font-black sm:text-base">{Number(d.day.slice(8))}</span>
-      <span className="tnum text-[11px] font-bold leading-none sm:text-xs">
+      <span className={`tnum text-[11px] font-extrabold leading-none sm:text-xs ${countTone}`}>
         {locked ? <Lock size={12} weight="bold" className="inline" /> : `${d.count}/${d.limit}`}
       </span>
     </button>
