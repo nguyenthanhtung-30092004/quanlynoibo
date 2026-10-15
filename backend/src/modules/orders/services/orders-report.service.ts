@@ -114,6 +114,8 @@ export class OrdersReportService {
       'order.collectOnDelivery',
       'order.commission',
       'order.smsSent',
+      'staff.id',
+      'staff.fullName',
     ]);
     const orders = await qb.getMany();
     return { date, orders };
