@@ -30,7 +30,6 @@ export interface ImportRow {
 
 type FieldKey =
   | 'entryDate'
-  | 'staff'
   | 'customer'
   | 'phone'
   | 'route'
@@ -41,41 +40,24 @@ type FieldKey =
   | 'middle'
   | 'back'
   | 'seats'
-  | 'cost'
-  | 'sell'
-  | 'deposit'
-  | 'cod'
-  | 'commission'
   | 'partner'
-  | 'pickup'
-  | 'dropoff'
-  | 'note'
-  | 'status';
+  | 'note';
 
 /** Tên cột (đã bỏ dấu, bỏ khoảng trắng, chữ thường) mà mỗi trường chấp nhận */
 const HEADER_ALIASES: Record<FieldKey, string[]> = {
-  entryDate: ['ngayvaoso'],
-  staff: ['nv', 'nhanvien'],
-  customer: ['tenkhach', 'tenkhachhang', 'khachhang'],
+  entryDate: ['ngayvaoso', 'ngayvao'],
+  customer: ['tenkhach', 'tenkhachhang', 'khachhang', 'khach'],
   phone: ['sodienthoai', 'sdt', 'dienthoai'],
   route: ['tuyendi', 'tuyenduong', 'tuyen'],
-  time: ['giodi', 'gioxe'],
+  time: ['giodi', 'gioxe', 'gio'],
   date: ['ngaykhoihanh', 'ngaydi'],
   vehicle: ['loaihinh'],
-  front: ['dau'],
-  middle: ['giua'],
-  back: ['cuoi'],
-  seats: ['soghe'],
-  cost: ['gianhap'],
-  sell: ['giaban'],
-  deposit: ['dacoc'],
-  cod: ['nhothu'],
-  commission: ['lai', 'hoahong'],
+  front: ['dau', 'ghedau'],
+  middle: ['giua', 'ghegiua'],
+  back: ['cuoi', 'ghecuoi'],
+  seats: ['soghe', 'ghe', 'soluongghe'],
   partner: ['doitac', 'nhaxe'],
-  pickup: ['diemdon'],
-  dropoff: ['diemtra'],
-  note: ['ghichu'],
-  status: ['trangthai'],
+  note: ['ghichu', 'note'],
 };
 
 const REQUIRED_FIELDS: FieldKey[] = ['phone', 'route', 'date'];
@@ -113,7 +95,11 @@ const pad = (n: number) => String(n).padStart(2, '0');
 
 function isRealDate(y: number, m: number, d: number): boolean {
   const dt = new Date(Date.UTC(y, m - 1, d));
-  return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+  return (
+    dt.getUTCFullYear() === y &&
+    dt.getUTCMonth() === m - 1 &&
+    dt.getUTCDate() === d
+  );
 }
 
 function cellText(v: ExcelJS.CellValue): string {
@@ -121,7 +107,11 @@ function cellText(v: ExcelJS.CellValue): string {
   if (v instanceof Date) return '';
   if (typeof v === 'string') return v.trim();
   if (typeof v === 'number' || typeof v === 'boolean') return String(v);
-  if ('richText' in v) return v.richText.map((r) => r.text).join('').trim();
+  if ('richText' in v)
+    return v.richText
+      .map((r) => r.text)
+      .join('')
+      .trim();
   if ('result' in v) return cellText(v.result as ExcelJS.CellValue);
   if ('text' in v) return String(v.text).trim();
   return '';
@@ -139,11 +129,15 @@ function parseDate(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
   const raw = rawValue(v);
   if (raw === null || raw === undefined || raw === '') return {};
   if (raw instanceof Date) {
-    return { value: `${raw.getUTCFullYear()}-${pad(raw.getUTCMonth() + 1)}-${pad(raw.getUTCDate())}` };
+    return {
+      value: `${raw.getUTCFullYear()}-${pad(raw.getUTCMonth() + 1)}-${pad(raw.getUTCDate())}`,
+    };
   }
   if (typeof raw === 'number') {
     const dt = new Date(Math.round((raw - 25569) * 86400000));
-    return { value: `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}` };
+    return {
+      value: `${dt.getUTCFullYear()}-${pad(dt.getUTCMonth() + 1)}-${pad(dt.getUTCDate())}`,
+    };
   }
   const s = cellText(raw);
   const vn = /^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{2,4})$/.exec(s);
@@ -193,32 +187,6 @@ function parseCount(v: ExcelJS.CellValue): { value: number; error?: boolean } {
   return { value: n };
 }
 
-/**
- * Tiền VNĐ. Sổ tay thường ghi theo nghìn đồng (320 = 320.000đ, 38.4 = 38.400đ),
- * nên số dương dưới 1.000 được hiểu là nghìn đồng. Chấp nhận "180k" và "15.000".
- */
-function parseMoney(v: ExcelJS.CellValue): { value: number; error?: boolean } {
-  const raw = rawValue(v);
-  if (raw === null || raw === undefined || raw === '') return { value: 0 };
-  let n: number;
-  if (typeof raw === 'number') {
-    n = raw;
-  } else {
-    let s = cellText(raw).toLowerCase().replace(/\s+/g, '').replace(/(đ|vnd|vnđ)$/, '');
-    let thousand = false;
-    if (s.endsWith('k')) {
-      thousand = true;
-      s = s.slice(0, -1);
-    }
-    s = /^\d{1,3}([.,]\d{3})+$/.test(s) ? s.replace(/[.,]/g, '') : s.replace(',', '.');
-    n = Number(s);
-    if (thousand) n *= 1000;
-  }
-  if (!Number.isFinite(n) || n < 0) return { value: 0, error: true };
-  if (n > 0 && n < 1000) n *= 1000;
-  return { value: Math.round(n) };
-}
-
 /** Số điện thoại: bỏ khoảng trắng; ô dạng số bị mất số 0 đầu thì bù lại */
 function parsePhone(v: ExcelJS.CellValue): string {
   const raw = rawValue(v);
@@ -239,38 +207,79 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
   const sheet = workbook.worksheets[0];
   if (!sheet) throw new Error('File Excel không có trang tính nào.');
 
-  // Tìm dòng tiêu đề: dòng đầu có đủ các cột bắt buộc
-  let headerRow = 0;
+  // Tìm dòng tiêu đề: hỗ trợ cả tiêu đề 1 tầng và tiêu đề 2 tầng (gộp r và r + 1)
+  let dataStartRow = 0;
   const columns = new Map<FieldKey, number>();
-  for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, sheet.rowCount); r++) {
-    const found = new Map<FieldKey, number>();
-    sheet.getRow(r).eachCell({ includeEmpty: false }, (cell, col) => {
-      const key = normalizeKey(cellText(cell.value));
-      if (!key) return;
-      for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [FieldKey, string[]][]) {
-        if (aliases.includes(key) && !found.has(field)) found.set(field, col);
-      }
-    });
-    if (REQUIRED_FIELDS.every((f) => found.has(f))) {
-      headerRow = r;
-      // Chỉ lấy các cột tính tới cột Ghi chú, bỏ mọi thứ nằm bên phải nó
-      const lastCol = found.get('note') ?? Infinity;
-      found.forEach((col, f) => {
-        if (col <= lastCol) columns.set(f, col);
+
+  // Lượt 1: dòng tiêu đề phải tự có đủ cột bắt buộc (tránh nhận nhầm dòng tiêu đề lớn phía trên
+  // khi tiêu đề thật nằm ở dòng dưới). Lượt 2: cho phép gộp bắt buộc từ cả dòng bên dưới.
+  for (const strict of [true, false]) {
+    if (dataStartRow) break;
+    for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, sheet.rowCount); r++) {
+      const found = new Map<FieldKey, number>();
+      const foundOnSubRow = new Set<FieldKey>();
+
+      // 1. Quét trên chính dòng r
+      sheet.getRow(r).eachCell({ includeEmpty: false }, (cell, col) => {
+        const key = normalizeKey(cellText(cell.value));
+        if (!key) return;
+        for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
+          FieldKey,
+          string[],
+        ][]) {
+          if (aliases.includes(key) && !found.has(field)) {
+            found.set(field, col);
+          }
+        }
       });
-      break;
+
+      const ownFound = new Set(found.keys());
+
+      // 2. Quét dòng ngay bên dưới r + 1 (nếu có)
+      if (r + 1 <= sheet.rowCount) {
+        sheet.getRow(r + 1).eachCell({ includeEmpty: false }, (cell, col) => {
+          const key = normalizeKey(cellText(cell.value));
+          if (!key) return;
+          for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
+            FieldKey,
+            string[],
+          ][]) {
+            if (aliases.includes(key) && !found.has(field)) {
+              found.set(field, col);
+              foundOnSubRow.add(field);
+            }
+          }
+        });
+      }
+
+      // 3. Dòng tiêu đề được chấp nhận khi gộp xong đủ các trường bắt buộc (phone, route, date)
+      if (REQUIRED_FIELDS.every((f) => (strict ? ownFound : found).has(f))) {
+        const subHeaderFields: FieldKey[] = [
+          'front',
+          'middle',
+          'back',
+          'seats',
+        ];
+        const hasSubHeader = subHeaderFields.some((f) => foundOnSubRow.has(f));
+        dataStartRow = hasSubHeader ? r + 1 : r;
+        found.forEach((col, f) => {
+          columns.set(f, col);
+        });
+        break;
+      }
     }
   }
-  if (!headerRow) {
+
+  if (!dataStartRow) {
     throw new Error(
       'Không tìm thấy dòng tiêu đề. File cần có các cột: Số điện thoại, Tuyến đi, Ngày khởi hành.',
     );
   }
 
-  // Chỉ duyệt các dòng thật sự có dữ liệu; dòng trống chỉ còn định dạng thì không tính
+  // Chỉ duyệt các dòng thật sự có dữ liệu bắt đầu sau tiêu đề
   const dataRows: ExcelJS.Row[] = [];
   sheet.eachRow({ includeEmpty: false }, (row, r) => {
-    if (r > headerRow) dataRows.push(row);
+    if (r > dataStartRow) dataRows.push(row);
   });
 
   const rows: ImportRow[] = [];
@@ -290,21 +299,23 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
 
     const errors: string[] = [];
     if (!phone) errors.push('thiếu số điện thoại');
-    else if (!/^(0|\+84)\d{9,10}$/.test(phone)) errors.push('số điện thoại không hợp lệ');
+    else if (!/^(0|\+84)\d{9,10}$/.test(phone))
+      errors.push('số điện thoại không hợp lệ');
     if (!routeName) errors.push('thiếu tuyến đi');
-    if (!dateCell.value) errors.push(dateCell.error ? 'ngày khởi hành sai định dạng' : 'thiếu ngày khởi hành');
+    if (!dateCell.value)
+      errors.push(
+        dateCell.error
+          ? 'ngày khởi hành sai định dạng'
+          : 'thiếu ngày khởi hành',
+      );
 
     const time = parseTime(get('time'));
-    if (!time.value) errors.push(time.error ? 'giờ đi sai định dạng' : 'thiếu giờ đi');
+    if (!time.value)
+      errors.push(time.error ? 'giờ đi sai định dạng' : 'thiếu giờ đi');
 
     const entry = parseDate(get('entryDate'));
     const count = (f: FieldKey, label: string) => {
       const res = parseCount(get(f));
-      if (res.error) errors.push(`${label} không hợp lệ`);
-      return res.value;
-    };
-    const money = (f: FieldKey, label: string) => {
-      const res = parseMoney(get(f));
       if (res.error) errors.push(`${label} không hợp lệ`);
       return res.value;
     };
@@ -320,7 +331,7 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
     rows.push({
       rowNumber: r,
       entryDate: entry.value,
-      staffName: text('staff') || undefined,
+      staffName: undefined,
       customerName: titleCase(text('customer')) || undefined,
       phone,
       routeName,
@@ -331,22 +342,25 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
       seatMiddle,
       seatBack,
       seatCount,
-      costPrice: money('cost', 'giá nhập'),
-      sellPrice: money('sell', 'giá bán'),
-      deposit: money('deposit', 'đã cọc'),
-      collectOnDelivery: money('cod', 'nhờ thu'),
-      commission: money('commission', 'lãi/hoa hồng'),
+      costPrice: 0,
+      sellPrice: 0,
+      deposit: 0,
+      collectOnDelivery: 0,
+      commission: 0,
       partner: titleCase(text('partner')) || undefined,
-      pickupPoint: titleCase(text('pickup')) || undefined,
-      dropoffPoint: titleCase(text('dropoff')) || undefined,
+      pickupPoint: undefined,
+      dropoffPoint: undefined,
       note: text('note') || undefined,
-      cancelled: normalizeKey(text('status')).includes('dahuy'),
+      cancelled: false,
       errors,
     });
   }
+
   if (rows.length === 0) throw new Error('Không có dòng dữ liệu nào để nhập.');
   if (rows.length > IMPORT_MAX_ROWS) {
-    throw new Error(`File có ${rows.length} đơn, mỗi lần nhập tối đa ${IMPORT_MAX_ROWS} đơn.`);
+    throw new Error(
+      `File có ${rows.length} đơn, mỗi lần nhập tối đa ${IMPORT_MAX_ROWS} đơn.`,
+    );
   }
   return rows;
 }
