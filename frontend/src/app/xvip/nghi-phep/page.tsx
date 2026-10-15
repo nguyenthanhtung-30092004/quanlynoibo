@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CaretLeft, CaretRight, FloppyDisk, Lock, Trash } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, FloppyDisk, Lock, LockOpen, Trash } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
@@ -26,6 +26,7 @@ const weekdayOf = (day: string) => {
   const [y, m, d] = day.split('-').map(Number);
   return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
 };
+const isLateWeekDay = (day: string) => [5, 6, 0].includes(weekdayOf(day));
 const columnOf = (day: string) => (weekdayOf(day) + 6) % 7;
 const dayLabel = (day: string) => `${WEEKDAY_NAME[weekdayOf(day)]}, ${Number(day.slice(8))}/${day.slice(5, 7)}/${day.slice(0, 4)}`;
 
@@ -75,7 +76,6 @@ export default function LeavePage() {
     }
     try {
       await saveConfig.mutateAsync(config);
-      showToast('Đã lưu giới hạn số người nghỉ.');
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không lưu được giới hạn.')}`);
     }
@@ -87,26 +87,23 @@ export default function LeavePage() {
   const register = async (day: string) => {
     try {
       await registerLeave.mutateAsync(day);
-      showToast(`Đã đăng ký nghỉ ${dayLabel(day)}.`);
       setSelectedDay(null);
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không đăng ký được.')}`);
     }
   };
 
-  const cancel = async (requestId: number, name: string) => {
+  const cancel = async (requestId: number) => {
     try {
       await removeLeave.mutateAsync(requestId);
-      showToast(`Đã hủy ngày nghỉ của ${name}.`);
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không hủy được.')}`);
     }
   };
 
-  const changeLimit = async (day: string, max: number | null, okMessage: string) => {
+  const changeLimit = async (day: string, max: number | null) => {
     try {
       await setDayLimit.mutateAsync({ day, max });
-      showToast(okMessage);
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không chỉnh được giới hạn.')}`);
     }
@@ -245,6 +242,7 @@ export default function LeavePage() {
               <AdminDayPanel
                 day={selected}
                 busy={removeLeave.isPending || setDayLimit.isPending}
+                defaultLimit={isLateWeekDay(selected.day) ? data!.config.lateMax : data!.config.earlyMax}
                 onCancel={cancel}
                 onChangeLimit={changeLimit}
               />
@@ -366,13 +364,16 @@ function StaffDayPanel({
 function AdminDayPanel({
   day,
   busy,
+  defaultLimit,
   onCancel,
   onChangeLimit,
 }: {
   day: LeaveDay;
   busy: boolean;
-  onCancel: (requestId: number, name: string) => void;
-  onChangeLimit: (day: string, max: number | null, okMessage: string) => void;
+  /** Giới hạn mặc định của nhóm ngày này (đầu tuần / cuối tuần) */
+  defaultLimit: number;
+  onCancel: (requestId: number) => void;
+  onChangeLimit: (day: string, max: number | null) => void;
 }) {
   const [limitText, setLimitText] = useState(String(day.limit));
   useEffect(() => setLimitText(String(day.limit)), [day.limit]);
@@ -403,7 +404,7 @@ function AdminDayPanel({
                   onClick={() => {
                     if (confirmId === p.requestId) {
                       setConfirmId(null);
-                      onCancel(p.requestId, p.fullName);
+                      onCancel(p.requestId);
                     } else {
                       setConfirmId(p.requestId);
                     }
@@ -434,23 +435,41 @@ function AdminDayPanel({
           <button
             type="button"
             disabled={busy}
-            onClick={() => onChangeLimit(day.day, null, 'Ngày này đã quay về giới hạn mặc định.')}
+            onClick={() => onChangeLimit(day.day, null)}
             className="btn-3d btn-3d-white px-3.5 py-2 text-sm disabled:opacity-50"
           >
             Dùng mặc định
           </button>
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onChangeLimit(day.day, 0, 'Đã khóa ngày này, không nhận đăng ký nghỉ.')}
-            className="btn-3d btn-3d-white px-3.5 py-2 text-sm disabled:opacity-50"
-          >
-            Khóa ngày
-          </button>
+          {day.limit === 0 ? (
+            <button
+              type="button"
+              disabled={busy}
+              // Mở khóa = về giới hạn mặc định; nếu mặc định cũng là 0 thì mở với 1 chỗ để ngày thật sự mở được
+              onClick={() =>
+                defaultLimit > 0
+                  ? onChangeLimit(day.day, null)
+                  : onChangeLimit(day.day, 1)
+              }
+              className="btn-3d btn-3d-blue inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+            >
+              <LockOpen size={15} weight="bold" />
+              Mở khóa ngày
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => onChangeLimit(day.day, 0)}
+              className="btn-3d btn-3d-white inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+            >
+              <Lock size={15} weight="bold" />
+              Khóa ngày
+            </button>
+          )}
           <button
             type="button"
             disabled={busy || !validLimit}
-            onClick={() => onChangeLimit(day.day, parsed, 'Đã chỉnh giới hạn cho ngày này.')}
+            onClick={() => onChangeLimit(day.day, parsed)}
             className="btn-3d btn-3d-blue px-4 py-2 text-sm disabled:opacity-50"
           >
             Lưu giới hạn
