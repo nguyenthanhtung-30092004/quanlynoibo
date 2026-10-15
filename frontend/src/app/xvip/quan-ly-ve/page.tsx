@@ -13,14 +13,9 @@ import {
   FileXls,
   UploadSimple,
   MagnifyingGlass,
-  PencilSimple,
-  ClockCounterClockwise,
   Plus,
   Copy,
-  Repeat,
-  Trash,
   X,
-  XCircle,
   WarningCircle,
   Ticket as TicketIcon,
 } from '@phosphor-icons/react';
@@ -392,6 +387,17 @@ export default function TicketManagementPage() {
   const { data: ordersData, isLoading, refetch } = useOrders(filters);
   const { data: activeRoutes = [] } = useActiveRoutes();
   const { data: partnerList = [] } = usePartners();
+  // Gợi ý đối tác: Hải Phòng Travel luôn đứng đầu
+  const partnerSuggestions = useMemo(() => {
+    const isHp = (n: string) =>
+      n
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .includes('hai phong travel');
+    const names = partnerList.map((c) => c.name);
+    return [...names.filter(isHp), ...names.filter((n) => !isHp(n))];
+  }, [partnerList]);
   const { data: me } = useCurrentUser();
   const isAdmin = me?.role === 'ADMIN';
   // Danh sách nhân viên chỉ Admin được xem (backend trả 403 cho nhân viên)
@@ -1359,15 +1365,13 @@ export default function TicketManagementPage() {
                 <ThStaff showFilter={isAdmin} {...colProps} />
                 <ThSms {...colProps} />
 
-                {/* 8. Thao tác */}
-                <th className={`${TH_CELL} text-center`}>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
                 <tr>
                   <td
-                    colSpan={13}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách vé từ cơ sở dữ liệu...
@@ -1376,7 +1380,7 @@ export default function TicketManagementPage() {
               ) : ordersList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={13}
+                    colSpan={12}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     <div className="flex flex-col items-center justify-center gap-3">
@@ -1489,66 +1493,6 @@ export default function TicketManagementPage() {
                           Chưa gửi
                         </span>
                       )}
-                    </td>
-
-                    {/* 8. Thao tác (Sticky Right) */}
-                    <td
-                      className={`${TD_CELL} text-center`}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => handleOpenRebook(t)}
-                          title="Đặt lại (tạo đơn mới từ đơn này)"
-                          aria-label="Đặt lại đơn này"
-                          className="btn-3d btn-3d-green px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
-                        >
-                          <Repeat size={13} weight="bold" /> Đặt lại
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setHistoryOrderId(t.id)}
-                          title="Xem lịch sử thay đổi của đơn"
-                          aria-label="Xem lịch sử"
-                          className="btn-3d btn-3d-white px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
-                        >
-                          <ClockCounterClockwise size={13} weight="bold" /> Lịch sử
-                        </button>
-                        {!t.cancelledAt && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleOpenEdit(t)}
-                              title="Sửa vé"
-                              aria-label="Sửa vé"
-                              className="btn-3d btn-3d-amber px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
-                            >
-                              <PencilSimple size={13} weight="bold" /> Sửa
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => openCancel(t)}
-                              title="Hủy vé (khách không đặt nữa)"
-                              aria-label="Hủy vé"
-                              className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
-                            >
-                              <XCircle size={13} weight="bold" /> Hủy
-                            </button>
-                          </>
-                        )}
-                        {isAdmin && (
-                          <button
-                            type="button"
-                            onClick={() => setDeleteTarget(t)}
-                            title="Xóa vé"
-                            aria-label="Xóa vé"
-                            className="btn-3d btn-3d-red px-2.5 py-1 text-[11px] flex items-center gap-1 whitespace-nowrap"
-                          >
-                            <Trash size={13} weight="bold" /> Xóa
-                          </button>
-                        )}
-                      </div>
                     </td>
                   </tr>
                 ))
@@ -1743,7 +1687,7 @@ export default function TicketManagementPage() {
 
                     <Field label="Đối tác" required error={formErrors.partner}>
                       <SuggestInput
-                        options={partnerList.map((c) => c.name)}
+                        options={partnerSuggestions}
                         value={formState.partner}
                         invalid={!!formErrors.partner}
                         onChange={(v) => {
@@ -2099,6 +2043,26 @@ export default function TicketManagementPage() {
             setDetailOrder(null);
             handleOpenEdit(o);
           }}
+          onRebook={(o) => {
+            setDetailOrder(null);
+            handleOpenRebook(o);
+          }}
+          onHistory={(o) => {
+            setDetailOrder(null);
+            setHistoryOrderId(o.id);
+          }}
+          onCancel={(o) => {
+            setDetailOrder(null);
+            openCancel(o);
+          }}
+          onDelete={
+            isAdmin
+              ? (o) => {
+                  setDetailOrder(null);
+                  setDeleteTarget(o);
+                }
+              : undefined
+          }
         />
       )}
 

@@ -31,15 +31,23 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
-/** Hộp chi tiết một đơn vé; truyền `onEdit` thì hiện thêm nút "Sửa vé" cho đơn chưa hủy */
+/** Hộp chi tiết một đơn vé; truyền các callback thì hiện nút thao tác tương ứng (sửa/hủy chỉ với đơn chưa hủy) */
 export function OrderDetailModal({
   order,
   onClose,
   onEdit,
+  onRebook,
+  onHistory,
+  onCancel,
+  onDelete,
 }: {
   order: Order;
   onClose: () => void;
   onEdit?: (order: Order) => void;
+  onRebook?: (order: Order) => void;
+  onHistory?: (order: Order) => void;
+  onCancel?: (order: Order) => void;
+  onDelete?: (order: Order) => void;
 }) {
   return (
     <Modal title={`Chi tiết đơn ${formatOrderCode(order.id)}`} onClose={onClose}>
@@ -97,7 +105,25 @@ export function OrderDetailModal({
           />
           <DetailRow label="Ghi chú" value={order.note} />
         </DetailGroup>
-        <div className="flex justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <div className="flex flex-wrap justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+          {onRebook && (
+            <button
+              type="button"
+              onClick={() => onRebook(order)}
+              className="btn-3d btn-3d-green px-4 py-2 text-sm"
+            >
+              Đặt lại
+            </button>
+          )}
+          {onHistory && (
+            <button
+              type="button"
+              onClick={() => onHistory(order)}
+              className="btn-3d btn-3d-white px-4 py-2 text-sm"
+            >
+              Lịch sử
+            </button>
+          )}
           {onEdit && !order.cancelledAt && (
             <button
               type="button"
@@ -105,6 +131,24 @@ export function OrderDetailModal({
               className="btn-3d btn-3d-amber px-4 py-2 text-sm"
             >
               Sửa vé
+            </button>
+          )}
+          {onCancel && !order.cancelledAt && (
+            <button
+              type="button"
+              onClick={() => onCancel(order)}
+              className="btn-3d btn-3d-red px-4 py-2 text-sm"
+            >
+              Hủy vé
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={() => onDelete(order)}
+              className="btn-3d btn-3d-red px-4 py-2 text-sm"
+            >
+              Xóa vé
             </button>
           )}
           <button type="button" onClick={onClose} className="btn-3d btn-3d-white px-4 py-2 text-sm">
