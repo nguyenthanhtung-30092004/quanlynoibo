@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { AuthGuard } from './modules/auth/guards/auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 import { CarriersModule } from './modules/carriers/carriers.module.js';
+import { LeaveModule } from './modules/leave/leave.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PartnersModule } from './modules/partners/partners.module.js';
 import { PayrollModule } from './modules/payroll/payroll.module.js';
@@ -19,6 +20,7 @@ import { SettingsModule } from './modules/settings/settings.module.js';
 import { UsersModule } from './modules/users/users.module.js';
 import { InitialSchemaGuards1710000000001 } from './migrations/1710000000001-InitialSchemaGuards.js';
 import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migrations/1710000000002-PerformanceIndexesAndNormalizedColumns.js';
+import { LeaveRegistration1710000000003 } from './migrations/1710000000003-LeaveRegistration.js';
 
 @Module({
   imports: [
@@ -41,6 +43,7 @@ import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migration
         migrations: [
           InitialSchemaGuards1710000000001,
           PerformanceIndexesAndNormalizedColumns1710000000002,
+          LeaveRegistration1710000000003,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),
@@ -60,6 +63,7 @@ import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migration
     SettingsModule,
     PayrollModule,
     AttendanceModule,
+    LeaveModule,
     RealtimeModule,
   ],
   controllers: [AppController],
