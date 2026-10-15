@@ -28,8 +28,8 @@ export interface LeaveDay {
   count: number;
   /** Người đang xem đã đăng ký nghỉ ngày này */
   mine: boolean;
-  /** Chỉ Admin nhận danh sách người nghỉ; nhân viên chỉ thấy số lượng */
-  people?: Array<{ requestId: number; userId: number; fullName: string }>;
+  /** Ai đã đăng ký nghỉ ngày này (mọi người dùng đều xem được, chỉ Admin mới hủy được) */
+  people: Array<{ requestId: number; userId: number; fullName: string }>;
 }
 
 const addDays = (day: string, delta: number): string => {
@@ -63,9 +63,8 @@ export class LeaveService {
     return config;
   }
 
-  /** Lịch nghỉ của một tháng: số người đã đăng ký / giới hạn từng ngày; Admin xem thêm tên từng người */
+  /** Lịch nghỉ của một tháng: số người đã đăng ký / giới hạn từng ngày; kèm tên những người đã đăng ký */
   async month(month: string, actor: JwtPayload) {
-    const isAdmin = actor.role === UserRole.ADMIN;
     const first = `${month}-01`;
     const last = `${month}-31`; // so sánh chuỗi: tháng ngắn hơn vẫn không có ngày lớn hơn
     const daysInMonth: string[] = [];
@@ -99,9 +98,7 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
-        ...(isAdmin
-          ? { people: list.map((r) => ({ requestId: r.id, userId: r.userId, fullName: r.user?.fullName ?? '' })) }
-          : {}),
+        people: list.map((r) => ({ requestId: r.id, userId: r.userId, fullName: r.user?.fullName ?? '' })),
       };
     });
 
@@ -117,8 +114,8 @@ export class LeaveService {
       throw new BadRequestException('Ngày không hợp lệ');
     }
     const today = vietnamClock().day;
-    if (day < today) {
-      throw new BadRequestException('Không thể đăng ký nghỉ cho ngày đã qua');
+    if (day <= today) {
+      throw new BadRequestException('Chỉ được đăng ký nghỉ từ ngày mai trở đi');
     }
     if (day > addDays(today, MAX_DAYS_AHEAD)) {
       throw new BadRequestException(`Chỉ được đăng ký nghỉ trước tối đa ${MAX_DAYS_AHEAD} ngày`);

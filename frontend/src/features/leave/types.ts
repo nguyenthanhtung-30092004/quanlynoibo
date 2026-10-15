@@ -18,8 +18,8 @@ export interface LeaveDay {
   customLimit: boolean;
   count: number;
   mine: boolean;
-  /** Chỉ Admin nhận được danh sách này */
-  people?: LeavePerson[];
+  /** Những người đã đăng ký nghỉ ngày này */
+  people: LeavePerson[];
 }
 
 export interface LeaveMonth {

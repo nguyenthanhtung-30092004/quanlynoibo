@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CaretLeft, CaretRight, FloppyDisk, Lock, Trash } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
@@ -319,16 +319,35 @@ function StaffDayPanel({
   busy: boolean;
   onRegister: () => void;
 }) {
-  const past = day.day < today;
   const full = day.count >= day.limit;
   let note: string | null = null;
   if (day.mine) note = 'Bạn đã đăng ký nghỉ ngày này. Cần hủy thì báo quản lý.';
-  else if (past) note = 'Ngày này đã qua, không đăng ký được.';
+  else if (day.day < today) note = 'Ngày này đã qua, không đăng ký được.';
+  else if (day.day === today) note = 'Chỉ đăng ký nghỉ được từ ngày mai trở đi, hôm nay không đăng ký nữa.';
   else if (day.limit === 0) note = 'Quản lý đã khóa ngày này.';
   else if (full) note = 'Ngày này đã đủ người nghỉ, bạn chọn ngày khác nhé.';
 
   return (
     <div className="space-y-3">
+      <div>
+        <div className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Người đăng ký nghỉ ({day.people.length})
+        </div>
+        {day.people.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+            {day.people.map((p) => (
+              <li key={p.requestId} className="flex items-center gap-3 px-3 py-2">
+                <Avatar name={p.fullName} />
+                <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
+                  {p.fullName}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {note && <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{note}</p>}
       <div className="flex justify-end">
         <button
@@ -358,7 +377,7 @@ function AdminDayPanel({
   const [limitText, setLimitText] = useState(String(day.limit));
   useEffect(() => setLimitText(String(day.limit)), [day.limit]);
   const [confirmId, setConfirmId] = useState<number | null>(null);
-  const people = useMemo(() => day.people ?? [], [day.people]);
+  const people = day.people;
   const parsed = Number(limitText);
   const validLimit = limitText.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100;
 
