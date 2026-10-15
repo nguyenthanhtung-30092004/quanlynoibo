@@ -947,6 +947,8 @@ export default function StaffReportPage() {
           <table className="w-full">
             <thead>
               <tr>
+                <th className={TH}>STT</th>
+                <ThOrderCode {...colProps} />
                 <ThValueList title="Ngày vào sổ" column="entryDate" field="entryDates" {...colProps} />
                 <ThStaff showFilter={isAdmin} {...colProps} />
                 <ThCustomerName {...colProps} />
@@ -966,8 +968,6 @@ export default function StaffReportPage() {
                 <ThCommission {...colProps} title="Doanh số" />
                 <ThPartner {...colProps} />
                 <ThValueList title="Ghi chú" column="note" field="notes" {...colProps} />
-                <th className={TH}>STT</th>
-                <ThOrderCode {...colProps} />
                 <ThValueList title="Điểm đón" column="pickupPoint" field="pickupPoints" {...colProps} />
                 <ThValueList title="Điểm trả" column="dropoffPoint" field="dropoffPoints" {...colProps} />
                 <ThSms {...colProps} />
@@ -1003,6 +1003,17 @@ export default function StaffReportPage() {
                       t.cancelledAt ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60' : ''
                     }`}
                   >
+                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
+                      {i + 1}
+                    </td>
+                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
+                      {formatOrderCode(t.id)}
+                      {t.cancelledAt && (
+                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                          Đã hủy
+                        </span>
+                      )}
+                    </td>
                     <td className={`${TD} text-slate-700 dark:text-slate-300 tnum`}>
                       {formatDateVN(t.entryDate)}
                     </td>
@@ -1059,17 +1070,6 @@ export default function StaffReportPage() {
                     </td>
                     <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-600 dark:text-slate-300 text-xs`}>
                       {t.note || '—'}
-                    </td>
-                    <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>
-                      {i + 1}
-                    </td>
-                    <td className={`${TD} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
-                      {formatOrderCode(t.id)}
-                      {t.cancelledAt && (
-                        <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
-                          Đã hủy
-                        </span>
-                      )}
                     </td>
                     <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
                       {t.pickupPoint || '—'}
