@@ -549,7 +549,8 @@ export function OrderFormModal({
       pickupPoint: formState.pickupPoint.trim(),
       dropoffPoint: formState.dropoffPoint.trim(),
       note: formState.note.trim(),
-      staffId: formState.staffId,
+      // Backend không cho đổi nhân viên khi sửa đơn (UpdateOrderDto bỏ staffId)
+      staffId: editingId ? undefined : formState.staffId,
     };
 
     await onSave({
