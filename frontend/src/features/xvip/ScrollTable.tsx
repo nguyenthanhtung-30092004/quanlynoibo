@@ -7,7 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
  * với thanh ở đáy bảng. Không có khung cao cố định: bảng tràn hết xuống, cuộn dọc theo trang.
  * Điện thoại chỉ cuộn ngang trong bảng, vuốt dọc theo trang nên mượt.
  */
-export function ScrollTable({ children }: { children: ReactNode }) {
+export function ScrollTable({ children, stickyHead = false }: { children: ReactNode; stickyHead?: boolean }) {
   const topRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const [contentWidth, setContentWidth] = useState(0);
@@ -44,7 +44,7 @@ export function ScrollTable({ children }: { children: ReactNode }) {
         <div
           ref={topRef}
           onScroll={() => sync(topRef.current, mainRef.current)}
-          className="hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 dark:border-slate-700"
+          className="scroll-big hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 dark:border-slate-700"
           aria-hidden="true"
         >
           <div style={{ width: contentWidth, height: 1 }} />
@@ -53,7 +53,11 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       <div
         ref={mainRef}
         onScroll={() => sync(mainRef.current, topRef.current)}
-        className="overflow-x-auto overscroll-x-contain"
+        className={`scroll-big overflow-x-auto overscroll-x-contain ${
+          stickyHead
+            ? 'max-h-[70vh] overflow-y-auto [&_thead_th]:sticky [&_thead_th]:top-0 [&_thead_th]:z-10 [&_thead_th]:!bg-slate-100 dark:[&_thead_th]:!bg-slate-800'
+            : ''
+        }`}
       >
         {children}
       </div>

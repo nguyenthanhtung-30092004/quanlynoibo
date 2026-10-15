@@ -65,6 +65,35 @@ html.dark * {
   scrollbar-color: #334155 transparent;
 }
 
+/* Thanh kéo ngang của bảng: to hơn để dễ trỏ chuột vào kéo */
+.scroll-big {
+  scrollbar-width: auto;
+  scrollbar-color: #94a3b8 #e2e8f0;
+}
+html.dark .scroll-big {
+  scrollbar-color: #64748b #1e293b;
+}
+.scroll-big::-webkit-scrollbar {
+  height: 16px;
+  width: 16px;
+}
+.scroll-big::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 8px;
+}
+.scroll-big::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 8px;
+  border: 3px solid #e2e8f0;
+}
+html.dark .scroll-big::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+html.dark .scroll-big::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-color: #1e293b;
+}
+
 /* ================================================================
    HỆ THỐNG PHÍM BẤM 3D XÚC GIÁC (TACTILE 3D PUSH BUTTONS)
    Tạo cảm giác ấn nảy cơ học siêu thực

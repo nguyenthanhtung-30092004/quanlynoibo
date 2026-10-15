@@ -1342,7 +1342,7 @@ export default function TicketManagementPage() {
 
       {/* Bảng danh sách 3D */}
       <Card className="mt-5 overflow-hidden !p-0">
-        <ScrollTable>
+        <ScrollTable stickyHead>
           <table className="w-full">
             <thead>
               <tr>

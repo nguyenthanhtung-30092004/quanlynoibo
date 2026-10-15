@@ -9,6 +9,15 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository, SelectQueryBuilder } from 'typeorm';
 import ExcelJS from 'exceljs';
 import { plainToInstance } from 'class-transformer';
+
+/** Viết hoa chữ cái đầu mỗi từ của tên khách (nguyễn văn a -> Nguyễn Văn A) */
+function titleCaseName(name?: string | null): string {
+  return (name ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('vi')
+    .replace(/(^|\s)(\S)/gu, (_m, sp: string, c: string) => sp + c.toLocaleUpperCase('vi'));
+}
 import { validate } from 'class-validator';
 import { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Partner } from '../partners/entities/partner.entity.js';
@@ -156,7 +165,7 @@ export class OrdersService {
       this.orderRepository.create({
         entryDate: options.entryDate ?? getBusinessDate(),
         createdById: ownerId,
-        customerName: dto.customerName || null,
+        customerName: titleCaseName(dto.customerName) || null,
         phone: dto.phone,
         routeId: dto.routeId,
         departureTime: dto.departureTime,
@@ -345,7 +354,7 @@ export class OrdersService {
     const next = {
       customerName:
         dto.customerName !== undefined
-          ? dto.customerName || null
+          ? titleCaseName(dto.customerName) || null
           : order.customerName,
       phone: dto.phone ?? order.phone,
       routeId: dto.routeId ?? order.routeId,
