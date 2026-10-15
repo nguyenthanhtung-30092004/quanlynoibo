@@ -14,6 +14,7 @@ import {
   useDeleteOrder,
   useCancelOrder,
   useImportOrders,
+  useExportOrders,
   useRollbackImport,
   useUnlistedPartners,
 } from '@/features/orders/hooks';
@@ -219,6 +220,7 @@ export default function TicketManagementPage() {
   const deleteMutation = useDeleteOrder();
   const cancelMutation = useCancelOrder();
   const importMutation = useImportOrders();
+  const exportMutation = useExportOrders();
   const rollbackMutation = useRollbackImport();
 
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
@@ -325,7 +327,7 @@ export default function TicketManagementPage() {
 
   const handleExportExcel = async () => {
     try {
-      await ordersApi.exportExcel(filters);
+      await exportMutation.mutateAsync(filters);
       showToast('Đã xuất file Excel.');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Lỗi khi xuất Excel.', 'error');
