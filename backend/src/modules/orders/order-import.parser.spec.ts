@@ -136,7 +136,7 @@ describe('order-import.parser', () => {
     expect(rows[0].note).toBe('Đón tại ngã tư');
   });
 
-  it('báo lỗi đúng khi dòng thiếu toàn bộ số ghế (cả số ghế và đầu/giữa/cuối đều bằng 0 hoặc trống)', async () => {
+  it('dòng để trống số ghế vẫn hợp lệ, không báo lỗi', async () => {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Sheet1');
 
@@ -166,7 +166,7 @@ describe('order-import.parser', () => {
     const rows = await parseOrderWorkbook(buffer);
 
     expect(rows).toHaveLength(1);
-    expect(rows[0].errors).toContain('thiếu số ghế (hoặc đầu/giữa/cuối)');
+    expect(rows[0].errors).toEqual([]);
   });
 
   it('tiêu đề hai tầng nằm dưới dòng tiêu đề lớn của sổ vẫn nhận đủ cột số ghế', async () => {

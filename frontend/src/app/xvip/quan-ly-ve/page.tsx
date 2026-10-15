@@ -220,6 +220,7 @@ export default function TicketManagementPage() {
   const deleteMutation = useDeleteOrder();
   const cancelMutation = useCancelOrder();
   const importMutation = useImportOrders();
+  const [importProgress, setImportProgress] = useState<number | null>(null);
   const exportMutation = useExportOrders();
   const rollbackMutation = useRollbackImport();
 
@@ -336,13 +337,16 @@ export default function TicketManagementPage() {
 
   const handleImportFile = async (file: File | undefined) => {
     if (!file) return;
+    setImportProgress(0);
     try {
-      const res = await importMutation.mutateAsync(file);
+      const res = await importMutation.mutateAsync({ file, onProgress: setImportProgress });
       setImportResult(res);
       showToast(`Đã nhập xong: ${res.created} đơn thành công.`);
       refetch();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Lỗi khi nhập Excel.', 'error');
+    } finally {
+      setImportProgress(null);
     }
   };
 
@@ -367,6 +371,7 @@ export default function TicketManagementPage() {
         onExportExcel={handleExportExcel}
         onImportFile={handleImportFile}
         isImporting={importMutation.isPending}
+        importProgress={importProgress}
         onSearchPartner={(partner) => setFilters((p) => ({ ...p, search: partner, page: 1 }))}
       />
 

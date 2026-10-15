@@ -324,9 +324,6 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
     const seatMiddle = count('middle', 'số ghế giữa');
     const seatBack = count('back', 'số ghế cuối');
     const seatCount = count('seats', 'số ghế');
-    if (seatFront + seatMiddle + seatBack + seatCount < 1) {
-      errors.push('thiếu số ghế (hoặc đầu/giữa/cuối)');
-    }
 
     rows.push({
       rowNumber: r,

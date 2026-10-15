@@ -173,10 +173,10 @@ export const ordersApi = {
     }).then((res) => res.data),
 
   /** Nhập đơn từ file Excel (chỉ Admin) */
-  importExcel: (file: File) => {
+  importExcel: (file: File, onProgress?: (percent: number) => void) => {
     const form = new FormData();
     form.append('file', file);
-    return apiUpload<ApiResponse<ImportResult>>('orders/import', form).then(
+    return apiUpload<ApiResponse<ImportResult>>('orders/import', form, onProgress).then(
       (res) => res.data,
     );
   },

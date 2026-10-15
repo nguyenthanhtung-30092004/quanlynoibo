@@ -66,7 +66,8 @@ export function useCreateOrder() {
 export function useImportOrders() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (file: File) => ordersApi.importExcel(file),
+    mutationFn: ({ file, onProgress }: { file: File; onProgress?: (percent: number) => void }) =>
+      ordersApi.importExcel(file, onProgress),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
       queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });

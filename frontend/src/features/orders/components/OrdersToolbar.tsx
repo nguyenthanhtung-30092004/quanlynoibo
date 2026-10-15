@@ -17,6 +17,8 @@ interface OrdersToolbarProps {
   onExportExcel: () => void;
   onImportFile: (file: File | undefined) => void;
   isImporting?: boolean;
+  /** 0-100 khi đang tải file lên; null khi không nhập */
+  importProgress?: number | null;
   onSearchPartner: (partnerName: string) => void;
 }
 
@@ -27,6 +29,7 @@ export function OrdersToolbar({
   onExportExcel,
   onImportFile,
   isImporting = false,
+  importProgress = null,
   onSearchPartner,
 }: OrdersToolbarProps) {
   const importInputRef = useRef<HTMLInputElement>(null);
@@ -75,6 +78,28 @@ export function OrdersToolbar({
       >
         Quản lý vé &amp; Đơn đặt xe
       </PageTitle>
+
+      {/* Thanh tiến trình nhập Excel: tải lên 0-100%, sau đó chờ máy chủ xử lý */}
+      {isAdmin && isImporting && importProgress !== null && (
+        <div className="mb-4 rounded-2xl border border-blue-200 bg-blue-50/90 p-4 text-sm font-medium text-blue-900 dark:border-blue-800/60 dark:bg-blue-950/40 dark:text-blue-200">
+          <div className="mb-2 flex justify-between">
+            <span>
+              {importProgress < 100
+                ? 'Đang tải file lên...'
+                : 'Đang xử lý và lưu đơn, vui lòng chờ...'}
+            </span>
+            <span>{importProgress}%</span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-blue-200 dark:bg-blue-900">
+            <div
+              className={`h-full rounded-full bg-blue-600 transition-all ${
+                importProgress >= 100 ? 'animate-pulse' : ''
+              }`}
+              style={{ width: `${importProgress}%` }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Cảnh báo đối tác không có trong danh sách (chỉ Admin) */}
       {isAdmin && unlistedPartners.length > 0 && (

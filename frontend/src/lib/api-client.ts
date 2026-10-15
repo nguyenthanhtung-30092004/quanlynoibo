@@ -97,8 +97,50 @@ export async function apiDownload(
   return { blob: await res.blob(), filename };
 }
 
+/** fetch không báo tiến trình tải lên, nên dùng XMLHttpRequest khi cần thanh tiến trình */
+function uploadWithProgress<T>(
+  path: string,
+  formData: FormData,
+  onProgress: (percent: number) => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', buildUrl(path));
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onerror = () => reject(new ApiError(0, 'Không kết nối được máy chủ.'));
+    xhr.onload = () => {
+      let json: { message?: string | string[] } | null = null;
+      try {
+        json = JSON.parse(xhr.responseText);
+      } catch {
+        json = null;
+      }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(json as T);
+        return;
+      }
+      if (xhr.status === 401) handleUnauthorized(path);
+      const raw = json?.message;
+      const message = Array.isArray(raw)
+        ? raw.join('. ')
+        : typeof raw === 'string'
+          ? raw
+          : `Yêu cầu thất bại (${xhr.status}).`;
+      reject(new ApiError(xhr.status, message));
+    };
+    xhr.send(formData);
+  });
+}
+
 /** Gửi file lên server (multipart); trình duyệt tự gắn content-type kèm boundary */
-export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+export async function apiUpload<T>(
+  path: string,
+  formData: FormData,
+  onProgress?: (percent: number) => void,
+): Promise<T> {
+  if (onProgress) return uploadWithProgress<T>(path, formData, onProgress);
   const res = await fetch(buildUrl(path), { method: 'POST', body: formData });
   if (!res.ok) {
     if (res.status === 401) handleUnauthorized(path);
