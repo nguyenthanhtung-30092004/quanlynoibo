@@ -1,14 +1,26 @@
 'use client';
 
+import { useState } from 'react';
 import { Modal } from '@/features/xvip/Modal';
 import type { ImportResult } from '../types';
 
 interface ImportResultModalProps {
   result: ImportResult;
   onClose: () => void;
+  /** Có truyền thì hiện nút "Hoàn tác nhập" để xóa các đơn vừa nhập */
+  onRollback?: (ids: number[]) => void;
+  isRollingBack?: boolean;
 }
 
-export function ImportResultModal({ result, onClose }: ImportResultModalProps) {
+export function ImportResultModal({
+  result,
+  onClose,
+  onRollback,
+  isRollingBack = false,
+}: ImportResultModalProps) {
+  const [confirming, setConfirming] = useState(false);
+  const canRollback = !!onRollback && result.createdIds.length > 0;
+
   return (
     <Modal title="Kết quả nhập Excel" onClose={onClose}>
       <div className="space-y-4">
@@ -55,7 +67,41 @@ export function ImportResultModal({ result, onClose }: ImportResultModalProps) {
             </ul>
           </div>
         )}
-        <div className="flex justify-end border-t border-slate-100 pt-3 dark:border-slate-800">
+        {canRollback && confirming && (
+          <div className="rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+            Xóa {result.createdIds.length} đơn vừa nhập để nhập lại? Việc này không khôi phục được.
+          </div>
+        )}
+        <div className="flex flex-wrap justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+          {canRollback && !confirming && (
+            <button
+              type="button"
+              onClick={() => setConfirming(true)}
+              className="btn-3d btn-3d-red px-4 py-2 text-sm"
+            >
+              Hoàn tác nhập
+            </button>
+          )}
+          {canRollback && confirming && (
+            <>
+              <button
+                type="button"
+                disabled={isRollingBack}
+                onClick={() => onRollback?.(result.createdIds)}
+                className="btn-3d btn-3d-red px-4 py-2 text-sm"
+              >
+                {isRollingBack ? 'Đang xóa...' : 'Xác nhận xóa'}
+              </button>
+              <button
+                type="button"
+                disabled={isRollingBack}
+                onClick={() => setConfirming(false)}
+                className="btn-3d btn-3d-white px-4 py-2 text-sm"
+              >
+                Không xóa
+              </button>
+            </>
+          )}
           <button
             type="button"
             onClick={onClose}

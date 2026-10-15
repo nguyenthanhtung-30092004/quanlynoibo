@@ -75,6 +75,18 @@ export function useImportOrders() {
   });
 }
 
+export function useRollbackImport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: number[]) => ordersApi.rollbackImport(ids),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
+    },
+  });
+}
+
 export function useUpdateOrder() {
   const queryClient = useQueryClient();
   return useMutation({

@@ -147,6 +147,12 @@ export class OrdersService {
     });
   }
 
+  async rollbackImport(ids: number[], actor: JwtPayload) {
+    return this.importService.rollbackImport(ids, actor, () => {
+      this.clearReportsAndFilterCache();
+    });
+  }
+
   async findAll(query: QueryOrdersDto, actor: JwtPayload) {
     return this.queryService.findAll(query, actor);
   }

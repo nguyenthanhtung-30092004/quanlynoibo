@@ -133,7 +133,34 @@ describe('OrdersImportService', () => {
     expect(result.total).toBe(2);
     expect(result.duplicates).toBe(1);
     expect(result.created).toBe(1);
+    expect(result.createdIds).toEqual([200]);
     expect(result.failed).toBe(0);
     expect(mockQueryRunner.commitTransaction).toHaveBeenCalled();
+  });
+
+  it('hoàn tác nhập chỉ xóa đơn chưa bị đụng tới và do chính người nhập tạo', async () => {
+    const SUMMARY = 'Tạo đơn từ file Excel';
+    const histories = [
+      { orderId: 1, action: 'CREATE', summary: SUMMARY, actorId: 1 }, // xóa được
+      { orderId: 2, action: 'CREATE', summary: SUMMARY, actorId: 1 }, // đã sửa
+      { orderId: 2, action: 'UPDATE', summary: 'Sửa', actorId: 1 },
+      { orderId: 3, action: 'CREATE', summary: SUMMARY, actorId: 9 }, // người khác nhập
+      { orderId: 4, action: 'CREATE', summary: 'Tạo đơn', actorId: 1 }, // tạo tay
+    ];
+    const manager: any = {
+      find: vi.fn().mockResolvedValue(histories),
+      delete: vi.fn().mockResolvedValue({ affected: 1 }),
+    };
+    const mockDataSource: any = {
+      transaction: vi.fn().mockImplementation(async (fn: any) => fn(manager)),
+    };
+    const service = new OrdersImportService(mockDataSource, {} as any, {} as any, {} as any, {} as any, {} as any);
+    const done = vi.fn();
+
+    const res = await service.rollbackImport([1, 2, 3, 4, 5], adminActor, done);
+
+    expect(res).toEqual({ deleted: 1, skipped: 4 });
+    expect(manager.delete).toHaveBeenCalledTimes(2);
+    expect(done).toHaveBeenCalled();
   });
 });

@@ -22,6 +22,8 @@ import { getBusinessDate } from '../order-time-lock.js';
 export interface ImportResult {
   total: number;
   created: number;
+  /** Mã các đơn vừa tạo, dùng để hoàn tác lần nhập này */
+  createdIds: number[];
   duplicates: number;
   failed: number;
   errors: Array<{ row: number; message: string }>;
@@ -36,6 +38,7 @@ interface ValidatedRow {
 }
 
 const BATCH_SIZE = 250;
+const IMPORT_HISTORY_SUMMARY = 'Tạo đơn từ file Excel';
 
 @Injectable()
 export class OrdersImportService {
@@ -87,6 +90,7 @@ export class OrdersImportService {
     const result: ImportResult = {
       total: rows.length,
       created: 0,
+      createdIds: [],
       duplicates: 0,
       failed: 0,
       errors: [],
@@ -247,6 +251,7 @@ export class OrdersImportService {
 
         const savedOrders = await queryRunner.manager.save(Order, orderEntities);
         result.created += savedOrders.length;
+        result.createdIds.push(...savedOrders.map((o) => o.id));
 
         // Lưu lịch sử theo lô
         const histories = savedOrders.map((o) =>
@@ -255,7 +260,7 @@ export class OrdersImportService {
             action: 'CREATE',
             actorId: actor.sub,
             actorName,
-            summary: 'Tạo đơn từ file Excel',
+            summary: IMPORT_HISTORY_SUMMARY,
             changes: null,
           }),
         );
@@ -276,5 +281,47 @@ export class OrdersImportService {
     }
 
     return result;
+  }
+
+  /**
+   * Hoàn tác một lần nhập Excel (chỉ Admin): xóa các đơn vừa nhập để nhập lại.
+   * Chỉ xóa đơn do chính người này nhập và chưa bị đụng tới (lịch sử chỉ có đúng một dòng
+   * "Tạo đơn từ file Excel"); đơn đã sửa, hủy hoặc gửi tin nhắn được giữ nguyên và đếm vào `skipped`.
+   */
+  async rollbackImport(
+    ids: number[],
+    actor: JwtPayload,
+    onSuccessCallback?: () => void,
+  ): Promise<{ deleted: number; skipped: number }> {
+    const uniqueIds = [...new Set(ids)];
+    let deleted = 0;
+
+    await this.dataSource.transaction(async (manager) => {
+      const histories = await manager.find(OrderHistory, { where: { orderId: In(uniqueIds) } });
+      const byOrder = new Map<number, OrderHistory[]>();
+      for (const h of histories) {
+        const list = byOrder.get(h.orderId) ?? [];
+        list.push(h);
+        byOrder.set(h.orderId, list);
+      }
+
+      const removable = uniqueIds.filter((id) => {
+        const list = byOrder.get(id) ?? [];
+        return (
+          list.length === 1 &&
+          list[0].action === 'CREATE' &&
+          list[0].summary === IMPORT_HISTORY_SUMMARY &&
+          list[0].actorId === actor.sub
+        );
+      });
+      if (removable.length === 0) return;
+
+      const res = await manager.delete(Order, { id: In(removable) });
+      deleted = res.affected ?? 0;
+      await manager.delete(OrderHistory, { orderId: In(removable) });
+    });
+
+    if (deleted > 0) onSuccessCallback?.();
+    return { deleted, skipped: uniqueIds.length - deleted };
   }
 }

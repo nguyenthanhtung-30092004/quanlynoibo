@@ -287,7 +287,15 @@ export interface OrderActivity {
 export interface ImportResult {
   total: number;
   created: number;
+  /** Mã các đơn vừa tạo, dùng để hoàn tác lần nhập */
+  createdIds: number[];
   duplicates: number;
   failed: number;
   errors: Array<{ row: number; message: string }>;
+}
+
+/** Kết quả hoàn tác một lần nhập Excel */
+export interface RollbackImportResult {
+  deleted: number;
+  skipped: number;
 }

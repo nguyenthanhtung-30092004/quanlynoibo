@@ -12,6 +12,7 @@ import type {
   ColumnValueOption,
   ColumnValuesKey,
   ImportResult,
+  RollbackImportResult,
   PartnerDebt,
   UnlistedPartnerInfo,
   UpdateOrderInput,
@@ -179,4 +180,11 @@ export const ordersApi = {
       (res) => res.data,
     );
   },
+
+  /** Hoàn tác lần nhập Excel: xóa các đơn vừa nhập (chỉ Admin) */
+  rollbackImport: (ids: number[]) =>
+    api<ApiResponse<RollbackImportResult>>('orders/import/rollback', {
+      method: 'POST',
+      body: { ids },
+    }).then((res) => res.data),
 };

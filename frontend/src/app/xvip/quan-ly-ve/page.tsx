@@ -14,6 +14,7 @@ import {
   useDeleteOrder,
   useCancelOrder,
   useImportOrders,
+  useRollbackImport,
   useUnlistedPartners,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
@@ -218,6 +219,7 @@ export default function TicketManagementPage() {
   const deleteMutation = useDeleteOrder();
   const cancelMutation = useCancelOrder();
   const importMutation = useImportOrders();
+  const rollbackMutation = useRollbackImport();
 
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [isOpenFormModal, setIsOpenFormModal] = useState(false);
@@ -303,6 +305,21 @@ export default function TicketManagementPage() {
       refetch();
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Không thể xóa vé.', 'error');
+    }
+  };
+
+  const handleRollbackImport = async (ids: number[]) => {
+    try {
+      const res = await rollbackMutation.mutateAsync(ids);
+      setImportResult(null);
+      showToast(
+        res.skipped > 0
+          ? `Đã xóa ${res.deleted} đơn vừa nhập, giữ lại ${res.skipped} đơn đã bị sửa.`
+          : `Đã xóa ${res.deleted} đơn vừa nhập.`,
+      );
+      refetch();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không thể hoàn tác lần nhập.', 'error');
     }
   };
 
@@ -478,6 +495,8 @@ export default function TicketManagementPage() {
         <ImportResultModal
           result={importResult}
           onClose={() => setImportResult(null)}
+          onRollback={handleRollbackImport}
+          isRollingBack={rollbackMutation.isPending}
         />
       )}
     </>

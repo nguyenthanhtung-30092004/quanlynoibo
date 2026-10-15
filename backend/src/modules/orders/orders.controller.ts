@@ -31,6 +31,7 @@ import {
   OrderFilterDto,
   QueryOrdersDto,
 } from './dto/query-orders.dto.js';
+import { RollbackImportDto } from './dto/rollback-import.dto.js';
 import { SendMessageDto } from './dto/send-message.dto.js';
 import { UpdateOrderDto } from './dto/update-order.dto.js';
 import { MessageChannel } from './messaging/message.types.js';
@@ -180,6 +181,21 @@ export class OrdersController {
       statusCode: HttpStatus.OK,
       message: 'Đã xử lý file Excel',
       data: await this.ordersService.importExcel(file.buffer, user),
+    };
+  }
+
+  /** Hoàn tác lần nhập Excel vừa rồi: xóa các đơn đó (chỉ Admin) */
+  @Post('import/rollback')
+  @Roles(UserRole.ADMIN)
+  @HttpCode(HttpStatus.OK)
+  async rollbackImport(
+    @Body() dto: RollbackImportDto,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã hoàn tác lần nhập Excel',
+      data: await this.ordersService.rollbackImport(dto.ids, user),
     };
   }
 
