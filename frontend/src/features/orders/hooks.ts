@@ -1,6 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ordersApi } from './api';
 import type {
+  ColumnValuesKey,
   CreateOrderInput,
   KpiRange,
   OrderFilters,
@@ -160,17 +161,7 @@ export function useExportOrders() {
 }
 
 export function useColumnValues(
-  column:
-    | 'customer'
-    | 'phone'
-    | 'staff'
-    | 'route'
-    | 'partner'
-    | 'departureTime'
-    | 'deposit'
-    | 'sellPrice'
-    | 'commission'
-    | 'message',
+  column: ColumnValuesKey,
   filters: OrderFilters,
   q?: string,
   enabled = true,

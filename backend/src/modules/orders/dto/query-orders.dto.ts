@@ -16,6 +16,47 @@ import {
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
+/** Dấu tách danh sách giá trị văn bản (ghi chú, địa chỉ có thể chứa dấu phẩy) */
+export const LIST_SEP = '\u001f';
+
+const splitText = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.split(LIST_SEP).filter((v) => v !== '') : value;
+
+const splitNumbers = ({ value }: { value: unknown }) =>
+  typeof value === 'string'
+    ? value.split(',').map((v) => v.trim()).filter((v) => v !== '').map(Number)
+    : value;
+
+/** Các cột lọc kiểu danh sách giá trị thêm sau (ngày, văn bản, số) */
+export const EXTRA_COLUMNS = [
+  'entryDate',
+  'departureDate',
+  'vehicleType',
+  'seatFront',
+  'seatMiddle',
+  'seatBack',
+  'seatCount',
+  'costPrice',
+  'collectOnDelivery',
+  'note',
+  'pickupPoint',
+  'dropoffPoint',
+  'cancelReason',
+] as const;
+
+export type ColumnValuesKey =
+  | 'customer'
+  | 'phone'
+  | 'staff'
+  | 'route'
+  | 'partner'
+  | 'departureTime'
+  | 'deposit'
+  | 'sellPrice'
+  | 'commission'
+  | 'message'
+  | (typeof EXTRA_COLUMNS)[number];
+
 /** Bộ lọc dùng chung cho danh sách và xuất Excel */
 export class OrderFilterDto {
   @ApiPropertyOptional({
@@ -234,6 +275,125 @@ export class OrderFilterDto {
   @IsString()
   @MaxLength(50)
   orderCode?: string;
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều ngày vào sổ (YYYY-MM-DD), cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @Matches(DATE_RE, { each: true, message: 'entryDates phải có dạng YYYY-MM-DD' })
+  entryDates?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều ngày khởi hành (YYYY-MM-DD), cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(({ value }) =>
+    typeof value === 'string' ? value.split(',').map((v) => v.trim()).filter(Boolean) : value,
+  )
+  @IsArray()
+  @ArrayMaxSize(200)
+  @Matches(DATE_RE, { each: true, message: 'departureDates phải có dạng YYYY-MM-DD' })
+  departureDates?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều loại hình (ký tự \\u001f tách giá trị; "—" = để trống)' })
+  @IsOptional()
+  @Transform(splitText)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(255, { each: true })
+  vehicleTypes?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều ghi chú (ký tự \\u001f tách giá trị; "—" = để trống)' })
+  @IsOptional()
+  @Transform(splitText)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(2000, { each: true })
+  notes?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều điểm đón (ký tự \\u001f tách giá trị; "—" = để trống)' })
+  @IsOptional()
+  @Transform(splitText)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(255, { each: true })
+  pickupPoints?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều điểm trả (ký tự \\u001f tách giá trị; "—" = để trống)' })
+  @IsOptional()
+  @Transform(splitText)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(255, { each: true })
+  dropoffPoints?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều lý do hủy (ký tự \\u001f tách giá trị; "—" = để trống)' })
+  @IsOptional()
+  @Transform(splitText)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsString({ each: true })
+  @MaxLength(500, { each: true })
+  cancelReasons?: string[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều số ghế đầu, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  seatFronts?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều số ghế giữa, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  seatMiddles?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều số ghế cuối, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  seatBacks?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều số ghế, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  seatCounts?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều mức giá nhập, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  costPrices?: number[];
+
+  @ApiPropertyOptional({ description: 'Lọc nhiều mức nhờ thu, cách nhau bằng dấu phẩy' })
+  @IsOptional()
+  @Transform(splitNumbers)
+  @IsArray()
+  @ArrayMaxSize(200)
+  @IsInt({ each: true })
+  @Min(0, { each: true })
+  collectOnDeliveries?: number[];
 }
 
 export class QueryOrdersDto extends OrderFilterDto {
@@ -342,27 +502,17 @@ export class ColumnValuesQueryDto extends OrderFilterDto {
       'sellPrice',
       'commission',
       'message',
+      ...EXTRA_COLUMNS,
     ],
     description: 'Cột cần lấy danh sách giá trị',
   })
   @Matches(
-    /^(customer|phone|staff|route|partner|departureTime|deposit|sellPrice|commission|message)$/,
-    {
-      message:
-        'column phải là customer, phone, staff, route, partner, departureTime, deposit, sellPrice, commission hoặc message',
-    },
+    new RegExp(
+      `^(customer|phone|staff|route|partner|departureTime|deposit|sellPrice|commission|message|${EXTRA_COLUMNS.join('|')})$`,
+    ),
+    { message: 'column không hợp lệ' },
   )
-  column:
-    | 'customer'
-    | 'phone'
-    | 'staff'
-    | 'route'
-    | 'partner'
-    | 'departureTime'
-    | 'deposit'
-    | 'sellPrice'
-    | 'commission'
-    | 'message';
+  column: ColumnValuesKey;
 
   @ApiPropertyOptional({ description: 'Từ khóa tìm kiếm trong giá trị' })
   @IsOptional()

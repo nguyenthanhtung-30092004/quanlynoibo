@@ -10,6 +10,7 @@ import type {
   OrderActivity,
   OrderHistoryEntry,
   ColumnValueOption,
+  ColumnValuesKey,
   ImportResult,
   PartnerDebt,
   UnlistedPartnerInfo,
@@ -46,7 +47,29 @@ export function filterParams(filters: OrderFilters) {
     sellPrices: filters.sellPrices?.length ? filters.sellPrices.join(',') : undefined,
     commissions: filters.commissions?.length ? filters.commissions.join(',') : undefined,
     orderCode: filters.orderCode?.trim() || undefined,
+    entryDates: filters.entryDates?.length ? filters.entryDates.join(',') : undefined,
+    departureDates: filters.departureDates?.length ? filters.departureDates.join(',') : undefined,
+    vehicleTypes: joinText(filters.vehicleTypes),
+    notes: joinText(filters.notes),
+    pickupPoints: joinText(filters.pickupPoints),
+    dropoffPoints: joinText(filters.dropoffPoints),
+    cancelReasons: joinText(filters.cancelReasons),
+    seatFronts: joinNumbers(filters.seatFronts),
+    seatMiddles: joinNumbers(filters.seatMiddles),
+    seatBacks: joinNumbers(filters.seatBacks),
+    seatCounts: joinNumbers(filters.seatCounts),
+    costPrices: joinNumbers(filters.costPrices),
+    collectOnDeliveries: joinNumbers(filters.collectOnDeliveries),
   };
+}
+
+/** Văn bản có thể chứa dấu phẩy nên tách bằng ký tự điều khiển \u001f (khớp backend) */
+function joinText(values?: string[]) {
+  return values?.length ? values.join('\u001f') : undefined;
+}
+
+function joinNumbers(values?: number[]) {
+  return values?.length ? values.join(',') : undefined;
 }
 
 /** Danh sách tuyến / đối tác gửi lên dưới dạng chuỗi cách nhau bằng dấu phẩy */
@@ -134,17 +157,7 @@ export const ordersApi = {
     apiDownload('orders/export', filterParams(filters)),
 
   columnValues: (
-    column:
-      | 'customer'
-      | 'phone'
-      | 'staff'
-      | 'route'
-      | 'partner'
-      | 'departureTime'
-      | 'deposit'
-      | 'sellPrice'
-      | 'commission'
-      | 'message',
+    column: ColumnValuesKey,
     filters: OrderFilters,
     q?: string,
     signal?: AbortSignal,

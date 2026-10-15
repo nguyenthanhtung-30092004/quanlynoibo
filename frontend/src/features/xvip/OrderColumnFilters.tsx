@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useColumnValues } from '@/features/orders/hooks';
-import type { OrderFilters } from '@/features/orders/types';
+import type { ColumnValuesKey, OrderFilters } from '@/features/orders/types';
 import {
   ColumnFilterPopover,
   CheckListFilter,
@@ -864,3 +864,119 @@ export function ThSms({ local, filters, onChange }: OrderThProps) {
   );
 }
 
+
+/** Bộ lọc danh sách giá trị dùng chung cho các cột ngày, văn bản và số */
+function ValueListFilterInner<T extends string | number>({
+  column,
+  field,
+  filters,
+  selected,
+  numeric,
+  searchPlaceholder,
+  onApply,
+  onClear,
+  close,
+}: {
+  column: ColumnValuesKey;
+  field: ValueListField;
+  filters: OrderFilters;
+  selected: T[];
+  numeric: boolean;
+  searchPlaceholder: string;
+  onApply: (values: T[]) => void;
+  onClear: () => void;
+  close: () => void;
+}) {
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebounce(search, 300);
+
+  const columnFilterBase = useMemo<OrderFilters>(
+    () => ({ ...filters, [field]: undefined }),
+    [filters, field],
+  );
+
+  const { data: options = [], isLoading } = useColumnValues(column, columnFilterBase, debouncedSearch);
+
+  return (
+    <CheckListFilter<T>
+      items={options.map((o) => ({
+        value: (numeric ? Number(o.value) : o.value) as T,
+        label: o.label,
+        count: o.count,
+      }))}
+      selected={selected}
+      searchQuery={search}
+      onSearchChange={setSearch}
+      searchPlaceholder={searchPlaceholder}
+      isLoading={isLoading}
+      onApply={onApply}
+      onClear={onClear}
+      close={close}
+    />
+  );
+}
+
+/** Trường bộ lọc kiểu danh sách giá trị trong OrderFilters */
+type ValueListField =
+  | 'entryDates'
+  | 'departureDates'
+  | 'vehicleTypes'
+  | 'notes'
+  | 'pickupPoints'
+  | 'dropoffPoints'
+  | 'cancelReasons'
+  | 'seatFronts'
+  | 'seatMiddles'
+  | 'seatBacks'
+  | 'seatCounts'
+  | 'costPrices'
+  | 'collectOnDeliveries';
+
+/**
+ * Ô tiêu đề cột kèm bộ lọc danh sách giá trị (tick chọn nhiều) cho các cột thêm sau:
+ * ngày, loại hình, ghế, giá nhập, nhờ thu, ghi chú, điểm đón/trả, lý do hủy.
+ */
+export function ThValueList({
+  title,
+  column,
+  field,
+  numeric = false,
+  right,
+  local,
+  filters,
+  onChange,
+}: OrderThProps & {
+  title: string;
+  column: ColumnValuesKey;
+  field: ValueListField;
+  numeric?: boolean;
+  right?: boolean;
+}) {
+  const selected = (local[field] ?? []) as Array<string | number>;
+  const clear = () => onChange({ [field]: undefined });
+
+  return (
+    <ThFilter title={title} right={right}>
+      <ColumnFilterPopover
+        title={title}
+        align={right ? 'right' : undefined}
+        isActive={selected.length > 0}
+        onClear={clear}
+      >
+        {({ close }) => (
+          <ValueListFilterInner<string | number>
+            column={column}
+            field={field}
+            filters={filters}
+            selected={selected}
+            numeric={numeric}
+            searchPlaceholder={`Tìm ${title.toLowerCase()}...`}
+            onApply={(values) => onChange({ [field]: values.length ? values : undefined })}
+            onClear={clear}
+            close={close}
+          />
+        )}
+      </ColumnFilterPopover>
+    </ThFilter>
+  );
+}

@@ -16,6 +16,7 @@ import { Route } from '../routes/entities/route.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import {
+  type ColumnValuesKey,
   KpiQueryDto,
   OrderFilterDto,
   QueryOrdersDto,
@@ -1163,17 +1164,7 @@ export class OrdersService {
    * Dùng cùng buildListQuery với các điều kiện của các cột khác để phản ánh tập dữ liệu hiện hành.
    */
   async columnValues(
-    column:
-      | 'customer'
-      | 'phone'
-      | 'staff'
-      | 'route'
-      | 'partner'
-      | 'departureTime'
-      | 'deposit'
-      | 'sellPrice'
-      | 'commission'
-      | 'message',
+    column: ColumnValuesKey,
     q: string | undefined,
     filter: OrderFilterDto,
     actor: JwtPayload,
@@ -1385,6 +1376,77 @@ export class OrdersService {
         return items;
       }
 
+      case 'entryDate':
+      case 'departureDate': {
+        const colField = `order.${column}`;
+        qb.select(`TO_CHAR(${colField}, 'YYYY-MM-DD')`, 'val')
+          .addSelect('COUNT(*)', 'cnt')
+          .groupBy(colField);
+
+        if (keyword) {
+          qb.andWhere(`TO_CHAR(${colField}, 'DD/MM/YYYY') LIKE :valQ`, {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy(colField, 'DESC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => {
+          const [y, m, d] = r.val.split('-');
+          return { value: r.val, label: `${d}/${m}/${y}`, count: Number(r.cnt) };
+        });
+      }
+
+      case 'seatFront':
+      case 'seatMiddle':
+      case 'seatBack':
+      case 'seatCount':
+      case 'costPrice':
+      case 'collectOnDelivery': {
+        // Ghế đầu/giữa/cuối lọc theo số hiển thị (đơn cũ chưa tách thì suy từ vùng ghế)
+        const colField = this.seatColumnExpr(column) ?? `order.${column}`;
+        const isMoney = column === 'costPrice' || column === 'collectOnDelivery';
+        qb.select(colField, 'val').addSelect('COUNT(*)', 'cnt').groupBy(colField);
+
+        if (keyword) {
+          qb.andWhere(`CAST(${colField} AS text) LIKE :valQ`, {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy(colField, 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: number | string; cnt: string }>();
+        return rows.map((r) => {
+          const num = Number(r.val);
+          return {
+            value: String(num),
+            label: isMoney ? `${num.toLocaleString('vi-VN')}đ` : String(num),
+            count: Number(r.cnt),
+          };
+        });
+      }
+
+      case 'vehicleType':
+      case 'note':
+      case 'pickupPoint':
+      case 'dropoffPoint':
+      case 'cancelReason': {
+        // Giá trị trống gom thành một lựa chọn "—"
+        const colField = `order.${column}`;
+        const expr = `COALESCE(NULLIF(TRIM(${colField}), ''), '—')`;
+        qb.select(expr, 'val').addSelect('COUNT(*)', 'cnt').groupBy(expr);
+
+        if (keyword) {
+          qb.andWhere(`LOWER(${expr}) LIKE :valQ`, {
+            valQ: `%${this.escapeLike(keyword)}%`,
+          });
+        }
+        qb.orderBy('cnt', 'DESC').addOrderBy('val', 'ASC').limit(100);
+
+        const rows = await qb.getRawMany<{ val: string; cnt: string }>();
+        return rows.map((r) => ({ value: r.val, label: r.val, count: Number(r.cnt) }));
+      }
+
       default:
         return [];
     }
@@ -1587,6 +1649,49 @@ export class OrdersService {
       qb.andWhere('order.commission IN (:...commissions)', { commissions: filter.commissions });
     }
 
+    if (filter.entryDates?.length) {
+      qb.andWhere('order.entryDate IN (:...entryDates)', { entryDates: filter.entryDates });
+    }
+    if (filter.departureDates?.length) {
+      qb.andWhere('order.departureDate IN (:...departureDates)', {
+        departureDates: filter.departureDates,
+      });
+    }
+
+    const numberLists: Array<[string, number[] | undefined]> = [
+      ['seatFront', filter.seatFronts],
+      ['seatMiddle', filter.seatMiddles],
+      ['seatBack', filter.seatBacks],
+      ['seatCount', filter.seatCounts],
+      ['costPrice', filter.costPrices],
+      ['collectOnDelivery', filter.collectOnDeliveries],
+    ];
+    for (const [field, values] of numberLists) {
+      if (values?.length) {
+        qb.andWhere(`${this.seatColumnExpr(field) ?? `order.${field}`} IN (:...${field}List)`, {
+          [`${field}List`]: values,
+        });
+      }
+    }
+
+    // Cột văn bản: "—" khớp giá trị trống
+    const textLists: Array<[string, string[] | undefined]> = [
+      ['vehicleType', filter.vehicleTypes],
+      ['note', filter.notes],
+      ['pickupPoint', filter.pickupPoints],
+      ['dropoffPoint', filter.dropoffPoints],
+      ['cancelReason', filter.cancelReasons],
+    ];
+    for (const [field, values] of textLists) {
+      if (!values?.length) continue;
+      const col = `order.${field}`;
+      const real = values.filter((v) => v !== '—');
+      const conds: string[] = [];
+      if (real.length) conds.push(`TRIM(${col}) IN (:...${field}List)`);
+      if (real.length !== values.length) conds.push(`(${col} IS NULL OR TRIM(${col}) = '')`);
+      qb.andWhere(`(${conds.join(' OR ')})`, { [`${field}List`]: real });
+    }
+
     if (filter.orderCode?.trim()) {
       const code = filter.orderCode.trim();
       const match = /^xv\s*(\d{1,9})$/i.exec(code);
@@ -1696,6 +1801,18 @@ export class OrdersService {
     if (order.seatCount > 0) return order.seatCount;
     const { seatFront, seatMiddle, seatBack } = this.seatsOf(order);
     return seatFront + seatMiddle + seatBack;
+  }
+
+  /** Biểu thức SQL số ghế đầu/giữa/cuối khớp `seatsOf`; cột khác trả undefined */
+  private seatColumnExpr(field: string): string | undefined {
+    const zones: Record<string, [string, SeatZone]> = {
+      seatFront: ['order.seatFront', SeatZone.FRONT],
+      seatMiddle: ['order.seatMiddle', SeatZone.MIDDLE],
+      seatBack: ['order.seatBack', SeatZone.BACK],
+    };
+    const z = zones[field];
+    if (!z) return undefined;
+    return `(CASE WHEN (order.seatFront + order.seatMiddle + order.seatBack) > 0 THEN ${z[0]} WHEN order.seatZone = '${z[1]}' THEN order.seatCount ELSE 0 END)`;
   }
 
   private escapeLike(value: string): string {

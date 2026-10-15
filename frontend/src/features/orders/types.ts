@@ -105,7 +105,46 @@ export interface OrderFilters {
   sellPrices?: number[];
   commissions?: number[];
   orderCode?: string;
+  entryDates?: string[];
+  departureDates?: string[];
+  vehicleTypes?: string[];
+  notes?: string[];
+  pickupPoints?: string[];
+  dropoffPoints?: string[];
+  cancelReasons?: string[];
+  seatFronts?: number[];
+  seatMiddles?: number[];
+  seatBacks?: number[];
+  seatCounts?: number[];
+  costPrices?: number[];
+  collectOnDeliveries?: number[];
 }
+
+/** Các cột có danh sách giá trị để lọc (khớp `column` của API column-values) */
+export type ColumnValuesKey =
+  | 'customer'
+  | 'phone'
+  | 'staff'
+  | 'route'
+  | 'partner'
+  | 'departureTime'
+  | 'deposit'
+  | 'sellPrice'
+  | 'commission'
+  | 'message'
+  | 'entryDate'
+  | 'departureDate'
+  | 'vehicleType'
+  | 'seatFront'
+  | 'seatMiddle'
+  | 'seatBack'
+  | 'seatCount'
+  | 'costPrice'
+  | 'collectOnDelivery'
+  | 'note'
+  | 'pickupPoint'
+  | 'dropoffPoint'
+  | 'cancelReason';
 
 export interface ColumnValueOption {
   value: string;

@@ -36,6 +36,7 @@ import {
   ThRoute,
   ThSellPrice,
   ThSms,
+  ThValueList,
   ThStaff,
 } from '@/features/xvip/OrderColumnFilters';
 import { formatDateVN, formatDateTimeShort, formatOrderCode } from '@/lib/format';
@@ -48,6 +49,26 @@ import {
 } from '@/features/xvip/date-filter';
 
 /** Thẻ nhỏ cho một mục đang lọc, bấm × để bỏ */
+/** Bộ lọc cột chọn theo danh sách giá trị, dọn đi khi đổi khoảng ngày */
+const VALUE_LIST_FILTER_KEYS = [
+  'deposits',
+  'sellPrices',
+  'commissions',
+  'entryDates',
+  'departureDates',
+  'vehicleTypes',
+  'notes',
+  'pickupPoints',
+  'dropoffPoints',
+  'cancelReasons',
+  'seatFronts',
+  'seatMiddles',
+  'seatBacks',
+  'seatCounts',
+  'costPrices',
+  'collectOnDeliveries',
+] as const satisfies ReadonlyArray<keyof OrderFilters>;
+
 function FilterChip({
   label,
   tone,
@@ -253,16 +274,18 @@ export default function StaffReportPage() {
     }
   }, [staffSelected, activeStaffIds, staffFilter]);
 
-  // Đổi ngày thì dọn các mức tiền (cọc, giá bán, hoa hồng) không còn hợp lệ
+  // Đổi ngày thì dọn các lựa chọn theo giá trị (mức tiền, ngày, ghế, văn bản...) không còn hợp lệ
   useEffect(() => {
     setColFilters((prev) => {
-      if (!prev.deposits?.length && !prev.sellPrices?.length && !prev.commissions?.length) return prev;
-      return {
-        ...prev,
-        deposits: undefined,
-        sellPrices: undefined,
-        commissions: undefined,
-      };
+      const next = { ...prev };
+      let changed = false;
+      for (const key of VALUE_LIST_FILTER_KEYS) {
+        if (next[key]?.length) {
+          next[key] = undefined;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
     });
   }, [range, basis]);
 
@@ -924,39 +947,38 @@ export default function StaffReportPage() {
           <table className="w-full">
             <thead>
               <tr>
-                <th className={TH}>Ngày vào sổ</th>
+                <ThValueList title="Ngày vào sổ" column="entryDate" field="entryDates" {...colProps} />
                 <ThStaff showFilter={isAdmin} {...colProps} />
                 <ThCustomerName {...colProps} />
                 <ThPhone {...colProps} />
                 <ThRoute {...colProps} />
                 <ThDepartureTime {...colProps} />
-                <th className={TH}>Ngày khởi hành</th>
-                <th className={TH}>Loại hình</th>
-                <th className={`${TH} text-center`}>Ghế đầu</th>
-                <th className={`${TH} text-center`}>Ghế giữa</th>
-                <th className={`${TH} text-center`}>Ghế cuối</th>
-                <th className={`${TH} text-center`}>Số ghế</th>
-                <th className={`${TH} text-right`}>Giá nhập</th>
+                <ThValueList title="Ngày khởi hành" column="departureDate" field="departureDates" {...colProps} />
+                <ThValueList title="Loại hình" column="vehicleType" field="vehicleTypes" {...colProps} />
+                <ThValueList title="Ghế đầu" column="seatFront" field="seatFronts" numeric {...colProps} />
+                <ThValueList title="Ghế giữa" column="seatMiddle" field="seatMiddles" numeric {...colProps} />
+                <ThValueList title="Ghế cuối" column="seatBack" field="seatBacks" numeric {...colProps} />
+                <ThValueList title="Số ghế" column="seatCount" field="seatCounts" numeric {...colProps} />
+                <ThValueList title="Giá nhập" column="costPrice" field="costPrices" numeric right {...colProps} />
                 <ThSellPrice {...colProps} />
                 <ThDeposit {...colProps} />
-                <th className={`${TH} text-right`}>Nhờ thu</th>
+                <ThValueList title="Nhờ thu" column="collectOnDelivery" field="collectOnDeliveries" numeric right {...colProps} />
                 <ThCommission {...colProps} title="Doanh số" />
                 <ThPartner {...colProps} />
-                <th className={TH}>Ghi chú</th>
+                <ThValueList title="Ghi chú" column="note" field="notes" {...colProps} />
                 <th className={TH}>STT</th>
                 <ThOrderCode {...colProps} />
-                <th className={TH}>Điểm đón</th>
-                <th className={TH}>Điểm trả</th>
-                <th className={`${TH} text-center`}>Tổng vé</th>
+                <ThValueList title="Điểm đón" column="pickupPoint" field="pickupPoints" {...colProps} />
+                <ThValueList title="Điểm trả" column="dropoffPoint" field="dropoffPoints" {...colProps} />
                 <ThSms {...colProps} />
-                <th className={TH}>Lý do hủy</th>
+                <ThValueList title="Lý do hủy" column="cancelReason" field="cancelReasons" {...colProps} />
               </tr>
             </thead>
             <tbody>
               {ticketsLoading ? (
                 <tr>
                   <td
-                    colSpan={26}
+                    colSpan={25}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách đơn...
@@ -965,7 +987,7 @@ export default function StaffReportPage() {
               ) : ticketList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={26}
+                    colSpan={25}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có đơn nào khớp bộ lọc đã chọn.
@@ -1054,9 +1076,6 @@ export default function StaffReportPage() {
                     </td>
                     <td className={`${TD} w-48 min-w-48 max-w-48 !whitespace-normal [overflow-wrap:anywhere] text-slate-700 dark:text-slate-300`}>
                       {t.dropoffPoint || '—'}
-                    </td>
-                    <td className={`${TD} text-center font-black tnum text-blue-700 dark:text-blue-400`}>
-                      {t.tickets ?? t.seatCount ?? 0}
                     </td>
                     <td className={TD}>
                       {t.smsSent ? (
