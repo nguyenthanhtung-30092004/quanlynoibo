@@ -271,7 +271,8 @@ function Legend({ className, text }: { className: string; text: string }) {
 }
 
 function DayCell({ d, today, onClick }: { d: LeaveDay; today: string; onClick: () => void }) {
-  const past = d.day < today;
+  // Hôm nay và các ngày đã qua đều không đăng ký được nên làm mờ như nhau
+  const past = d.day <= today;
   const locked = d.limit === 0;
   const full = d.count >= d.limit;
   const almost = !full && d.limit > 0 && d.count >= d.limit - 1;
@@ -296,7 +297,7 @@ function DayCell({ d, today, onClick }: { d: LeaveDay; today: string; onClick: (
       onClick={onClick}
       className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1.5 transition-transform hover:scale-[1.04] sm:min-h-16 ${
         d.mine ? mine : base
-      } ${past ? 'opacity-50' : ''} ${d.day === today ? 'outline outline-2 outline-offset-1 outline-slate-900 dark:outline-white' : ''}`}
+      } ${past ? 'opacity-50' : ''}`}
     >
       <span className="tnum text-sm font-black sm:text-base">{Number(d.day.slice(8))}</span>
       <span className={`tnum text-[11px] font-extrabold leading-none sm:text-xs ${countTone}`}>
