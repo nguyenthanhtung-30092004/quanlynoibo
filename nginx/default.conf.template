@@ -31,11 +31,17 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
 
+    # Bật nén gzip để tải trang và dữ liệu JSON nhanh hơn, giảm băng thông
+    gzip on;
+    gzip_vary on;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types text/plain text/css text/xml application/json application/javascript application/xml+rss application/atom+xml image/svg+xml;
+
     # Không có chức năng upload file, 1MB là đủ cho JSON
     client_max_body_size 1m;
     client_body_timeout 15s;
     client_header_timeout 15s;
-    limit_conn perip 40;
 
     add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -51,6 +57,7 @@ server {
 
     location = /api/auth/login {
         limit_req zone=login burst=5 nodelay;
+        limit_conn perip 10;
         proxy_pass http://frontend:3000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -59,6 +66,7 @@ server {
     }
 
     # Luồng cập nhật trực tiếp (SSE): không gom đệm, giữ kết nối lâu
+    # Tách khỏi limit_conn thông thường để văn phòng nhiều tab không bị nghẽn
     location = /api/realtime/stream {
         proxy_pass http://frontend:3000;
         proxy_http_version 1.1;
@@ -73,7 +81,8 @@ server {
     }
 
     location / {
-        limit_req zone=general burst=60 nodelay;
+        limit_conn perip 100;
+        limit_req zone=general burst=100 nodelay;
         proxy_pass http://frontend:3000;
         proxy_http_version 1.1;
         proxy_set_header Host $host;

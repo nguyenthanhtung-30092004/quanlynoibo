@@ -23,7 +23,8 @@ export function useActiveStaff(enabled: boolean) {
   return useQuery({
     queryKey: userKeys.staff,
     enabled,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     queryFn: async () => {
       const res = await api<Paginated<User>>('users', { query: { limit: 100 } });
       return res.data.filter((u) => u.role === 'STAFF' && u.isActive);

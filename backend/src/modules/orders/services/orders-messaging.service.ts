@@ -1,0 +1,120 @@
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
+import { User } from '../../users/entities/user.entity.js';
+import { Order } from '../entities/order.entity.js';
+import { OrderHistory } from '../entities/order-history.entity.js';
+import { MessageChannel } from '../messaging/message.types.js';
+import { MessagingService } from '../messaging/messaging.service.js';
+import { buildBookingSms } from '../sms/sms-template.js';
+import { toOrderView } from '../mappers/order.mapper.js';
+import { OrdersQueryService } from './orders-query.service.js';
+
+@Injectable()
+export class OrdersMessagingService {
+  private readonly logger = new Logger(OrdersMessagingService.name);
+
+  constructor(
+    @InjectRepository(Order)
+    private readonly orderRepository: Repository<Order>,
+    @InjectRepository(OrderHistory)
+    private readonly historyRepository: Repository<OrderHistory>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    private readonly messaging: MessagingService,
+    private readonly queryService: OrdersQueryService,
+  ) {}
+
+  /** Ghi một dòng lịch sử; lỗi ghi lịch sử không được làm hỏng thao tác chính */
+  async record(
+    orderId: number,
+    action: 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE',
+    actor: JwtPayload,
+    detail: { summary?: string } = {},
+  ) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: { id: actor.sub },
+        select: { id: true, fullName: true },
+      });
+      await this.historyRepository.save(
+        this.historyRepository.create({
+          orderId,
+          action,
+          actorId: actor.sub,
+          actorName: user?.fullName ?? actor.username ?? '',
+          summary: detail.summary ?? null,
+          changes: null,
+        }),
+      );
+    } catch (err) {
+      this.logger.error(`Không ghi được lịch sử đơn #${orderId}: ${(err as Error).message}`);
+    }
+  }
+
+  /**
+   * Gửi tin nhắn 1 chạm cho khách theo mẫu của đơn, qua kênh được chọn
+   * (SMS hoặc Zalo). Chế độ chạy thử (dryRun) thì không gửi và không đánh dấu đã gửi.
+   */
+  async sendMessage(id: number, channel: MessageChannel, actor: JwtPayload) {
+    const order = await this.queryService.findEntity(id, actor);
+    const [year, month, day] = order.departureDate.split('-');
+    const seats =
+      order.seatCount > 0
+        ? order.seatCount
+        : order.seatFront + order.seatMiddle + order.seatBack;
+
+    const { dryRun, referentId } = await this.messaging.send(channel, {
+      phone: order.phone,
+      content: buildBookingSms({
+        route: order.route.name,
+        departureTime: order.departureTime,
+        departureDate: order.departureDate,
+      }),
+      params: {
+        customerName: order.customerName ?? '',
+        route: order.route.name,
+        departureTime: order.departureTime,
+        departureDate: `${day}/${month}/${year}`,
+        bookingCode: `XV${order.id}`,
+        pickupPoint: order.pickupPoint ?? '',
+        dropoffPoint: order.dropoffPoint ?? '',
+        seatCount: seats > 0 ? String(seats) : '',
+      },
+    });
+
+    if (!dryRun) {
+      await this.orderRepository.update(order.id, {
+        smsSent: true,
+        smsSentAt: new Date(),
+        messageChannel: channel,
+        messageRefId: referentId ?? null,
+        messageStatus: null,
+      });
+    }
+    await this.record(order.id, 'SEND_MESSAGE', actor, {
+      summary: `Gửi ${channel === MessageChannel.ZALO ? 'Zalo' : 'SMS'} cho khách${dryRun ? ' (chạy thử, chưa gửi thật)' : ''}`,
+    });
+    return { order: await this.queryService.findOne(order.id, actor), dryRun };
+  }
+
+  /** Tra trạng thái tin đã gửi (VMG) và lưu lại */
+  async messageStatus(id: number, actor: JwtPayload) {
+    const order = await this.queryService.findEntity(id, actor);
+    if (!order.messageRefId) {
+      throw new BadRequestException('Đơn này chưa có mã tham chiếu tin nhắn để tra trạng thái.');
+    }
+    const { status } = await this.messaging.checkVmgStatus(order.messageRefId);
+    if (status !== null) {
+      await this.orderRepository.update(order.id, { messageStatus: status });
+    }
+    return { status };
+  }
+
+  /** Callback VMG: status 1/2 = đã tới nhà mạng, -1/-2 = thất bại, còn lại = đang chờ */
+  async applyCallback(referentId: string, status: number) {
+    const mapped = status === 1 || status === 2 ? 1 : status === -1 || status === -2 ? 2 : 0;
+    await this.orderRepository.update({ messageRefId: referentId }, { messageStatus: mapped });
+  }
+}

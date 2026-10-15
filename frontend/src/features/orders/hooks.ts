@@ -8,12 +8,25 @@ import type {
   UpdateOrderInput,
 } from './types';
 
-const ORDERS_KEY = ['orders'] as const;
+export const orderKeys = {
+  all: ['orders'] as const,
+  lists: () => ['orders', 'list'] as const,
+  list: (filters: OrderFilters) => ['orders', 'list', filters] as const,
+  details: () => ['orders', 'detail'] as const,
+  detail: (id: number) => ['orders', 'detail', id] as const,
+  histories: () => ['orders', 'history'] as const,
+  history: (id: number) => ['orders', 'history', id] as const,
+  activity: () => ['orders', 'activity'] as const,
+  unlistedPartners: () => ['orders', 'unlisted-partners'] as const,
+  columnValues: (column: ColumnValuesKey, filters: OrderFilters, q?: string) =>
+    ['orders', 'column-values', column, filters, q] as const,
+};
+
 const KPI_KEY = ['kpi'] as const;
 
 export function useOrders(filters: OrderFilters) {
   return useQuery({
-    queryKey: [...ORDERS_KEY, filters],
+    queryKey: orderKeys.list(filters),
     queryFn: ({ signal }) => ordersApi.list(filters, signal),
     // Đổi trang/bộ lọc thì giữ danh sách cũ trên màn hình cho tới khi có dữ liệu mới
     placeholderData: keepPreviousData,
@@ -22,7 +35,7 @@ export function useOrders(filters: OrderFilters) {
 
 export function useOrderHistory(id: number | null) {
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'history', id],
+    queryKey: id ? orderKeys.history(id) : ['orders', 'history', null],
     queryFn: () => ordersApi.history(id as number),
     enabled: !!id,
     // Luôn lấy mới khi mở: lịch sử thay đổi sau mỗi lần sửa
@@ -32,7 +45,7 @@ export function useOrderHistory(id: number | null) {
 
 export function useOrder(id: number | null) {
   return useQuery({
-    queryKey: [...ORDERS_KEY, id],
+    queryKey: id ? orderKeys.detail(id) : ['orders', 'detail', null],
     queryFn: () => (id ? ordersApi.get(id) : null),
     enabled: !!id,
   });
@@ -43,8 +56,9 @@ export function useCreateOrder() {
   return useMutation({
     mutationFn: (input: CreateOrderInput) => ordersApi.create(input),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -54,8 +68,9 @@ export function useImportOrders() {
   return useMutation({
     mutationFn: (file: File) => ordersApi.importExcel(file),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -65,9 +80,12 @@ export function useUpdateOrder() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number; input: UpdateOrderInput }) =>
       ordersApi.update(id, input),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(vars.id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.history(vars.id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -76,9 +94,12 @@ export function useCancelOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, reason }: { id: number; reason: string }) => ordersApi.cancel(id, reason),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(vars.id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.history(vars.id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -87,9 +108,11 @@ export function useDeleteOrder() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => ordersApi.remove(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: KPI_KEY, refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -98,9 +121,11 @@ export function useSendSms() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => ordersApi.sendSms(id),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_KEY });
-      queryClient.invalidateQueries({ queryKey: KPI_KEY });
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: orderKeys.lists(), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.detail(id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.history(id), refetchType: 'active' });
+      queryClient.invalidateQueries({ queryKey: orderKeys.activity(), refetchType: 'active' });
     },
   });
 }
@@ -121,10 +146,10 @@ export function useKpiFilterOptions(range: KpiRange | undefined, enabled = true)
   });
 }
 
-/** Hoạt động gần đây; khóa nằm dưới 'orders' nên tự tải lại khi có sự kiện realtime về đơn */
+/** Hoạt động gần đây */
 export function useOrderActivity() {
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'activity'],
+    queryKey: orderKeys.activity(),
     queryFn: () => ordersApi.activity(),
   });
 }
@@ -138,7 +163,7 @@ export function useDebts(range?: KpiRange) {
 
 export function useUnlistedPartners(enabled = true) {
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'unlisted-partners'],
+    queryKey: orderKeys.unlistedPartners(),
     queryFn: () => ordersApi.unlistedPartners(),
     enabled,
   });
@@ -167,7 +192,7 @@ export function useColumnValues(
   enabled = true,
 ) {
   return useQuery({
-    queryKey: [...ORDERS_KEY, 'column-values', column, filters, q],
+    queryKey: orderKeys.columnValues(column, filters, q),
     queryFn: ({ signal }) => ordersApi.columnValues(column, filters, q, signal),
     enabled,
     placeholderData: keepPreviousData,

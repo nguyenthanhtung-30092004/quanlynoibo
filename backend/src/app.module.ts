@@ -17,6 +17,8 @@ import { RealtimeModule } from './modules/realtime/realtime.module.js';
 import { RoutesModule } from './modules/routes/routes.module.js';
 import { SettingsModule } from './modules/settings/settings.module.js';
 import { UsersModule } from './modules/users/users.module.js';
+import { InitialSchemaGuards1710000000001 } from './migrations/1710000000001-InitialSchemaGuards.js';
+import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migrations/1710000000002-PerformanceIndexesAndNormalizedColumns.js';
 
 @Module({
   imports: [
@@ -35,6 +37,18 @@ import { UsersModule } from './modules/users/users.module.js';
         database: config.get<string>('DATABASE_NAME', 'quan_ly_noi_bo'),
         autoLoadEntities: true,
         synchronize: config.get<string>('DATABASE_SYNCHRONIZE') === 'true',
+        migrationsRun: true,
+        migrations: [
+          InitialSchemaGuards1710000000001,
+          PerformanceIndexesAndNormalizedColumns1710000000002,
+        ],
+        extra: {
+          max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),
+          idleTimeoutMillis: Number(config.get<string>('DATABASE_POOL_IDLE_TIMEOUT_MS', '30000')),
+          connectionTimeoutMillis: Number(config.get<string>('DATABASE_POOL_CONN_TIMEOUT_MS', '5000')),
+          statement_timeout: Number(config.get<string>('DATABASE_STATEMENT_TIMEOUT_MS', '10000')),
+          application_name: 'quan_ly_noi_bo_backend',
+        },
       }),
     }),
     UsersModule,

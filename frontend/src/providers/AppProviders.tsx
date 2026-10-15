@@ -12,7 +12,7 @@ function makeQueryClient() {
     defaultOptions: {
       queries: {
         staleTime: 15_000,
-        refetchOnWindowFocus: true,
+        refetchOnWindowFocus: false,
         // Không thử lại khi lỗi do client (401/403/404...)
         retry: (failureCount, error) =>
           !(error instanceof ApiError && error.status < 500) &&

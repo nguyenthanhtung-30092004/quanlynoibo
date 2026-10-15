@@ -52,9 +52,26 @@ export class CarriersService {
     return { items, total, page, limit };
   }
 
+  private readonly carrierByIdCache = new Map<number, { carrier: Carrier; expiresAt: number }>();
+  private readonly CACHE_TTL_MS = 60_000;
+
+  clearCache(id?: number) {
+    if (id !== undefined) {
+      this.carrierByIdCache.delete(id);
+    } else {
+      this.carrierByIdCache.clear();
+    }
+  }
+
   async findOne(id: number) {
+    const now = Date.now();
+    const cached = this.carrierByIdCache.get(id);
+    if (cached && cached.expiresAt > now) {
+      return cached.carrier;
+    }
     const carrier = await this.repo.findOne({ where: { id } });
     if (!carrier) throw new NotFoundException('Không tìm thấy nhà xe.');
+    this.carrierByIdCache.set(id, { carrier, expiresAt: now + this.CACHE_TTL_MS });
     return carrier;
   }
 
@@ -68,12 +85,15 @@ export class CarriersService {
     if (dto.address !== undefined) carrier.address = dto.address || null;
     if (dto.note !== undefined) carrier.note = dto.note || null;
     if (dto.isActive !== undefined) carrier.isActive = dto.isActive;
-    return this.repo.save(carrier);
+    const saved = await this.repo.save(carrier);
+    this.clearCache(id);
+    return saved;
   }
 
   async remove(id: number) {
     const carrier = await this.findOne(id);
     await this.repo.remove(carrier);
+    this.clearCache(id);
   }
 
   private async assertNameFree(name: string, exceptId?: number) {

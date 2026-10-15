@@ -33,9 +33,16 @@ export class PartnersService {
     };
   }
 
+  private readonly partnerByNameCache = new Map<string, { partner: Partner | null; expiresAt: number }>();
+  private readonly CACHE_TTL_MS = 60_000;
+
+  clearCache() {
+    this.partnerByNameCache.clear();
+  }
+
   async create(dto: CreatePartnerDto, actor: JwtPayload) {
     await this.assertNameFree(dto.name);
-    return this.repo.save(
+    const saved = await this.repo.save(
       this.repo.create({
         name: dto.name,
         note: dto.note || null,
@@ -43,6 +50,8 @@ export class PartnersService {
         createdById: actor.sub,
       }),
     );
+    this.clearCache();
+    return saved;
   }
 
   async findAll(query: QueryPartnersDto) {
@@ -68,10 +77,19 @@ export class PartnersService {
   async commissionQuote(name: string, seats: number) {
     const key = name.trim();
     if (!key || seats < 1) return { commission: null };
-    const partner = await this.repo
-      .createQueryBuilder('p')
-      .where('LOWER(p.name) = LOWER(:name)', { name: key })
-      .getOne();
+    const lowerKey = key.toLowerCase();
+    const now = Date.now();
+    const cached = this.partnerByNameCache.get(lowerKey);
+    let partner: Partner | null = null;
+    if (cached && cached.expiresAt > now) {
+      partner = cached.partner;
+    } else {
+      partner = await this.repo
+        .createQueryBuilder('p')
+        .where('LOWER(p.name) = LOWER(:name)', { name: key })
+        .getOne();
+      this.partnerByNameCache.set(lowerKey, { partner, expiresAt: now + this.CACHE_TTL_MS });
+    }
     if (!partner || partner.commissionPerSeat <= 0) return { commission: null };
     return { commission: partner.commissionPerSeat * seats };
   }
@@ -93,13 +111,16 @@ export class PartnersService {
     if (dto.commissionPerSeat !== undefined && actor.role === UserRole.ADMIN) {
       partner.commissionPerSeat = dto.commissionPerSeat;
     }
-    return this.repo.save(partner);
+    const saved = await this.repo.save(partner);
+    this.clearCache();
+    return saved;
   }
 
   async remove(id: number, actor: JwtPayload) {
     const partner = await this.findOne(id);
     assertCanModify(partner, actor, 'đối tác');
     await this.repo.remove(partner);
+    this.clearCache();
   }
 
   private async assertNameFree(name: string, exceptId?: number) {

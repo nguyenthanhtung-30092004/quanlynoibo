@@ -17,7 +17,8 @@ export function useActiveRoutes(enabled = true) {
     queryKey: [...KEY, 'active'],
     queryFn: ({ signal }) => routesApi.list({ isActive: true, limit: 1000 }, signal),
     enabled,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     select: (res) => res.data,
   });
 }

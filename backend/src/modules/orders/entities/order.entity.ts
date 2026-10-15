@@ -20,7 +20,9 @@ export enum SeatZone {
 }
 
 /** Một dòng trong sổ "Nhật ký" */
-@Index(['createdById', 'createdAt'])
+@Index(['createdAt', 'id'])
+@Index(['createdById', 'createdAt', 'id'])
+@Index(['routeId', 'entryDate'])
 @Entity('orders')
 export class Order {
   @PrimaryGeneratedColumn('increment')
@@ -45,6 +47,7 @@ export class Order {
   customerName: string | null;
 
   /** SỐ ĐIỆN THOẠI */
+  @Index()
   @Column({ length: 15 })
   phone: string;
 
@@ -158,4 +161,16 @@ export class Order {
 
   @UpdateDateColumn({ name: 'updatedAt', type: 'timestamptz' })
   updatedAt: Date;
+
+  /** Cột sinh sẵn chuẩn hóa tên đối tác: lower(trim(coalesce(partner, 'XVIP'))) */
+  @Column({ name: 'partnerKey', type: 'text', insert: false, update: false, select: false, nullable: true })
+  partnerKey?: string;
+
+  /** Cột sinh sẵn chuẩn hóa tên khách: lower(trim(coalesce(customerName, 'khách lẻ'))) */
+  @Column({ name: 'customerKey', type: 'text', insert: false, update: false, select: false, nullable: true })
+  customerKey?: string;
+
+  /** Cột sinh sẵn gom chuỗi tìm kiếm có index GIN trigram */
+  @Column({ name: 'search_text', type: 'text', insert: false, update: false, select: false, nullable: true })
+  searchText?: string;
 }

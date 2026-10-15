@@ -9,7 +9,8 @@ export function usePartners(enabled = true) {
     queryKey: KEY,
     queryFn: ({ signal }) => partnersApi.list(signal),
     enabled,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     select: (res) => res.data,
   });
 }

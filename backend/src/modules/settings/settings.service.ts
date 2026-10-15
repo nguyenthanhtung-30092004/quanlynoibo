@@ -23,13 +23,21 @@ export class SettingsService {
     private readonly repo: Repository<AppSetting>,
   ) {}
 
+  private cachedSettings: { data: SettingsMap; expiresAt: number } | null = null;
+  private readonly SETTINGS_TTL_MS = 60_000;
+
   async getAll(): Promise<SettingsMap> {
+    const now = Date.now();
+    if (this.cachedSettings && this.cachedSettings.expiresAt > now) {
+      return this.cachedSettings.data;
+    }
     const rows = await this.repo.find();
     const saved = new Map(rows.map((r) => [r.key, r.value]));
     const out = { ...DEFAULT_SETTINGS };
     for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof SettingsMap)[]) {
       if (saved.has(key)) out[key] = saved.get(key) as string;
     }
+    this.cachedSettings = { data: out, expiresAt: now + this.SETTINGS_TTL_MS };
     return out;
   }
 
@@ -38,6 +46,7 @@ export class SettingsService {
       .filter((key) => dto[key] !== undefined)
       .map((key) => this.repo.create({ key, value: dto[key] as string }));
     if (entries.length > 0) await this.repo.save(entries);
+    this.cachedSettings = null;
     return this.getAll();
   }
 }

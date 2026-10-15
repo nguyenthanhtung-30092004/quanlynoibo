@@ -37,19 +37,31 @@ export class AttendanceService {
     @InjectRepository(User) private readonly users: Repository<User>,
   ) {}
 
+  private cachedConfig: { data: AttendanceConfig; expiresAt: number } | null = null;
+  private readonly CONFIG_TTL_MS = 60_000;
+
   async loadConfig(): Promise<AttendanceConfig> {
-    const row = await this.settings.findOne({ where: { key: CONFIG_KEY } });
-    if (!row?.value) return DEFAULT_ATTENDANCE_CONFIG;
-    try {
-      return sanitizeAttendanceConfig(JSON.parse(row.value));
-    } catch {
-      return DEFAULT_ATTENDANCE_CONFIG;
+    const now = Date.now();
+    if (this.cachedConfig && this.cachedConfig.expiresAt > now) {
+      return this.cachedConfig.data;
     }
+    const row = await this.settings.findOne({ where: { key: CONFIG_KEY } });
+    let config = DEFAULT_ATTENDANCE_CONFIG;
+    if (row?.value) {
+      try {
+        config = sanitizeAttendanceConfig(JSON.parse(row.value));
+      } catch {
+        config = DEFAULT_ATTENDANCE_CONFIG;
+      }
+    }
+    this.cachedConfig = { data: config, expiresAt: now + this.CONFIG_TTL_MS };
+    return config;
   }
 
   async saveConfig(input: Record<string, unknown>): Promise<AttendanceConfig> {
     const config = sanitizeAttendanceConfig(input);
     await this.settings.save(this.settings.create({ key: CONFIG_KEY, value: JSON.stringify(config) }));
+    this.cachedConfig = { data: config, expiresAt: Date.now() + this.CONFIG_TTL_MS };
     return config;
   }
 

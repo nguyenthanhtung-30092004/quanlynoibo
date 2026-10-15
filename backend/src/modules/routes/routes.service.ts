@@ -60,9 +60,26 @@ export class RoutesService {
     return { items, total, page, limit };
   }
 
+  private readonly routeByIdCache = new Map<number, { route: Route; expiresAt: number }>();
+  private readonly CACHE_TTL_MS = 60_000;
+
+  clearCache(id?: number) {
+    if (id !== undefined) {
+      this.routeByIdCache.delete(id);
+    } else {
+      this.routeByIdCache.clear();
+    }
+  }
+
   async findOne(id: number) {
+    const now = Date.now();
+    const cached = this.routeByIdCache.get(id);
+    if (cached && cached.expiresAt > now) {
+      return cached.route;
+    }
     const route = await this.repo.findOne({ where: { id } });
     if (!route) throw new NotFoundException('Không tìm thấy tuyến đường.');
+    this.routeByIdCache.set(id, { route, expiresAt: now + this.CACHE_TTL_MS });
     return route;
   }
 
@@ -77,7 +94,9 @@ export class RoutesService {
     if (dto.destination !== undefined) route.destination = dto.destination;
     if (dto.defaultPrice !== undefined) route.defaultPrice = dto.defaultPrice;
     if (dto.isActive !== undefined) route.isActive = dto.isActive;
-    return this.repo.save(route);
+    const saved = await this.repo.save(route);
+    this.clearCache(id);
+    return saved;
   }
 
   async remove(id: number, actor: JwtPayload) {
@@ -85,6 +104,7 @@ export class RoutesService {
     assertCanModify(route, actor, 'tuyến đường');
     try {
       await this.repo.remove(route);
+      this.clearCache(id);
     } catch (err) {
       // 23503: foreign_key_violation (tuyến đã có đơn hàng)
       if ((err as { driverError?: { code?: string } }).driverError?.code === '23503') {

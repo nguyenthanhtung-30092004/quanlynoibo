@@ -2,9 +2,13 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module.js';
+import { SlowRequestInterceptor } from './common/interceptors/slow-request.interceptor.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  app.enableShutdownHooks();
+  app.useGlobalInterceptors(new SlowRequestInterceptor());
 
   app.useGlobalPipes(
     new ValidationPipe({

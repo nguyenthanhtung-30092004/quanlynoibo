@@ -16,7 +16,8 @@ export function useActiveCarriers(enabled = true) {
     queryKey: [...KEY, 'active'],
     queryFn: ({ signal }) => carriersApi.list({ isActive: true, limit: 100 }, signal),
     enabled,
-    staleTime: 60_000,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
     select: (res) => res.data,
   });
 }

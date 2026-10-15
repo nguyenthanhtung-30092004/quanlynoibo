@@ -76,14 +76,50 @@ export class UsersService {
     return user;
   }
 
-  /** Dùng cho AuthGuard: kiểm tra tài khoản còn tồn tại / đang hoạt động và lấy vai trò hiện tại */
+  private readonly authStateCache = new Map<
+    number,
+    { data: Pick<User, 'id' | 'role' | 'isActive'> | null; expiresAt: number }
+  >();
+  private readonly AUTH_STATE_TTL_MS = 30_000;
+  private readonly AUTH_STATE_MAX_ENTRIES = 2_000;
+
+  /** Xóa cache trạng thái tài khoản (gọi khi khóa/đổi vai trò/xóa) */
+  invalidateAuthState(id?: number): void {
+    if (id !== undefined) {
+      this.authStateCache.delete(id);
+    } else {
+      this.authStateCache.clear();
+    }
+  }
+
+  /** Dùng cho AuthGuard: kiểm tra tài khoản còn tồn tại / đang hoạt động và lấy vai trò hiện tại (có cache bộ nhớ ~30s) */
   async findAuthState(
     id: number,
   ): Promise<Pick<User, 'id' | 'role' | 'isActive'> | null> {
-    return this.userRepository.findOne({
+    const now = Date.now();
+    const cached = this.authStateCache.get(id);
+    if (cached) {
+      if (cached.expiresAt > now) {
+        // Làm mới vị trí LRU
+        this.authStateCache.delete(id);
+        this.authStateCache.set(id, cached);
+        return cached.data;
+      }
+      this.authStateCache.delete(id);
+    }
+
+    const data = await this.userRepository.findOne({
       where: { id, deletedAt: IsNull() },
       select: { id: true, role: true, isActive: true },
     });
+
+    if (this.authStateCache.size >= this.AUTH_STATE_MAX_ENTRIES) {
+      const oldestKey = this.authStateCache.keys().next().value;
+      if (oldestKey !== undefined) this.authStateCache.delete(oldestKey);
+    }
+    this.authStateCache.set(id, { data, expiresAt: now + this.AUTH_STATE_TTL_MS });
+
+    return data;
   }
 
   /** Dùng cho đăng nhập: lấy kèm passwordHash (mặc định bị ẩn) */
@@ -133,6 +169,7 @@ export class UsersService {
     }
 
     await this.userRepository.update(user.id, patch);
+    this.invalidateAuthState(user.id);
     return this.findOne(id);
   }
 
@@ -162,6 +199,7 @@ export class UsersService {
       passwordEnc: encryptPassword(password),
       refreshTokenHash: null,
     });
+    this.invalidateAuthState(id);
   }
 
   /** Mật khẩu hiện tại của tài khoản, null nếu chưa lưu được (tài khoản cũ) */
@@ -190,6 +228,7 @@ export class UsersService {
       username: user.username.slice(0, 35) + `#xoa${user.id}`,
       citizenId: null,
     });
+    this.invalidateAuthState(user.id);
   }
 
   async count(): Promise<number> {

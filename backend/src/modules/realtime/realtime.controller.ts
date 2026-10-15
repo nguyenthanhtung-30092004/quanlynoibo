@@ -1,7 +1,7 @@
 import { Controller, Get, Header, HttpStatus, MessageEvent, Sse } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Observable, defer, interval, map, merge } from 'rxjs';
-import { finalize } from 'rxjs/operators';
+import { filter, finalize } from 'rxjs/operators';
 import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
@@ -25,9 +25,12 @@ export class RealtimeController {
   @Header('X-Accel-Buffering', 'no')
   stream(@CurrentUser() user?: JwtPayload): Observable<MessageEvent> {
     const userId = user?.sub;
+    const isAdmin = !user || user.role === UserRole.ADMIN;
     return defer(() => {
       if (userId) this.realtime.addConnection(userId);
       const changes = this.realtime.stream().pipe(
+        // R2: Bỏ phát presence cho người dùng thường, chỉ Admin xem trang online mới cần
+        filter((e) => isAdmin || e.topic !== 'presence'),
         map((e): MessageEvent => ({ type: 'change', data: e })),
       );
       const heartbeat = interval(HEARTBEAT_MS).pipe(
