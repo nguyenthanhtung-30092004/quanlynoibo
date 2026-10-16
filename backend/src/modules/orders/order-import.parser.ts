@@ -1,3 +1,4 @@
+import { Readable } from 'node:stream';
 import ExcelJS from 'exceljs';
 
 /** Một dòng đơn đọc từ file Excel, đã chuẩn hóa nhưng chưa đối chiếu tuyến/nhân viên */
@@ -62,7 +63,7 @@ const HEADER_ALIASES: Record<FieldKey, string[]> = {
 
 const REQUIRED_FIELDS: FieldKey[] = ['phone', 'route', 'date'];
 const HEADER_SEARCH_ROWS = 15;
-export const IMPORT_MAX_ROWS = 10000;
+export const IMPORT_MAX_ROWS = 50000;
 
 /** Bỏ dấu, khoảng trắng và ký tự lạ để so khớp tên cột/tuyến/nhân viên */
 export function normalizeKey(text: string): string {
@@ -196,94 +197,77 @@ function parsePhone(v: ExcelJS.CellValue): string {
   return s;
 }
 
-/** Đọc toàn bộ file; ném lỗi (string) nếu không phải file Excel hoặc thiếu cột bắt buộc */
-export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
-  const workbook = new ExcelJS.Workbook();
-  try {
-    await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
-  } catch {
-    throw new Error('Không đọc được file. Hãy dùng file Excel .xlsx.');
-  }
-  const sheet = workbook.worksheets[0];
-  if (!sheet) throw new Error('File Excel không có trang tính nào.');
+/** Số dòng tối đa được quét (kể cả dòng trống có định dạng) để file rác không chiếm máy chủ quá lâu */
+const IMPORT_MAX_SCANNED_ROWS = 200000;
 
-  // Tìm dòng tiêu đề: hỗ trợ cả tiêu đề 1 tầng và tiêu đề 2 tầng (gộp r và r + 1)
-  let dataStartRow = 0;
-  const columns = new Map<FieldKey, number>();
+type HeaderResult = { dataStartRow: number; columns: Map<FieldKey, number> };
+
+/** Tìm dòng tiêu đề trong các dòng đầu file: hỗ trợ tiêu đề 1 tầng và 2 tầng (gộp r và r + 1) */
+function findHeader(head: Map<number, ExcelJS.Row>): HeaderResult | null {
+  const maxRow = Math.max(0, ...head.keys());
+  const scan = (
+    rowNo: number,
+    found: Map<FieldKey, number>,
+    onNew?: (f: FieldKey) => void,
+  ) => {
+    head.get(rowNo)?.eachCell({ includeEmpty: false }, (cell, col) => {
+      const key = normalizeKey(cellText(cell.value));
+      if (!key) return;
+      for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
+        FieldKey,
+        string[],
+      ][]) {
+        if (aliases.includes(key) && !found.has(field)) {
+          found.set(field, col);
+          onNew?.(field);
+        }
+      }
+    });
+  };
 
   // Lượt 1: dòng tiêu đề phải tự có đủ cột bắt buộc (tránh nhận nhầm dòng tiêu đề lớn phía trên
   // khi tiêu đề thật nằm ở dòng dưới). Lượt 2: cho phép gộp bắt buộc từ cả dòng bên dưới.
   for (const strict of [true, false]) {
-    if (dataStartRow) break;
-    for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, sheet.rowCount); r++) {
+    for (let r = 1; r <= Math.min(HEADER_SEARCH_ROWS, maxRow); r++) {
       const found = new Map<FieldKey, number>();
       const foundOnSubRow = new Set<FieldKey>();
-
-      // 1. Quét trên chính dòng r
-      sheet.getRow(r).eachCell({ includeEmpty: false }, (cell, col) => {
-        const key = normalizeKey(cellText(cell.value));
-        if (!key) return;
-        for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
-          FieldKey,
-          string[],
-        ][]) {
-          if (aliases.includes(key) && !found.has(field)) {
-            found.set(field, col);
-          }
-        }
-      });
-
+      scan(r, found);
       const ownFound = new Set(found.keys());
+      scan(r + 1, found, (f) => foundOnSubRow.add(f));
 
-      // 2. Quét dòng ngay bên dưới r + 1 (nếu có)
-      if (r + 1 <= sheet.rowCount) {
-        sheet.getRow(r + 1).eachCell({ includeEmpty: false }, (cell, col) => {
-          const key = normalizeKey(cellText(cell.value));
-          if (!key) return;
-          for (const [field, aliases] of Object.entries(HEADER_ALIASES) as [
-            FieldKey,
-            string[],
-          ][]) {
-            if (aliases.includes(key) && !found.has(field)) {
-              found.set(field, col);
-              foundOnSubRow.add(field);
-            }
-          }
-        });
-      }
-
-      // 3. Dòng tiêu đề được chấp nhận khi gộp xong đủ các trường bắt buộc (phone, route, date)
       if (REQUIRED_FIELDS.every((f) => (strict ? ownFound : found).has(f))) {
-        const subHeaderFields: FieldKey[] = [
-          'front',
-          'middle',
-          'back',
-          'seats',
-        ];
+        const subHeaderFields: FieldKey[] = ['front', 'middle', 'back', 'seats'];
         const hasSubHeader = subHeaderFields.some((f) => foundOnSubRow.has(f));
-        dataStartRow = hasSubHeader ? r + 1 : r;
-        found.forEach((col, f) => {
-          columns.set(f, col);
-        });
-        break;
+        return { dataStartRow: hasSubHeader ? r + 1 : r, columns: found };
       }
     }
   }
+  return null;
+}
 
-  if (!dataStartRow) {
-    throw new Error(
-      'Không tìm thấy dòng tiêu đề. File cần có các cột: Số điện thoại, Tuyến đi, Ngày khởi hành.',
-    );
-  }
+const TOO_MANY_ROWS_MESSAGE =
+  'File có quá nhiều dòng. Hãy copy dữ liệu sang file Excel mới (chỉ gồm các dòng có đơn) rồi nhập lại.';
 
-  // Chỉ duyệt các dòng thật sự có dữ liệu bắt đầu sau tiêu đề
-  const dataRows: ExcelJS.Row[] = [];
-  sheet.eachRow({ includeEmpty: false }, (row, r) => {
-    if (r > dataStartRow) dataRows.push(row);
+/**
+ * Đọc file theo luồng (từng dòng một), không nạp cả file vào bộ nhớ: file Excel nhiều dòng mà
+ * đọc nguyên khối sẽ làm máy chủ hết RAM và sập. Ném lỗi (string) nếu không phải file Excel
+ * hoặc thiếu cột bắt buộc.
+ */
+export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
+  const reader = new ExcelJS.stream.xlsx.WorkbookReader(Readable.from([buffer]), {
+    worksheets: 'emit',
+    sharedStrings: 'cache',
+    hyperlinks: 'ignore',
+    styles: 'cache',
+    entries: 'ignore',
   });
 
   const rows: ImportRow[] = [];
-  for (const row of dataRows) {
+  let columns = new Map<FieldKey, number>();
+  let dataStartRow = 0;
+  let sawSheet = false;
+
+  const processRow = (row: ExcelJS.Row) => {
     const r = row.number;
     const get = (f: FieldKey): ExcelJS.CellValue => {
       const col = columns.get(f);
@@ -295,7 +279,7 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
     const routeName = text('route');
     const dateCell = parseDate(get('date'));
     // Dòng trống, dòng TỔNG, khối tổng kết cuối bảng: không có SĐT, tuyến, tên khách thì bỏ qua
-    if (!phone && !routeName && !text('customer')) continue;
+    if (!phone && !routeName && !text('customer')) return;
 
     const errors: string[] = [];
     if (!phone) errors.push('thiếu số điện thoại');
@@ -351,6 +335,75 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
       cancelled: false,
       errors,
     });
+  };
+
+  // Đọc lần lượt các dòng của một trang tính (luồng hoặc đã nạp sẵn)
+  const consumeSheet = async (source: AsyncIterable<ExcelJS.Row> | Iterable<ExcelJS.Row>) => {
+    const head = new Map<number, ExcelJS.Row>();
+    let scanned = 0;
+
+    for await (const row of source) {
+      if (++scanned > IMPORT_MAX_SCANNED_ROWS) throw new Error(TOO_MANY_ROWS_MESSAGE);
+      if (!dataStartRow) {
+        if (row.number <= HEADER_SEARCH_ROWS + 1) {
+          head.set(row.number, row);
+          continue;
+        }
+        // Đã quá vùng tìm tiêu đề: chốt tiêu đề rồi xử lý các dòng đã giữ lại
+        const header = findHeader(head);
+        if (!header) return;
+        ({ dataStartRow, columns } = header);
+        for (const [n, r] of head) if (n > dataStartRow) processRow(r);
+        head.clear();
+      }
+      if (row.number > dataStartRow) processRow(row);
+      if (rows.length > IMPORT_MAX_ROWS) return;
+    }
+
+    // File ngắn hơn vùng tìm tiêu đề
+    if (!dataStartRow) {
+      const header = findHeader(head);
+      if (header) {
+        ({ dataStartRow, columns } = header);
+        for (const [n, r] of head) if (n > dataStartRow) processRow(r);
+      }
+    }
+  };
+
+  try {
+    for await (const sheet of reader) {
+      sawSheet = true;
+      await consumeSheet(sheet as unknown as AsyncIterable<ExcelJS.Row>);
+      break; // chỉ đọc trang tính đầu tiên
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message === TOO_MANY_ROWS_MESSAGE) throw err;
+    // Một số file (vd. do ExcelJS tự xuất) xếp thứ tự thành phần mà bộ đọc luồng không xử lý được:
+    // đọc nguyên khối như cách cũ cho các file này
+    rows.length = 0;
+    dataStartRow = 0;
+    columns = new Map<FieldKey, number>();
+    sawSheet = false;
+    const workbook = new ExcelJS.Workbook();
+    try {
+      await workbook.xlsx.load(buffer as unknown as ExcelJS.Buffer);
+    } catch {
+      throw new Error('Không đọc được file. Hãy dùng file Excel .xlsx.');
+    }
+    const sheet = workbook.worksheets[0];
+    if (sheet) {
+      sawSheet = true;
+      const loaded: ExcelJS.Row[] = [];
+      sheet.eachRow({ includeEmpty: false }, (row) => loaded.push(row));
+      await consumeSheet(loaded);
+    }
+  }
+
+  if (!sawSheet) throw new Error('File Excel không có trang tính nào.');
+  if (!dataStartRow) {
+    throw new Error(
+      'Không tìm thấy dòng tiêu đề. File cần có các cột: Số điện thoại, Tuyến đi, Ngày khởi hành.',
+    );
   }
 
   if (rows.length === 0) throw new Error('Không có dòng dữ liệu nào để nhập.');
