@@ -89,6 +89,7 @@ function isAutoName(p: { name: string; origin: string; destination: string }) {
 
 export default function RoutesPage() {
   const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
   const { data: apiData, isLoading, refetch } = useRoutes();
   const createMutation = useCreateRoute();
   const updateMutation = useUpdateRoute();
@@ -228,6 +229,7 @@ export default function RoutesPage() {
               <Plus size={18} weight="bold" /> Thêm tuyến đường mới
             </button>
             )}
+            {isAdmin && (
             <button
               type="button"
               onClick={() => showToast('Đang kết xuất danh mục tuyến đường ra file Excel...')}
@@ -235,6 +237,7 @@ export default function RoutesPage() {
             >
               <FileXls size={18} weight="bold" /> Xuất Excel
             </button>
+            )}
           </div>
         }
       >
@@ -286,6 +289,7 @@ export default function RoutesPage() {
           </div>
         </div>
 
+        {isAdmin && (
         <div
           onClick={() => showToast(`Mức giá vé trung bình niêm yết chuẩn: ${money(avgPrice)}đ.`)}
           style={{
@@ -303,7 +307,9 @@ export default function RoutesPage() {
             <div className="text-[11px] font-medium text-white/90">Mức giá niêm yết chuẩn</div>
           </div>
         </div>
+        )}
 
+        {isAdmin && (
         <div
                     style={{
             boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #6b21a8, 0 12px 24px -4px rgba(15,23,42,0.18)',
@@ -319,6 +325,7 @@ export default function RoutesPage() {
             <div className="text-[11px] font-medium text-white/90">Đã tắt, không chọn được khi lên vé</div>
           </div>
         </div>
+        )}
       </div>
 
       {/* 3D Filter Bar */}
