@@ -283,7 +283,8 @@ export default function LeavePage() {
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 <Legend className="bg-sky-100 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:ring-sky-700" text="Đầu tuần (T2-T5)" />
                 <Legend className="bg-orange-100 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:ring-orange-700" text="Cuối tuần (T6-CN)" />
-                {!isAdmin && <Legend className="bg-slate-700 dark:bg-slate-200" text="Ngày bạn đã đăng ký (tô đậm)" />}
+                <Legend className="bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-900/40 dark:ring-violet-700" text="Đã có người đăng ký" />
+                {!isAdmin && <Legend className="bg-violet-600" text="Ngày bạn đã đăng ký (tím đậm)" />}
               </div>
               <div>
                 Số <b className="text-emerald-600 dark:text-emerald-400">xanh</b> còn chỗ ·{' '}
@@ -359,8 +360,10 @@ function DayCell({ d, today, onClick }: { d: LeaveDay; today: string; onClick: (
   const base = late
     ? 'bg-orange-100 text-orange-950 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:text-orange-50 dark:ring-orange-700'
     : 'bg-sky-100 text-sky-950 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:text-sky-50 dark:ring-sky-700';
-  // Ngày mình đã đăng ký: tô đậm cùng tông của nhóm
-  const mine = late ? 'bg-orange-500 text-white ring-1 ring-orange-600' : 'bg-sky-600 text-white ring-1 ring-sky-700';
+  // Ngày đã có người đăng ký nghỉ: một màu chung, không phân đầu/cuối tuần nữa
+  const taken = 'bg-violet-100 text-violet-950 ring-1 ring-violet-300 dark:bg-violet-900/40 dark:text-violet-50 dark:ring-violet-700';
+  // Ngày mình đã đăng ký: cùng tông nhưng đậm hơn
+  const mine = 'bg-violet-600 text-white ring-1 ring-violet-700';
   // Tình trạng chỗ trống thể hiện ở màu chữ của số lượng
   const countTone = d.mine
     ? 'text-white'
@@ -374,7 +377,7 @@ function DayCell({ d, today, onClick }: { d: LeaveDay; today: string; onClick: (
       type="button"
       onClick={onClick}
       className={`flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1.5 transition-transform hover:scale-[1.04] sm:min-h-16 ${
-        d.mine ? mine : base
+        d.mine ? mine : d.count > 0 ? taken : base
       } ${past ? 'opacity-50' : ''}`}
     >
       <span className="tnum text-sm font-black sm:text-base">{Number(d.day.slice(8))}</span>

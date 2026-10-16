@@ -29,14 +29,15 @@ export function AutoGrowInput({
     const el = ref.current;
     if (!el) return;
     el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    // scrollHeight không tính viền; box-sizing là border-box nên cộng thêm viền để không bị cắt dòng cuối
+    el.style.height = `${el.scrollHeight + (el.offsetHeight - el.clientHeight)}px`;
   }, [value]);
 
   return (
     <textarea
       ref={ref}
       rows={1}
-      className={`input-3d !h-auto !min-h-[42px] resize-none overflow-hidden leading-snug ${
+      className={`input-3d !min-h-[42px] resize-none overflow-hidden leading-snug ${
         invalid ? '!border-red-500 !shadow-[0_0_0_3px_rgba(239,68,68,0.2)]' : ''
       }`}
       aria-invalid={invalid}
