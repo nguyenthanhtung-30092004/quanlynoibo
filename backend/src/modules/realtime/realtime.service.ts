@@ -6,7 +6,7 @@ import { User } from '../users/entities/user.entity.js';
 import { AttendanceService } from '../attendance/attendance.service.js';
 
 /** Nhóm dữ liệu vừa thay đổi; client chỉ cần biết nhóm nào để tải lại, không nhận dữ liệu thật */
-export const REALTIME_TOPICS = ['orders', 'partners', 'routes', 'carriers', 'users', 'presence'] as const;
+export const REALTIME_TOPICS = ['orders', 'partners', 'routes', 'carriers', 'users', 'presence', 'leave'] as const;
 export type RealtimeTopic = (typeof REALTIME_TOPICS)[number];
 
 export interface RealtimeEvent {

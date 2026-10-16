@@ -12,6 +12,7 @@ const TOPIC_KEYS: Record<string, QueryKey[]> = {
   carriers: [['carriers']],
   users: [['users']],
   presence: [['online-users']],
+  leave: [['leave']],
 };
 
 /** Gom các sự kiện dồn dập (vd. nhập nhiều vé liền) thành một lần tải lại */
