@@ -73,6 +73,15 @@ html.dark * {
 html.dark .scroll-big {
   scrollbar-color: #64748b #1e293b;
 }
+/* Máy tính: ẩn thanh kéo ngang ở đáy bảng (đã có thanh ghim ở đầu bảng); vẫn cuộn ngang được bằng chuột/touchpad */
+@media (min-width: 768px) {
+  .scroll-big.scroll-hide-md {
+    scrollbar-width: none;
+  }
+  .scroll-big.scroll-hide-md::-webkit-scrollbar {
+    display: none;
+  }
+}
 .scroll-big::-webkit-scrollbar {
   height: 16px;
   width: 16px;
