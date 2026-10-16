@@ -943,7 +943,7 @@ export default function StaffReportPage() {
       <div ref={orderListRef} className="scroll-mt-20" />
       <Card
         title={`${depositOnly ? 'Danh sách đơn đã cọc xvip' : 'Danh sách đơn'} (${ticketTotal.toLocaleString('vi-VN')})`}
-        className="mt-5 !p-0 overflow-hidden"
+        className="mt-5 !p-0 overflow-clip"
       >
         <ScrollTable>
           <table className="w-full">

@@ -60,7 +60,7 @@ export function OrdersTableView({
   };
 
   return (
-    <Card className="mt-5 overflow-hidden !p-0">
+    <Card className="mt-5 overflow-clip !p-0">
       <ScrollTable>
         <table className="w-full">
           <thead>

@@ -2,75 +2,145 @@
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
+/** Từ breakpoint `md` của Tailwind trở lên là máy tính (có thanh kéo ngang ghim ở đầu bảng) */
+const DESKTOP_QUERY = '(min-width: 768px)';
+
 /**
- * Bảng rộng: có thanh kéo ngang ở TRÊN đầu bảng (luôn thấy, dùng chuột kéo được) đồng bộ
- * với thanh ở đáy bảng. Không có khung cao cố định: bảng tràn hết xuống, cuộn dọc theo trang.
- * Điện thoại chỉ cuộn ngang trong bảng, vuốt dọc theo trang nên mượt.
+ * Bảng rộng: có thanh kéo ngang ở TRÊN đầu bảng (luôn thấy, dùng chuột kéo được).
+ * Không có khung cao cố định: bảng tràn hết xuống, cuộn dọc theo trang.
  *
- * Khi cuộn trang xuống, thanh kéo ngang và hàng tiêu đề bảng được ghim lại ngay dưới thanh
- * header của trang, còn các dòng dữ liệu vẫn trượt bên dưới. CSS `position: sticky` không dùng
- * được vì vùng cuộn ngang (overflow-x) chặn nó, nên dời bằng transform theo vị trí cuộn trang.
+ * Máy tính: thanh kéo ngang và hàng tiêu đề được ghim bằng CSS `position: sticky` ngay dưới
+ * header của trang, nên do chính trình duyệt giữ chỗ khi cuộn, không bị giật hay biến mất.
+ * `sticky` chỉ chạy khi không có tổ tiên nào là vùng cuộn, vì vậy vùng bảng dùng
+ * `overflow-x: clip` (không phải `auto`) và việc cuộn ngang được làm bằng cách dịch bảng theo
+ * thanh kéo ở đầu bảng (cả chuột lăn ngang / Shift + lăn cũng được chuyển sang thanh đó).
+ * Khung bao ngoài bảng phải dùng `overflow-clip`, đừng dùng `overflow-hidden` kẻo chặn sticky.
+ *
+ * Điện thoại: bảng cuộn ngang bình thường trong khung, vuốt dọc theo trang. Sticky không dùng
+ * được ở đây nên tiêu đề được dời bằng transform theo vị trí cuộn trang.
  */
 export function ScrollTable({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
+  const innerRef = useRef<HTMLDivElement>(null);
   const [contentWidth, setContentWidth] = useState(0);
   const [overflowing, setOverflowing] = useState(false);
   const syncing = useRef(false);
 
+  // Đo bề rộng thật của bảng so với khung chứa
   useEffect(() => {
     const main = mainRef.current;
-    if (!main) return;
+    const inner = innerRef.current;
+    if (!main || !inner) return;
     const measure = () => {
-      setContentWidth(main.scrollWidth);
-      setOverflowing(main.scrollWidth > main.clientWidth + 1);
+      const table = inner.firstElementChild as HTMLElement | null;
+      const width = Math.max(table?.offsetWidth ?? 0, main.scrollWidth);
+      setContentWidth(width);
+      setOverflowing(width > main.clientWidth + 1);
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(main);
-    if (main.firstElementChild) ro.observe(main.firstElementChild);
+    if (inner.firstElementChild) ro.observe(inner.firstElementChild);
     return () => ro.disconnect();
   }, []);
 
+  // Vị trí ghim: ngay dưới header của trang (và dưới thanh kéo ngang với hàng tiêu đề)
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+    const mq = window.matchMedia(DESKTOP_QUERY);
     let frame = 0;
-    const update = () => {
+
+    const measurePins = () => {
+      const pageHeader = document.querySelector('header');
+      const sticky = pageHeader && getComputedStyle(pageHeader).position === 'sticky';
+      root.style.setProperty('--pin-top', `${sticky ? pageHeader.offsetHeight : 0}px`);
+      root.style.setProperty('--bar-h', `${topRef.current?.offsetHeight ?? 0}px`);
+    };
+
+    // Chỉ dùng cho điện thoại: dời tiêu đề bằng transform vì sticky không chạy được ở đó
+    const updateMobile = () => {
       frame = 0;
+      if (mq.matches) {
+        root.style.setProperty('--stick-y', '0px');
+        return;
+      }
       const rect = root.getBoundingClientRect();
       const pageHeader = document.querySelector('header');
-      const pinTop = pageHeader && getComputedStyle(pageHeader).position === 'sticky' ? pageHeader.getBoundingClientRect().bottom : 0;
-      const bar = topRef.current;
+      const pinTop =
+        pageHeader && getComputedStyle(pageHeader).position === 'sticky'
+          ? pageHeader.getBoundingClientRect().bottom
+          : 0;
       const head = root.querySelector('thead');
-      const pinnedHeight = (bar?.offsetHeight ?? 0) + (head?.getBoundingClientRect().height ?? 0);
+      const pinnedHeight = head?.getBoundingClientRect().height ?? 0;
       // Không đẩy tiêu đề ra khỏi cuối bảng
-      const shift = Math.min(Math.max(0, pinTop - rect.top), Math.max(0, rect.height - pinnedHeight));
+      const shift = Math.min(
+        Math.max(0, pinTop - rect.top),
+        Math.max(0, rect.height - pinnedHeight),
+      );
       root.style.setProperty('--stick-y', `${Math.round(shift)}px`);
     };
     const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(update);
+      if (!frame) frame = requestAnimationFrame(updateMobile);
     };
-    update();
-    // capture = true để bắt cả trường hợp trang cuộn trong một khung bên trong
+    const onResize = () => {
+      measurePins();
+      // Thu cửa sổ xuống cỡ điện thoại: bỏ phần dịch bảng của chế độ máy tính
+      if (!mq.matches && innerRef.current) innerRef.current.style.transform = '';
+      schedule();
+    };
+
+    measurePins();
+    updateMobile();
     window.addEventListener('scroll', schedule, { passive: true, capture: true });
-    window.addEventListener('resize', schedule);
-    const ro = new ResizeObserver(schedule);
+    window.addEventListener('resize', onResize);
+    const ro = new ResizeObserver(onResize);
     ro.observe(root);
+    const pageHeader = document.querySelector('header');
+    if (pageHeader) ro.observe(pageHeader);
+    if (topRef.current) ro.observe(topRef.current);
     return () => {
       window.removeEventListener('scroll', schedule, { capture: true });
-      window.removeEventListener('resize', schedule);
+      window.removeEventListener('resize', onResize);
       ro.disconnect();
       if (frame) cancelAnimationFrame(frame);
     };
+  }, [overflowing]);
+
+  // Máy tính: lăn chuột ngang / Shift + lăn / vuốt ngang trên bảng thì cuộn thanh ở đầu bảng
+  useEffect(() => {
+    const main = mainRef.current;
+    if (!main) return;
+    const onWheel = (e: WheelEvent) => {
+      const top = topRef.current;
+      if (!top || !window.matchMedia(DESKTOP_QUERY).matches) return;
+      const horizontal = e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY);
+      if (!horizontal) return;
+      const before = top.scrollLeft;
+      top.scrollLeft += e.deltaX || e.deltaY;
+      if (top.scrollLeft !== before) e.preventDefault();
+    };
+    main.addEventListener('wheel', onWheel, { passive: false });
+    return () => main.removeEventListener('wheel', onWheel);
   }, []);
 
-  const sync = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
-    // Thanh trên đầu bị ẩn trên điện thoại (clientWidth = 0) thì không đồng bộ cho đỡ nặng
-    if (!from || !to || to.clientWidth === 0 || syncing.current) return;
+  // Thanh ở đầu bảng cuộn tới đâu thì dịch bảng theo tới đó (máy tính)
+  const onTopScroll = () => {
+    const top = topRef.current;
+    const inner = innerRef.current;
+    if (!top || !inner) return;
+    inner.style.transform = top.clientWidth > 0 ? `translateX(${-top.scrollLeft}px)` : '';
+  };
+
+  // Điện thoại: giữ scrollLeft của khung bảng (thanh đầu bảng bị ẩn nên không có gì để đồng bộ)
+  const onMainScroll = () => {
+    const main = mainRef.current;
+    const top = topRef.current;
+    if (!main || !top || top.clientWidth === 0 || syncing.current) return;
     syncing.current = true;
-    to.scrollLeft = from.scrollLeft;
+    top.scrollLeft = main.scrollLeft;
     requestAnimationFrame(() => {
       syncing.current = false;
     });
@@ -81,8 +151,8 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       {overflowing && (
         <div
           ref={topRef}
-          onScroll={() => sync(topRef.current, mainRef.current)}
-          className="scroll-big relative z-[11] hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-white [transform:translateY(var(--stick-y,0px))] will-change-transform dark:border-slate-700 dark:bg-slate-900"
+          onScroll={onTopScroll}
+          className="scroll-big sticky top-[var(--pin-top,0px)] z-[11] hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
           aria-hidden="true"
         >
           <div style={{ width: contentWidth, height: 1 }} />
@@ -90,10 +160,12 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       )}
       <div
         ref={mainRef}
-        onScroll={() => sync(mainRef.current, topRef.current)}
-        className="scroll-big scroll-hide-md overflow-x-auto overscroll-x-contain [&_thead_th]:relative [&_thead_th]:z-10 [&_thead_th]:!bg-slate-100 [&_thead_th]:[transform:translateY(var(--stick-y,0px))] [&_thead_th]:will-change-transform dark:[&_thead_th]:!bg-slate-800"
+        onScroll={onMainScroll}
+        className="scroll-big scroll-hide-md overflow-x-auto overscroll-x-contain md:overflow-x-clip [&_thead_th]:relative [&_thead_th]:z-10 [&_thead_th]:!bg-slate-100 dark:[&_thead_th]:!bg-slate-800 max-md:[&_thead_th]:[transform:translateY(var(--stick-y,0px))] max-md:[&_thead_th]:will-change-transform md:[&_thead_th]:!sticky md:[&_thead_th]:top-[calc(var(--pin-top,0px)+var(--bar-h,0px))]"
       >
-        {children}
+        <div ref={innerRef} className="md:will-change-transform">
+          {children}
+        </div>
       </div>
     </div>
   );
