@@ -1,9 +1,12 @@
 import { api, type ApiResponse } from '@/lib/api-client';
-import type { LeaveConfig, LeaveMonth } from './types';
+import type { LeaveConfig, LeaveHistoryEntry, LeaveMonth } from './types';
 
 export const leaveApi = {
   month: (month: string, signal?: AbortSignal) =>
     api<ApiResponse<LeaveMonth>>('leave', { query: { month }, signal }).then((r) => r.data),
+
+  history: (day: string, signal?: AbortSignal) =>
+    api<ApiResponse<LeaveHistoryEntry[]>>('leave/history', { query: { day }, signal }).then((r) => r.data),
 
   register: (day: string) =>
     api<ApiResponse<{ id: number; day: string }>>('leave', { method: 'POST', body: { day } }).then((r) => r.data),

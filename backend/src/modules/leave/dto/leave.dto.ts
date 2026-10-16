@@ -8,6 +8,11 @@ export class LeaveMonthQueryDto {
   month: string;
 }
 
+export class LeaveDayQueryDto {
+  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
+  day: string;
+}
+
 export class RegisterLeaveDto {
   @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
   day: string;

@@ -1,19 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { CaretLeft, CaretRight, FloppyDisk, Lock, LockOpen, Trash } from '@phosphor-icons/react';
+import { useEffect, useMemo, useState } from 'react';
+import { CaretLeft, CaretRight, ClockCounterClockwise, FloppyDisk, Lock, LockOpen, Trash, Warning } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { useCurrentUser } from '@/features/auth/hooks';
 import {
+  useLeaveHistory,
   useLeaveMonth,
   useRegisterLeave,
   useRemoveLeave,
   useSaveLeaveConfig,
   useSetDayLimit,
 } from '@/features/leave/hooks';
-import type { LeaveConfig, LeaveDay } from '@/features/leave/types';
+import type { LeaveConfig, LeaveDay, LeaveHistoryEntry } from '@/features/leave/types';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
@@ -37,6 +38,21 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       {children}
     </label>
   );
+}
+
+/** ISO -> 'HH:mm DD/MM/YYYY' theo giờ Việt Nam */
+function formatFull(iso: string): string {
+  const parts = new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '';
+  return `${get('hour')}:${get('minute')} ngày ${get('day')}/${get('month')}/${get('year')}`;
 }
 
 const errText = (err: unknown, fallback: string) => (err instanceof ApiError ? err.message : fallback);
@@ -93,11 +109,28 @@ export default function LeavePage() {
     }
   };
 
+  // Tổng hợp số ngày nghỉ của từng người trong tháng đang xem
+  const summary = useMemo(() => {
+    const byUser = new Map<number, { userId: number; fullName: string; days: number }>();
+    for (const d of data?.days ?? []) {
+      for (const p of d.people) {
+        const cur = byUser.get(p.userId) ?? { userId: p.userId, fullName: p.fullName, days: 0 };
+        cur.days += 1;
+        byUser.set(p.userId, cur);
+      }
+    }
+    return [...byUser.values()].sort((a, b) => b.days - a.days || a.fullName.localeCompare(b.fullName, 'vi'));
+  }, [data]);
+  const quota = data?.quota ?? 4;
+  const myDaysThisMonth = data?.days.filter((d) => d.mine).length ?? 0;
+
   const cancel = async (requestId: number) => {
     try {
       await removeLeave.mutateAsync(requestId);
+      return true;
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không hủy được.')}`);
+      return false;
     }
   };
 
@@ -178,6 +211,44 @@ export default function LeavePage() {
         </Card>
       )}
 
+      <Card title={`Số ngày nghỉ trong ${monthLabel(month).toLowerCase()}`} className="mb-5">
+        {summary.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Tháng này chưa có ai đăng ký nghỉ.</p>
+        ) : (
+          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+            {summary.map((s) => {
+              const over = s.days > quota;
+              return (
+                <li
+                  key={s.userId}
+                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
+                    over
+                      ? 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40'
+                      : 'border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  <Avatar name={s.fullName} />
+                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
+                    {s.fullName}
+                  </span>
+                  <span
+                    className={`tnum shrink-0 text-sm font-black ${
+                      over ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'
+                    }`}
+                  >
+                    {s.days}/{quota} ngày
+                    {over && <Warning size={14} weight="fill" className="ml-1 inline" />}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+        <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+          Mỗi người được nghỉ tối đa {quota} ngày/tháng. Ai vượt số ngày sẽ được đánh dấu đỏ.
+        </p>
+      </Card>
+
       <Card title={isAdmin ? 'Lịch nghỉ của nhân viên' : 'Chọn ngày muốn nghỉ'}>
         {isLoading ? (
           <p className="py-10 text-center text-sm text-slate-500">Đang tải lịch...</p>
@@ -250,10 +321,17 @@ export default function LeavePage() {
               <StaffDayPanel
                 day={selected}
                 today={today}
-                busy={registerLeave.isPending}
+                busy={registerLeave.isPending || removeLeave.isPending}
+                myDays={myDaysThisMonth}
+                quota={quota}
+                meId={me?.id}
                 onRegister={() => register(selected.day)}
+                onCancel={async (id) => {
+                  if (await cancel(id)) setSelectedDay(null);
+                }}
               />
             )}
+            <HistoryPanel day={selected.day} />
           </div>
         </Modal>
       )}
@@ -311,16 +389,29 @@ function StaffDayPanel({
   day,
   today,
   busy,
+  myDays,
+  quota,
+  meId,
   onRegister,
+  onCancel,
 }: {
   day: LeaveDay;
   today: string;
   busy: boolean;
+  /** Số ngày bạn đã đăng ký nghỉ trong tháng đang xem */
+  myDays: number;
+  quota: number;
+  meId?: number;
   onRegister: () => void;
+  onCancel: (requestId: number) => void;
 }) {
+  const [confirmOver, setConfirmOver] = useState(false);
   const full = day.count >= day.limit;
+  const myRequest = day.mine ? day.people.find((p) => p.userId === meId) : undefined;
+  const canCancel = !!myRequest && day.day > today;
+  const wouldExceed = myDays >= quota;
   let note: string | null = null;
-  if (day.mine) note = 'Bạn đã đăng ký nghỉ ngày này. Cần hủy thì báo quản lý.';
+  if (day.mine) note = canCancel ? 'Bạn đã đăng ký nghỉ ngày này.' : 'Bạn đã đăng ký nghỉ ngày này (ngày đã tới nên không hủy được).';
   else if (day.day < today) note = 'Ngày này đã qua, không đăng ký được.';
   else if (day.day === today) note = 'Chỉ đăng ký nghỉ được từ ngày mai trở đi, hôm nay không đăng ký nữa.';
   else if (day.limit === 0) note = 'Quản lý đã khóa ngày này.';
@@ -348,15 +439,42 @@ function StaffDayPanel({
         )}
       </div>
       {note && <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{note}</p>}
-      <div className="flex justify-end">
-        <button
-          type="button"
-          onClick={onRegister}
-          disabled={!!note || busy}
-          className="btn-3d btn-3d-blue px-5 py-2.5 text-sm disabled:opacity-50"
-        >
-          {busy ? 'Đang đăng ký...' : 'Đăng ký nghỉ ngày này'}
-        </button>
+      {!day.mine && !note && wouldExceed && (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
+          <span>
+            Cảnh báo: bạn đã đăng ký nghỉ {myDays}/{quota} ngày trong tháng này. Đăng ký thêm sẽ vượt số ngày cho phép.
+          </span>
+        </div>
+      )}
+      <div className="flex justify-end gap-2">
+        {canCancel && myRequest && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onCancel(myRequest.requestId)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+          >
+            <Trash size={15} weight="bold" />
+            Hủy đăng ký nghỉ
+          </button>
+        )}
+        {!day.mine && (
+          <button
+            type="button"
+            onClick={() => {
+              if (wouldExceed && !confirmOver) {
+                setConfirmOver(true);
+                return;
+              }
+              onRegister();
+            }}
+            disabled={!!note || busy}
+            className="btn-3d btn-3d-blue px-5 py-2.5 text-sm disabled:opacity-50"
+          >
+            {busy ? 'Đang đăng ký...' : wouldExceed && confirmOver ? 'Vẫn đăng ký (vượt số ngày)' : 'Đăng ký nghỉ ngày này'}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -478,5 +596,59 @@ function AdminDayPanel({
         </div>
       </div>
     </>
+  );
+}
+
+function HistoryPanel({ day }: { day: string }) {
+  const [open, setOpen] = useState(false);
+  const { data, isLoading, isError } = useLeaveHistory(open ? day : null);
+  return (
+    <div className="border-t border-slate-100 pt-3 dark:border-slate-800">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="btn-3d btn-3d-white inline-flex items-center gap-1.5 px-3.5 py-2 text-sm"
+      >
+        <ClockCounterClockwise size={15} weight="bold" />
+        {open ? 'Ẩn lịch sử' : 'Lịch sử'}
+      </button>
+      {open && (
+        <div className="mt-3">
+          {isLoading ? (
+            <p className="py-3 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải lịch sử...</p>
+          ) : isError ? (
+            <p className="py-3 text-center text-sm font-semibold text-rose-600">Không tải được lịch sử.</p>
+          ) : !data || data.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Ngày này chưa có lịch sử đăng ký / hủy.</p>
+          ) : (
+            <ul className="space-y-2">
+              {data.map((h: LeaveHistoryEntry) => {
+                const isCancel = h.action === 'CANCEL';
+                const byOther = h.actorName && h.actorName !== h.userName;
+                return (
+                  <li
+                    key={h.id}
+                    className="rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
+                      <span className="text-sm font-extrabold text-slate-900 dark:text-white">
+                        {h.userName || 'Không rõ'}{' '}
+                        <span className={isCancel ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                          {isCancel ? 'hủy nghỉ' : 'đăng ký nghỉ'}
+                        </span>
+                      </span>
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{formatFull(h.createdAt)}</span>
+                    </div>
+                    {byOther && (
+                      <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">Thao tác bởi {h.actorName}</p>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      )}
+    </div>
   );
 }

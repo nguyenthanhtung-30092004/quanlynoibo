@@ -26,5 +26,18 @@ export interface LeaveMonth {
   month: string;
   today: string;
   config: LeaveConfig;
+  /** Số ngày nghỉ tối đa mỗi người trong một tháng; vượt thì cảnh báo */
+  quota: number;
   days: LeaveDay[];
+}
+
+export interface LeaveHistoryEntry {
+  id: number;
+  action: 'REGISTER' | 'CANCEL';
+  /** Người được nghỉ */
+  userName: string;
+  actorId: number | null;
+  /** Người thao tác (có thể là Admin hủy hộ) */
+  actorName: string;
+  createdAt: string;
 }

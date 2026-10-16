@@ -21,6 +21,7 @@ import { UsersModule } from './modules/users/users.module.js';
 import { InitialSchemaGuards1710000000001 } from './migrations/1710000000001-InitialSchemaGuards.js';
 import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migrations/1710000000002-PerformanceIndexesAndNormalizedColumns.js';
 import { LeaveRegistration1710000000003 } from './migrations/1710000000003-LeaveRegistration.js';
+import { LeaveHistory1710000000004 } from './migrations/1710000000004-LeaveHistory.js';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { LeaveRegistration1710000000003 } from './migrations/1710000000003-Leave
           InitialSchemaGuards1710000000001,
           PerformanceIndexesAndNormalizedColumns1710000000002,
           LeaveRegistration1710000000003,
+          LeaveHistory1710000000004,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

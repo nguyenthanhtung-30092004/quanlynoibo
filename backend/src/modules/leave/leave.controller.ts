@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
-import { LeaveMonthQueryDto, RegisterLeaveDto, SaveLeaveConfigDto, SetDayLimitDto } from './dto/leave.dto.js';
+import { LeaveDayQueryDto, LeaveMonthQueryDto, RegisterLeaveDto, SaveLeaveConfigDto, SetDayLimitDto } from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
 @ApiTags('Leave')
@@ -52,14 +52,23 @@ export class LeaveController {
     };
   }
 
-  /** Chỉ Admin hủy được lượt đăng ký nghỉ; nhân viên không tự hủy */
+  /** Lịch sử đăng ký / hủy nghỉ của một ngày: mọi người dùng đều xem được */
+  @Get('history')
+  async history(@Query() query: LeaveDayQueryDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Lấy lịch sử đăng ký nghỉ thành công',
+      data: await this.leaveService.historyOfDay(query.day),
+    };
+  }
+
+  /** Admin hủy mọi lượt; nhân viên chỉ hủy lượt của mình khi ngày nghỉ chưa tới */
   @Delete(':id')
-  @Roles(UserRole.ADMIN)
-  async remove(@Param('id', ParseIntPipe) id: number) {
+  async remove(@Param('id', ParseIntPipe) id: number, @CurrentUser() user: JwtPayload) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Đã hủy lượt đăng ký nghỉ',
-      data: await this.leaveService.remove(id),
+      data: await this.leaveService.remove(id, user),
     };
   }
 }

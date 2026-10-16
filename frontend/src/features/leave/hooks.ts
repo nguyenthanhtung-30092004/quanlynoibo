@@ -13,6 +13,14 @@ export function useLeaveMonth(month: string) {
   });
 }
 
+export function useLeaveHistory(day: string | null) {
+  return useQuery({
+    queryKey: [...KEY, 'history', day],
+    queryFn: ({ signal }) => leaveApi.history(day!, signal),
+    enabled: !!day,
+  });
+}
+
 function useInvalidate() {
   const queryClient = useQueryClient();
   return () => queryClient.invalidateQueries({ queryKey: KEY });

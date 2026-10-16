@@ -4,7 +4,8 @@ import { DataSource, Repository } from 'typeorm';
 import { vietnamClock } from '../attendance/attendance.logic.js';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { AppSetting } from '../settings/entities/app-setting.entity.js';
-import { UserRole } from '../users/entities/user.entity.js';
+import { User, UserRole } from '../users/entities/user.entity.js';
+import { LeaveHistory } from './entities/leave-history.entity.js';
 import { LeaveDayLimit } from './entities/leave-day-limit.entity.js';
 import { LeaveRequest } from './entities/leave-request.entity.js';
 import {
@@ -18,6 +19,8 @@ import {
 const CONFIG_KEY = 'leave_config';
 /** Chỉ cho đăng ký nghỉ trước tối đa chừng này ngày để tránh đặt kín cả năm */
 const MAX_DAYS_AHEAD = 120;
+/** Mỗi nhân viên được nghỉ tối đa chừng này ngày/tháng; vượt thì giao diện cảnh báo */
+export const MONTHLY_LEAVE_QUOTA = 4;
 
 export interface LeaveDay {
   day: string;
@@ -45,6 +48,7 @@ export class LeaveService {
     @InjectRepository(AppSetting) private readonly settings: Repository<AppSetting>,
     @InjectRepository(LeaveRequest) private readonly requests: Repository<LeaveRequest>,
     @InjectRepository(LeaveDayLimit) private readonly limits: Repository<LeaveDayLimit>,
+    @InjectRepository(LeaveHistory) private readonly history: Repository<LeaveHistory>,
   ) {}
 
   async loadConfig(): Promise<LeaveConfig> {
@@ -102,7 +106,7 @@ export class LeaveService {
       };
     });
 
-    return { month, today: vietnamClock().day, config, days };
+    return { month, today: vietnamClock().day, config, quota: MONTHLY_LEAVE_QUOTA, days };
   }
 
   /** Nhân viên tự đăng ký nghỉ: có hiệu lực ngay nếu ngày đó còn chỗ; không tự hủy được (Admin hủy) */
@@ -140,18 +144,70 @@ export class LeaveService {
         throw new ConflictException('Ngày này đã đủ số người nghỉ, vui lòng chọn ngày khác');
       }
       const saved = await manager.save(manager.create(LeaveRequest, { userId: actor.sub, day }));
+      const name = await this.nameOf(manager.getRepository(User), actor);
+      await manager.save(
+        manager.create(LeaveHistory, {
+          day,
+          action: 'REGISTER',
+          userId: actor.sub,
+          userName: name,
+          actorId: actor.sub,
+          actorName: name,
+        }),
+      );
       return { id: saved.id, day, count: count + 1, limit };
     });
   }
 
-  /** Admin hủy một lượt đăng ký nghỉ */
-  async remove(id: number) {
-    const found = await this.requests.findOne({ where: { id } });
+  private async nameOf(users: Repository<User>, actor: JwtPayload): Promise<string> {
+    const u = await users.findOne({ where: { id: actor.sub }, select: { id: true, fullName: true } });
+    return u?.fullName || actor.username || '';
+  }
+
+  /** Hủy một lượt đăng ký nghỉ: Admin hủy được mọi lượt; nhân viên chỉ hủy lượt của mình và chỉ khi ngày nghỉ chưa tới */
+  async remove(id: number, actor: JwtPayload) {
+    const found = await this.requests.findOne({ where: { id }, relations: { user: true } });
     if (!found) {
       throw new NotFoundException('Không tìm thấy lượt đăng ký nghỉ');
     }
-    await this.requests.delete({ id });
+    if (actor.role !== UserRole.ADMIN) {
+      if (found.userId !== actor.sub) {
+        throw new ForbiddenException('Bạn chỉ hủy được lượt đăng ký nghỉ của chính mình');
+      }
+      if (found.day <= vietnamClock().day) {
+        throw new BadRequestException('Chỉ hủy được khi ngày nghỉ chưa tới');
+      }
+    }
+    await this.dataSource.transaction(async (manager) => {
+      await manager.delete(LeaveRequest, { id });
+      await manager.save(
+        manager.create(LeaveHistory, {
+          day: found.day,
+          action: 'CANCEL',
+          userId: found.userId,
+          userName: found.user?.fullName ?? '',
+          actorId: actor.sub,
+          actorName: await this.nameOf(manager.getRepository(User), actor),
+        }),
+      );
+    });
     return { id, day: found.day };
+  }
+
+  /** Lịch sử đăng ký / hủy nghỉ của một ngày, mới nhất trước (ai cũng xem được) */
+  async historyOfDay(day: string) {
+    if (!isRealDay(day)) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+    const rows = await this.history.find({ where: { day }, order: { createdAt: 'DESC', id: 'DESC' }, take: 200 });
+    return rows.map((h) => ({
+      id: h.id,
+      action: h.action,
+      userName: h.userName,
+      actorId: h.actorId,
+      actorName: h.actorName,
+      createdAt: h.createdAt,
+    }));
   }
 
   /** Admin chỉnh giới hạn riêng cho một ngày (0 = khóa); max rỗng = quay về mặc định theo nhóm */
