@@ -614,6 +614,7 @@ export default function StaffReportPage() {
           </div>
         </div>
 
+        {isAdmin && (
         <div
           role="button"
           tabIndex={0}
@@ -649,6 +650,7 @@ export default function StaffReportPage() {
             </div>
           </div>
         </div>
+        )}
 
         <div
           style={{
@@ -963,7 +965,7 @@ export default function StaffReportPage() {
                 <ThValueList title="Số ghế" column="seatCount" field="seatCounts" numeric {...colProps} />
                 <ThValueList title="Giá nhập" column="costPrice" field="costPrices" numeric right {...colProps} />
                 <ThSellPrice {...colProps} />
-                <ThDeposit {...colProps} />
+                {isAdmin && <ThDeposit {...colProps} />}
                 <ThValueList title="Nhờ thu" column="collectOnDelivery" field="collectOnDeliveries" numeric right {...colProps} />
                 <ThCommission {...colProps} title="Doanh số" />
                 <ThPartner {...colProps} />
@@ -978,7 +980,7 @@ export default function StaffReportPage() {
               {ticketsLoading ? (
                 <tr>
                   <td
-                    colSpan={25}
+                    colSpan={isAdmin ? 25 : 24}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách đơn...
@@ -987,7 +989,7 @@ export default function StaffReportPage() {
               ) : ticketList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={25}
+                    colSpan={isAdmin ? 25 : 24}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có đơn nào khớp bộ lọc đã chọn.
@@ -1056,9 +1058,11 @@ export default function StaffReportPage() {
                     <td className={`${TD} ${NUM} text-slate-900 dark:text-white`}>
                       {money(t.sellPrice)}đ
                     </td>
-                    <td className={`${TD} ${NUM} text-teal-700 dark:text-teal-400 font-bold`}>
-                      {money(t.deposit)}đ
-                    </td>
+                    {isAdmin && (
+                      <td className={`${TD} ${NUM} text-teal-700 dark:text-teal-400 font-bold`}>
+                        {money(t.deposit)}đ
+                      </td>
+                    )}
                     <td className={`${TD} ${NUM} text-slate-700 dark:text-slate-300 font-semibold`}>
                       {money(t.collectOnDelivery)}đ
                     </td>
