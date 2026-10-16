@@ -170,7 +170,7 @@ export class OrdersController {
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   @UseInterceptors(
-    FileInterceptor('file', { limits: { fileSize: 5 * 1024 * 1024 } }),
+    FileInterceptor('file', { limits: { fileSize: 20 * 1024 * 1024 } }),
   )
   async importExcel(
     @UploadedFile() file: { buffer: Buffer } | undefined,

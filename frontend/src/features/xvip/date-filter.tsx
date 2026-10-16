@@ -7,6 +7,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import { CalendarBlank, CaretDown, Check } from '@phosphor-icons/react';
@@ -144,6 +145,7 @@ export function DateRangeFilter({
   const { range, preset, label, basis, setBasis, setPreset, setCustom } =
     useDateFilter();
   const [open, setOpen] = useState(false);
+  const [popLeft, setPopLeft] = useState(0);
   const [from, setFrom] = useState(range.from);
   const [to, setTo] = useState(range.to);
   const boxRef = useRef<HTMLDivElement>(null);
@@ -181,7 +183,12 @@ export function DateRangeFilter({
     >
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          // Trên điện thoại: căn popup theo mép màn hình (cách 16px) thay vì theo nút, tránh bị lệch/tràn
+          const left = boxRef.current?.getBoundingClientRect().left ?? 16;
+          setPopLeft(16 - left);
+          setOpen((o) => !o);
+        }}
         aria-haspopup="dialog"
         aria-expanded={open}
         title={`Lọc theo ${BASIS_LABEL[basis].toLowerCase()}`}
@@ -213,8 +220,11 @@ export function DateRangeFilter({
         <div
           role="dialog"
           aria-label="Lọc theo ngày"
-          className={`absolute top-full z-40 mt-1.5 w-[26rem] max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 ${
-            align === 'right' ? 'right-0' : 'left-0'
+          style={
+            { '--pop-left': `${popLeft}px` } as CSSProperties
+          }
+          className={`absolute top-full z-40 mt-1.5 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900 max-sm:left-[var(--pop-left)] max-sm:w-[calc(100vw-2rem)] sm:w-[26rem] sm:max-w-[calc(100vw-2rem)] ${
+            align === 'right' ? 'sm:right-0' : 'sm:left-0'
           }`}
         >
           <div className="mb-2">
