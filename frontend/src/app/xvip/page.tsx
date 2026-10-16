@@ -103,18 +103,36 @@ function OverviewContent() {
     [kpiData],
   );
 
-  // Tỷ lệ vé theo tuyến: hiển thị hết tất cả các tuyến đường có doanh thu / có vé
+  // Tỷ lệ vé theo tuyến: gộp hai chiều của cùng một tuyến (Hà Nội - Hạ Long + Hạ Long - Hà Nội)
   const routeStats = useMemo(() => {
     const nameById = new Map(routes.map((r) => [r.id, r.name]));
-    const rows = (kpiData?.byRoute ?? [])
-      .filter((r) => r.total > 0)
-      .map((r) => ({
-        id: r.routeId,
-        name: nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`,
-        orders: r.total,
-        count: r.seats,
-        revenue: r.revenue,
-      }));
+    const groups = new Map<
+      string,
+      { id: number; name: string; orders: number; count: number; revenue: number; topSeats: number }
+    >();
+    for (const r of kpiData?.byRoute ?? []) {
+      if (r.total <= 0) continue;
+      const name = nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`;
+      const parts = name.split(/\s+[-–]\s+/).map((p) => p.trim().toLowerCase());
+      const forward = parts.join('|');
+      const key = [forward, [...parts].reverse().join('|')].sort()[0];
+      const cur = groups.get(key);
+      if (!cur) {
+        groups.set(key, { id: r.routeId, name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, topSeats: r.seats });
+        continue;
+      }
+      cur.orders += r.total;
+      cur.count += r.seats;
+      cur.revenue += r.revenue ?? 0;
+      // Tên hiển thị theo chiều có nhiều vé hơn
+      if (r.seats > cur.topSeats) {
+        cur.name = name;
+        cur.topSeats = r.seats;
+      }
+    }
+    const rows = [...groups.values()]
+      .map((g) => ({ ...g, name: g.name.replace(/\s+[-–]\s+/g, ' ↔ ') }))
+      .sort((x, y) => y.count - x.count);
     const total = rows.reduce((sum, r) => sum + r.count, 0);
     return rows.map((r, idx) => ({
       ...r,
@@ -229,7 +247,7 @@ function OverviewContent() {
               Chưa có vé nào trong khoảng thời gian đã chọn.
             </div>
           ) : (
-            <div className="flex flex-wrap items-center justify-center gap-6 pt-2">
+            <div className="flex flex-col items-center gap-6 pt-2">
               <div
                 className="relative size-40 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.3)] border border-slate-200 dark:border-slate-700"
                 style={{ background: donutGradient }}
@@ -245,7 +263,7 @@ function OverviewContent() {
                   </span>
                 </div>
               </div>
-              <ul className="max-h-56 overflow-y-auto space-y-2 pr-1 text-xs lg:max-h-none lg:overflow-visible font-semibold text-slate-700 dark:text-slate-300">
+              <ul className="w-full max-h-56 overflow-y-auto space-y-2 pr-1 text-xs lg:max-h-none lg:overflow-visible font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
                     <div
