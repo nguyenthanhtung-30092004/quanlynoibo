@@ -273,14 +273,14 @@ function OverviewContent() {
               <ul className="w-full max-h-56 overflow-y-auto space-y-2 pr-1 text-xs lg:max-h-none lg:overflow-visible font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
-                    <div
-                      className="flex items-center gap-2.5 rounded-lg p-1"
-                    >
-                      <span className="size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
-                      <span className="flex-1 truncate">{r.name}</span>
-                      <span className="tnum shrink-0 font-bold text-slate-900 dark:text-white">
-                        {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
-                      </span>
+                    <div className="flex items-start gap-2.5 rounded-lg p-1">
+                      <span className="mt-0.5 size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
+                      <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:justify-between sm:gap-3">
+                        <div className="break-words">{r.name}</div>
+                        <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
+                          {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
+                        </div>
+                      </div>
                     </div>
                   </li>
                 ))}
