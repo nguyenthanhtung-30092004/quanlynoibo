@@ -172,7 +172,7 @@ export class OrdersReportService {
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
-        byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number }>;
+        byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission: number }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
       } = { date, ...summarize(orders), byRoute: [] };
 
@@ -194,12 +194,13 @@ export class OrdersReportService {
     }
 
     // Số đơn, số vé (ghế) và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
-    const routeMap = new Map<number, { total: number; seats: number; revenue: number }>();
+    const routeMap = new Map<number, { total: number; seats: number; revenue: number; commission: number }>();
     for (const o of orders) {
-      const cur = routeMap.get(o.routeId) ?? { total: 0, seats: 0, revenue: 0 };
+      const cur = routeMap.get(o.routeId) ?? { total: 0, seats: 0, revenue: 0, commission: 0 };
       cur.total += 1;
       cur.seats += ticketsOf(o);
       cur.revenue += o.sellPrice || 0;
+      cur.commission += o.commission || 0;
       routeMap.set(o.routeId, cur);
     }
     result.byRoute = [...routeMap.entries()]
@@ -207,6 +208,7 @@ export class OrdersReportService {
         routeId,
         total: stat.total,
         seats: stat.seats,
+        commission: stat.commission,
         ...(isAdmin ? { revenue: stat.revenue } : {}),
       }))
       .sort((a, b) => b.total - a.total);

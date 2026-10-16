@@ -108,7 +108,7 @@ function OverviewContent() {
     const nameById = new Map(routes.map((r) => [r.id, r.name]));
     const groups = new Map<
       string,
-      { id: number; name: string; orders: number; count: number; revenue: number; topSeats: number }
+      { id: number; name: string; orders: number; count: number; revenue: number; commission: number; topSeats: number }
     >();
     for (const r of kpiData?.byRoute ?? []) {
       if (r.total <= 0) continue;
@@ -118,12 +118,13 @@ function OverviewContent() {
       const key = [forward, [...parts].reverse().join('|')].sort()[0];
       const cur = groups.get(key);
       if (!cur) {
-        groups.set(key, { id: r.routeId, name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, topSeats: r.seats });
+        groups.set(key, { id: r.routeId, name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, topSeats: r.seats });
         continue;
       }
       cur.orders += r.total;
       cur.count += r.seats;
       cur.revenue += r.revenue ?? 0;
+      cur.commission += r.commission ?? 0;
       // Tên hiển thị theo chiều có nhiều vé hơn
       if (r.seats > cur.topSeats) {
         cur.name = name;
@@ -131,7 +132,13 @@ function OverviewContent() {
       }
     }
     const rows = [...groups.values()]
-      .map((g) => ({ ...g, name: g.name.replace(/\s+[-–]\s+/g, ' ↔ ') }))
+      .map((g) => {
+        // Tuyến có Hà Nội thì luôn đặt Hà Nội lên đầu: "Hà Nội ↔ ..."
+        let parts = g.name.split(/\s+[-–]\s+/);
+        const hasHn = (t: string) => t.toLowerCase().includes('hà nội');
+        if (parts.length > 1 && !hasHn(parts[0]) && hasHn(parts[parts.length - 1])) parts = [...parts].reverse();
+        return { ...g, name: parts.join(' ↔ ') };
+      })
       .sort((x, y) => y.count - x.count);
     const total = rows.reduce((sum, r) => sum + r.count, 0);
     return rows.map((r, idx) => ({
@@ -272,7 +279,7 @@ function OverviewContent() {
                       <span className="size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
                       <span className="flex-1 truncate">{r.name}</span>
                       <span className="tnum shrink-0 font-bold text-slate-900 dark:text-white">
-                        {r.orders} đơn · {r.count} vé ({r.pct}%)
+                        {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
                       </span>
                     </div>
                   </li>
