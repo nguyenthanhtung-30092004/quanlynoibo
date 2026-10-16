@@ -111,12 +111,8 @@ export class OrdersImportService {
 
       let canonicalPartner: string | null = null;
       if (row.partner && row.partner.trim()) {
-        const matched = matchCanonicalPartner(row.partner, partners);
-        if (matched === undefined) {
-          problems.push(`Đối tác "${row.partner}" không có trong danh sách`);
-        } else {
-          canonicalPartner = matched;
-        }
+        // Đối tác chưa có trong danh sách vẫn nhập theo đúng tên trong file (không tạo đối tác mới)
+        canonicalPartner = matchCanonicalPartner(row.partner, partners) ?? row.partner.trim();
       }
 
       const dto = plainToInstance(CreateOrderDto, {

@@ -721,6 +721,7 @@ export function OrderFormModal({
                       setFormErrors((er) => ({ ...er, partner: undefined }));
                     }}
                     maxLength={100}
+                    allowFree
                   />
                 </Field>
 

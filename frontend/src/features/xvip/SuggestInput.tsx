@@ -18,6 +18,7 @@ export function SuggestInput({
   maxLength,
   invalid = false,
   clearable = false,
+  allowFree = false,
 }: {
   options: string[];
   value: string;
@@ -26,6 +27,8 @@ export function SuggestInput({
   maxLength?: number;
   invalid?: boolean;
   clearable?: boolean;
+  /** Cho nhập tên ngoài danh sách (vẫn lưu theo tên đã gõ) */
+  allowFree?: boolean;
 }) {
   const [text, setText] = useState(value);
   const [open, setOpen] = useState(false);
@@ -110,6 +113,7 @@ export function SuggestInput({
           }}
           onChange={(e) => {
             setText(e.target.value);
+            if (allowFree) onChange(e.target.value);
             setOpen(true);
           }}
           onKeyDown={(e) => {
@@ -156,7 +160,9 @@ export function SuggestInput({
 
       {isNotInList && !invalid && (
         <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-          Đối tác này không còn trong danh sách, hãy chọn lại
+          {allowFree
+            ? 'Đối tác ngoài danh sách: đơn vẫn lưu theo tên này, hoa hồng bạn nhập tay'
+            : 'Đối tác này không còn trong danh sách, hãy chọn lại'}
         </p>
       )}
 
@@ -168,7 +174,7 @@ export function SuggestInput({
         >
           {filtered.length === 0 ? (
             <li className="px-3 py-2 text-slate-500">
-              Không có đối tác nào khớp
+              {allowFree ? 'Không khớp đối tác nào, sẽ lưu theo tên bạn gõ' : 'Không có đối tác nào khớp'}
             </li>
           ) : (
             filtered.map((o, i) => (

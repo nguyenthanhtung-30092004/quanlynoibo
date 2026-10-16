@@ -122,13 +122,8 @@ export class OrdersCommandService {
     let canonicalPartner: string | null = null;
     if (dto.partner && dto.partner.trim()) {
       const allPartners = await this.queryService.getCachedPartners();
-      const matched = matchCanonicalPartner(dto.partner, allPartners);
-      if (matched === undefined) {
-        throw new BadRequestException(
-          `Đối tác "${dto.partner}" không có trong danh sách. Hãy chọn đối tác có sẵn.`,
-        );
-      }
-      canonicalPartner = matched;
+      // Đối tác chưa có trong danh sách vẫn được lưu theo đúng tên đã nhập (không tạo đối tác mới)
+      canonicalPartner = matchCanonicalPartner(dto.partner, allPartners) ?? dto.partner.trim();
     }
 
     const costPrice = dto.costPrice ?? 0;
@@ -187,13 +182,8 @@ export class OrdersCommandService {
           nextPartner = null;
         } else {
           const allPartners = await this.queryService.getCachedPartners();
-          const matched = matchCanonicalPartner(newPartnerRaw, allPartners);
-          if (matched === undefined) {
-            throw new BadRequestException(
-              `Đối tác "${dto.partner}" không có trong danh sách. Hãy chọn đối tác có sẵn.`,
-            );
-          }
-          nextPartner = matched;
+          // Đối tác chưa có trong danh sách vẫn được lưu theo đúng tên đã nhập
+          nextPartner = matchCanonicalPartner(newPartnerRaw, allPartners) ?? newPartnerRaw;
         }
       }
     }
