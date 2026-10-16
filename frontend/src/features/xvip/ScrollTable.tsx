@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /** Bảng thấp hơn mức này thì thôi không co theo màn hình nữa (trang tự cuộn như thường) */
 const MIN_BODY_HEIGHT = 320;
+/** Lề nhỏ giữa đáy bảng và đáy màn hình */
+const BOTTOM_GAP = 12;
 
 /**
  * Bảng rộng. Trên máy tính, bảng chiếm đúng phần màn hình còn lại bên dưới bộ lọc và tự cuộn dọc
@@ -50,9 +52,10 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       // Thanh cuộn ngang native ở đáy: kéo xuống để khung cắt mất nó (đã có thanh ghim phía trên)
       const scrollbar = main.scrollWidth > main.clientWidth + 1 ? main.offsetHeight - main.clientHeight : 0;
       const rect = main.getBoundingClientRect();
-      const topInDoc = rect.top + window.scrollY;
-      const below = document.documentElement.scrollHeight - (topInDoc + rect.height - scrollbar);
-      const available = Math.floor(window.innerHeight - topInDoc - below);
+      // Chỉ chừa phần nằm dưới bảng trong cùng thẻ (vd phân trang) và một lề nhỏ: bảng trải gần hết màn hình
+      const card = main.closest('section');
+      const inCard = card ? Math.max(0, card.getBoundingClientRect().bottom - (rect.bottom - scrollbar)) : 0;
+      const available = Math.floor(window.innerHeight - (rect.top + window.scrollY) - inCard - BOTTOM_GAP);
       main.style.maxHeight = `${Math.max(MIN_BODY_HEIGHT, available) + scrollbar}px`;
       main.style.marginBottom = scrollbar ? `-${scrollbar}px` : '';
     };
