@@ -25,6 +25,7 @@ import { LeaveHistory1710000000004 } from './migrations/1710000000004-LeaveHisto
 import { RenameShortPartnerNames1710000000005 } from './migrations/1710000000005-RenameShortPartnerNames.js';
 import { RenameAnhHuyMc1710000000006 } from './migrations/1710000000006-RenameAnhHuyMc.js';
 import { RenameHkAndG81710000000007 } from './migrations/1710000000007-RenameHkAndG8.js';
+import { RenameHkBus1710000000008 } from './migrations/1710000000008-RenameHkBus.js';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { RenameHkAndG81710000000007 } from './migrations/1710000000007-RenameHkA
           RenameShortPartnerNames1710000000005,
           RenameAnhHuyMc1710000000006,
           RenameHkAndG81710000000007,
+          RenameHkBus1710000000008,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

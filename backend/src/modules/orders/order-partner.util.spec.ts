@@ -105,6 +105,7 @@ describe('applyImportPartnerAlias', () => {
     expect(applyImportPartnerAlias('ANH HUY')).toBe('Anh Huy 92');
     expect(applyImportPartnerAlias(' Anh  Huy MC ')).toBe('Anh Huy 92');
     expect(applyImportPartnerAlias('HK')).toBe('HK Buslines');
+    expect(applyImportPartnerAlias(' Hk  Bus ')).toBe('HK Buslines');
     expect(applyImportPartnerAlias(' g8 ')).toBe('G8 OPEN TOUR');
   });
 

@@ -56,6 +56,7 @@ const IMPORT_PARTNER_ALIASES: Record<string, string> = {
   'anh huy': 'Anh Huy 92',
   'anh huy mc': 'Anh Huy 92',
   hk: 'HK Buslines',
+  'hk bus': 'HK Buslines',
   g8: 'G8 OPEN TOUR',
 };
 
