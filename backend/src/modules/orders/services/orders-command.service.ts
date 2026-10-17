@@ -22,7 +22,7 @@ import {
   getBusinessDate,
   isOrderCreationLocked,
 } from '../order-time-lock.js';
-import { matchCanonicalPartner } from '../order-partner.util.js';
+import { applyImportPartnerAlias, matchCanonicalPartner } from '../order-partner.util.js';
 import {
   resolveSeats,
   seatsOf,
@@ -123,7 +123,8 @@ export class OrdersCommandService {
     if (dto.partner && dto.partner.trim()) {
       const allPartners = await this.queryService.getCachedPartners();
       // Đối tác chưa có trong danh sách vẫn được lưu theo đúng tên đã nhập (không tạo đối tác mới)
-      canonicalPartner = matchCanonicalPartner(dto.partner, allPartners) ?? dto.partner.trim();
+      const aliased = applyImportPartnerAlias(dto.partner);
+      canonicalPartner = matchCanonicalPartner(aliased, allPartners) ?? aliased.trim();
     }
 
     const costPrice = dto.costPrice ?? 0;
@@ -176,7 +177,7 @@ export class OrdersCommandService {
     if (dto.partner !== undefined) {
       const currentPartnerRaw = order.partner ? order.partner.trim() : null;
       const newPartnerRaw =
-        dto.partner && dto.partner.trim() ? dto.partner.trim() : null;
+        dto.partner && dto.partner.trim() ? applyImportPartnerAlias(dto.partner).trim() : null;
       if (newPartnerRaw !== currentPartnerRaw) {
         if (!newPartnerRaw) {
           nextPartner = null;

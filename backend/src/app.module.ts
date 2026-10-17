@@ -22,6 +22,7 @@ import { InitialSchemaGuards1710000000001 } from './migrations/1710000000001-Ini
 import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migrations/1710000000002-PerformanceIndexesAndNormalizedColumns.js';
 import { LeaveRegistration1710000000003 } from './migrations/1710000000003-LeaveRegistration.js';
 import { LeaveHistory1710000000004 } from './migrations/1710000000004-LeaveHistory.js';
+import { RenameShortPartnerNames1710000000005 } from './migrations/1710000000005-RenameShortPartnerNames.js';
 
 @Module({
   imports: [
@@ -46,6 +47,7 @@ import { LeaveHistory1710000000004 } from './migrations/1710000000004-LeaveHisto
           PerformanceIndexesAndNormalizedColumns1710000000002,
           LeaveRegistration1710000000003,
           LeaveHistory1710000000004,
+          RenameShortPartnerNames1710000000005,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),
