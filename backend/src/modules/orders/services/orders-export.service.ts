@@ -26,9 +26,8 @@ export class OrdersExportService {
 
   /** Xuất danh sách (đã lọc) ra file Excel, cột theo sổ "Nhật ký" */
   async exportExcel(filter: OrderFilterDto, actor: JwtPayload): Promise<Buffer> {
-    const routeIds = await this.queryService.findSearchRouteIds(filter.search);
     const rawOrders = await this.queryService
-      .buildListQuery(filter, actor, routeIds)
+      .buildListQuery(filter, actor)
       .orderBy('order.createdAt', 'DESC')
       .take(EXPORT_LIMIT)
       .getMany();

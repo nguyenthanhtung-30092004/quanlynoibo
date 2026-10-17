@@ -14,8 +14,6 @@ export class OrderFilterBuilder {
     qb: SelectQueryBuilder<Order>,
     filter: OrderFilterDto,
     actor: JwtPayload,
-    /** Id các tuyến có tên khớp filter.search (xem OrdersQueryService.findSearchRouteIds) */
-    searchRouteIds: number[] = [],
   ): SelectQueryBuilder<Order> {
     if (actor.role === UserRole.ADMIN) {
       if (filter.staffId !== undefined) {
@@ -222,19 +220,26 @@ export class OrderFilterBuilder {
     if (filter.search?.trim()) {
       const keyword = filter.search.trim();
       const orderCode = /^xv\s*(\d{1,9})$/i.exec(keyword);
-      // Mã đơn hiển thị là XV<id> (ví dụ XV116): gõ đúng dạng đó thì tìm thêm theo id.
-      // Mỗi nhánh OR phải có index (search_text, partner: GIN trigram; routeId: B-tree), nếu không Postgres
-      // quét toàn bảng. Tên tuyến được tìm trước ở bảng tuyến nhỏ (searchRouteIds) rồi truyền vào dạng danh sách
-      // số: subquery trong OR bị đoán sai số dòng khớp (~10-50%) nên Postgres đi ngược index ngày quét cả bảng
-      // (~700ms trên 340k đơn dù chỉ 4 đơn khớp).
-      const conds = ['order.search_text ILIKE :q', 'order.partner ILIKE :q'];
-      if (searchRouteIds.length) conds.push('order.routeId IN (:...searchRouteIds)');
-      if (orderCode) conds.push('order.id = :orderId');
-      qb.andWhere(`(${conds.join(' OR ')})`, {
-        q: `%${escapeLike(keyword)}%`,
-        ...(searchRouteIds.length ? { searchRouteIds } : {}),
-        ...(orderCode ? { orderId: Number(orderCode[1]) } : {}),
-      });
+      // Chỉ tìm theo số điện thoại hoặc mã đơn. Mã đơn hiển thị là XV<id> (ví dụ XV116): gõ đúng dạng đó
+      // (hoặc chỉ gõ số id) thì khớp theo id.
+      const conds: string[] = [];
+      const params: Record<string, unknown> = {};
+      if (orderCode) {
+        conds.push('order.id = :orderId');
+        params.orderId = Number(orderCode[1]);
+      } else if (/^\d+$/.test(keyword)) {
+        // Chuỗi toàn số: có thể là số điện thoại (đầy đủ hoặc một phần) hoặc id đơn
+        conds.push('order.phone LIKE :q');
+        params.q = `%${escapeLike(keyword)}%`;
+        if (keyword.length <= 9) {
+          conds.push('order.id = :orderId');
+          params.orderId = Number(keyword);
+        }
+      } else {
+        conds.push('order.phone LIKE :q');
+        params.q = `%${escapeLike(keyword.replace(/[\s.\-]/g, ''))}%`;
+      }
+      qb.andWhere(`(${conds.join(' OR ')})`, params);
     }
 
     return qb;

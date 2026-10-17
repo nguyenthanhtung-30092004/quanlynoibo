@@ -169,8 +169,4 @@ export class Order {
   /** Cột sinh sẵn chuẩn hóa tên khách: lower(trim(coalesce(customerName, 'khách lẻ'))) */
   @Column({ name: 'customerKey', type: 'text', insert: false, update: false, select: false, nullable: true })
   customerKey?: string;
-
-  /** Cột sinh sẵn gom chuỗi tìm kiếm có index GIN trigram */
-  @Column({ name: 'search_text', type: 'text', insert: false, update: false, select: false, nullable: true })
-  searchText?: string;
 }

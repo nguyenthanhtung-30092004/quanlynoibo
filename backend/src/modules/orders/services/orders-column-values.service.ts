@@ -47,11 +47,7 @@ export class OrdersColumnValuesService {
     actor: JwtPayload,
   ): Promise<Array<{ value: string; label: string; count: number }>> {
     // buildListQuery tôn trọng quyền: nhân viên chỉ thấy vé của mình trừ khi có tìm kiếm tổng
-    const qb = this.queryService.buildListQuery(
-      filter,
-      actor,
-      await this.queryService.findSearchRouteIds(filter.search),
-    );
+    const qb = this.queryService.buildListQuery(filter, actor);
 
     // Không lấy các bản ghi đã hủy nếu activeOnly đang bật (đã có trong buildListQuery)
     const keyword = q?.trim() ? q.trim().toLowerCase() : undefined;

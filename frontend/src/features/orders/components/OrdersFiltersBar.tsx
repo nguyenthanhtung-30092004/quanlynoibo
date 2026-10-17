@@ -240,7 +240,7 @@ export function OrdersFiltersBar({
               className="input-3d pl-9"
               value={filters.search}
               onChange={(e) => onUpdateFilters({ search: e.target.value })}
-              placeholder="Mã đơn (XV116), tên khách, số điện thoại, điểm đón..."
+              placeholder="Số điện thoại hoặc mã đơn (XV116)..."
             />
           </span>
         </label>
