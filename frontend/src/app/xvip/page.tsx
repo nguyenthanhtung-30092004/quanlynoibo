@@ -62,7 +62,6 @@ function OverviewContent() {
   const totalOrders = kpiData?.total ?? orders.length;
   const totalTickets = kpiData?.seats ?? 0;
   const totalCommission = kpiData?.commission ?? orders.reduce((sum, o) => sum + (o.commission || 0), 0);
-  const totalStaffCount = activeStaffList.length > 0 ? activeStaffList.length : (usersData?.total ?? 1);
   const smsSentCount = kpiData?.smsSent ?? orders.filter((o) => o.smsSent).length;
 
   const STATS = [
@@ -79,13 +78,6 @@ function OverviewContent() {
       note: 'Tổng hoa hồng tích lũy',
       color: 'from-amber-500 to-amber-600',
       borderBottom: '#b45309',
-    },
-    {
-      label: 'Nhân viên hệ thống',
-      value: `${totalStaffCount} người`,
-      note: 'Tài khoản hoạt động',
-      color: 'from-purple-600 to-purple-700',
-      borderBottom: '#6b21a8',
     },
     {
       label: 'Tin SMS đã gửi',
@@ -211,7 +203,7 @@ function OverviewContent() {
       </PageTitle>
 
       {/* 4 Thẻ chỉ số 3D kết nối API thật */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {STATS.map(({ label, value, note, color, borderBottom }) => (
           <div
             key={label}
