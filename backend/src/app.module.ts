@@ -23,6 +23,8 @@ import { PerformanceIndexesAndNormalizedColumns1710000000002 } from './migration
 import { LeaveRegistration1710000000003 } from './migrations/1710000000003-LeaveRegistration.js';
 import { LeaveHistory1710000000004 } from './migrations/1710000000004-LeaveHistory.js';
 import { RenameShortPartnerNames1710000000005 } from './migrations/1710000000005-RenameShortPartnerNames.js';
+import { RenameAnhHuyMc1710000000006 } from './migrations/1710000000006-RenameAnhHuyMc.js';
+import { RenameHkAndG81710000000007 } from './migrations/1710000000007-RenameHkAndG8.js';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { RenameShortPartnerNames1710000000005 } from './migrations/1710000000005
           LeaveRegistration1710000000003,
           LeaveHistory1710000000004,
           RenameShortPartnerNames1710000000005,
+          RenameAnhHuyMc1710000000006,
+          RenameHkAndG81710000000007,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

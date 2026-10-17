@@ -54,6 +54,9 @@ const IMPORT_PARTNER_ALIASES: Record<string, string> = {
   'viet nam': 'X.E Việt Nam',
   'dat cang': 'Anh Huy Đất Cảng',
   'anh huy': 'Anh Huy 92',
+  'anh huy mc': 'Anh Huy 92',
+  hk: 'HK Buslines',
+  g8: 'G8 OPEN TOUR',
 };
 
 /** Đổi tên viết tắt trong file import sang tên đối tác đầy đủ; tên khác giữ nguyên. */

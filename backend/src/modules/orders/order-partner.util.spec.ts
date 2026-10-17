@@ -103,6 +103,9 @@ describe('applyImportPartnerAlias', () => {
     expect(applyImportPartnerAlias('  viet  nam ')).toBe('X.E Việt Nam');
     expect(applyImportPartnerAlias('Đất Cảng')).toBe('Anh Huy Đất Cảng');
     expect(applyImportPartnerAlias('ANH HUY')).toBe('Anh Huy 92');
+    expect(applyImportPartnerAlias(' Anh  Huy MC ')).toBe('Anh Huy 92');
+    expect(applyImportPartnerAlias('HK')).toBe('HK Buslines');
+    expect(applyImportPartnerAlias(' g8 ')).toBe('G8 OPEN TOUR');
   });
 
   it('tên khác hoặc đã đầy đủ thì giữ nguyên', () => {
