@@ -86,7 +86,8 @@ export default function TicketManagementPage() {
           }
         : {
             ...localFilters,
-            page: 1,
+            // Khoảng ngày ít đơn thì hiện hết trong 1 trang; nhiều hơn (cả năm) thì chuyển trang được
+            page: localFilters.page,
             pageSize: ORDERS_ALL_SIZE,
             dateFrom: null,
             dateTo: null,
