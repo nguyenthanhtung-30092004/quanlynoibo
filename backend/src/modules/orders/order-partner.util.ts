@@ -107,16 +107,30 @@ export function findUnlistedPartners<T extends HasPartner>(
   orders: T[],
   partners: PartnerLike[],
 ): UnlistedPartnerSummary[] {
+  return summarizeUnlistedPartners(
+    orders.map((o) => ({ partner: o.partner, orders: 1 })),
+    partners,
+  );
+}
+
+/**
+ * Như findUnlistedPartners nhưng nhận sẵn số đơn theo từng tên đối tác (đã gom nhóm ở SQL),
+ * nên chỉ so khớp vài chục tên khác nhau thay vì từng đơn.
+ */
+export function summarizeUnlistedPartners(
+  rows: Array<{ partner: string | null | undefined; orders: number }>,
+  partners: PartnerLike[],
+): UnlistedPartnerSummary[] {
   const map = new Map<string, { partner: string; orders: number }>();
-  for (const o of orders) {
-    if (matchCanonicalPartner(o.partner, partners) === undefined) {
-      const raw = o.partner!.trim();
+  for (const r of rows) {
+    if (matchCanonicalPartner(r.partner, partners) === undefined) {
+      const raw = r.partner!.trim();
       const key = raw.toLowerCase();
       const existing = map.get(key);
       if (existing) {
-        existing.orders += 1;
+        existing.orders += r.orders;
       } else {
-        map.set(key, { partner: raw, orders: 1 });
+        map.set(key, { partner: raw, orders: r.orders });
       }
     }
   }

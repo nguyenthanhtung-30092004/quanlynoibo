@@ -9,7 +9,7 @@ import { OrderHistory } from '../entities/order-history.entity.js';
 import type { OrderFilterDto, QueryOrdersDto } from '../dto/query-orders.dto.js';
 import { OrderFilterBuilder } from '../filters/order-filter.builder.js';
 import { escapeLike, toOrderView } from '../mappers/order.mapper.js';
-import { findUnlistedPartners, type UnlistedPartnerSummary } from '../order-partner.util.js';
+import { summarizeUnlistedPartners, type UnlistedPartnerSummary } from '../order-partner.util.js';
 
 const ACTIVITY_DAYS = 7;
 const SEARCH_COUNT_CAP = 10000;
@@ -206,15 +206,22 @@ export class OrdersQueryService {
 
   /** Danh sách đối tác lạ trên đơn còn hiệu lực không khớp bảng đối tác (chỉ Admin) */
   async unlistedPartners(): Promise<UnlistedPartnerSummary[]> {
-    const orders = await this.orderRepository
+    // Gom nhóm ở SQL: chỉ vài chục tên đối tác khác nhau, không tải hàng trăm nghìn đơn vào Node
+    // (trước đây chặn luồng xử lý ~10 giây làm mọi yêu cầu khác bị chậm/timeout)
+    const rows = await this.orderRepository
       .createQueryBuilder('order')
+      .select('order.partner', 'partner')
+      .addSelect('COUNT(*)', 'orders')
       .where('order.cancelledAt IS NULL')
       .andWhere('order.partner IS NOT NULL')
       .andWhere("TRIM(order.partner) != ''")
-      .select(['order.id', 'order.partner'])
-      .getMany();
+      .groupBy('order.partner')
+      .getRawMany<{ partner: string; orders: string }>();
 
     const partners = await this.getCachedPartners();
-    return findUnlistedPartners(orders, partners);
+    return summarizeUnlistedPartners(
+      rows.map((r) => ({ partner: r.partner, orders: Number(r.orders) })),
+      partners,
+    );
   }
 }
