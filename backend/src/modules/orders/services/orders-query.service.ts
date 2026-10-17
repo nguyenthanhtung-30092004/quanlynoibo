@@ -8,7 +8,7 @@ import { Order } from '../entities/order.entity.js';
 import { OrderHistory } from '../entities/order-history.entity.js';
 import type { OrderFilterDto, QueryOrdersDto } from '../dto/query-orders.dto.js';
 import { OrderFilterBuilder } from '../filters/order-filter.builder.js';
-import { toOrderView } from '../mappers/order.mapper.js';
+import { escapeLike, toOrderView } from '../mappers/order.mapper.js';
 import { findUnlistedPartners, type UnlistedPartnerSummary } from '../order-partner.util.js';
 
 const ACTIVITY_DAYS = 7;
@@ -38,9 +38,23 @@ export class OrdersQueryService {
     return data;
   }
 
+  /** Id các tuyến có tên khớp từ khóa tìm kiếm (bảng tuyến nhỏ nên tra riêng, không để chung trong OR của SQL) */
+  async findSearchRouteIds(search?: string): Promise<number[]> {
+    const keyword = search?.trim();
+    if (!keyword) return [];
+    const rows = await this.orderRepository.manager
+      .createQueryBuilder()
+      .select('r.id', 'id')
+      .from('routes', 'r')
+      .where('r.name ILIKE :q', { q: `%${escapeLike(keyword)}%` })
+      .getRawMany<{ id: number }>();
+    return rows.map((r) => Number(r.id));
+  }
+
   buildListQuery(
     filter: OrderFilterDto,
     actor: JwtPayload,
+    searchRouteIds: number[] = [],
   ): SelectQueryBuilder<Order> {
     const qb = this.orderRepository
       .createQueryBuilder('order')
@@ -49,7 +63,7 @@ export class OrdersQueryService {
       .leftJoin('order.route', 'route')
       .addSelect(['route.id', 'route.name']);
 
-    return OrderFilterBuilder.apply(qb, filter, actor);
+    return OrderFilterBuilder.apply(qb, filter, actor, searchRouteIds);
   }
 
   async findAll(query: QueryOrdersDto, actor: JwtPayload) {
@@ -59,7 +73,8 @@ export class OrdersQueryService {
     // Các join đều là nhiều-một nên dùng offset/limit (không bị TypeORM chèn thêm DISTINCT id như skip/take)
     // Tìm kiếm: xếp theo ngày xe chạy từ gần nhất (mới) đến xa nhất (cũ); xem thường: theo thời điểm tạo đơn
     const searching = !!query.search?.trim();
-    const listQb = this.buildListQuery(query, actor);
+    const routeIds = await this.findSearchRouteIds(query.search);
+    const listQb = this.buildListQuery(query, actor, routeIds);
     if (searching) {
       listQb
         .orderBy('order.departureDate', 'DESC')
@@ -73,15 +88,15 @@ export class OrdersQueryService {
         .offset((page - 1) * limit)
         .limit(limit)
         .getMany(),
-      searching ? this.countCapped(query, actor) : this.buildListQuery(query, actor).getCount(),
+      searching ? this.countCapped(query, actor, routeIds) : this.buildListQuery(query, actor).getCount(),
     ]);
 
     return { items: items.map((o) => toOrderView(o)), total, page, limit };
   }
 
   /** Khi tìm kiếm, chỉ đếm tối đa SEARCH_COUNT_CAP đơn để từ khóa quá rộng không phải đếm hết cả bảng */
-  private async countCapped(query: QueryOrdersDto, actor: JwtPayload): Promise<number> {
-    const rows = await this.buildListQuery(query, actor)
+  private async countCapped(query: QueryOrdersDto, actor: JwtPayload, routeIds: number[]): Promise<number> {
+    const rows = await this.buildListQuery(query, actor, routeIds)
       .select('order.id')
       .limit(SEARCH_COUNT_CAP)
       .getRawMany();
