@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
@@ -10,6 +10,10 @@ import { MessagingService } from '../messaging/messaging.service.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 import { toOrderView } from '../mappers/order.mapper.js';
 import { OrdersQueryService } from './orders-query.service.js';
+
+function errorText(err: unknown): string {
+  return err instanceof Error ? err.message : 'lỗi không xác định';
+}
 
 @Injectable()
 export class OrdersMessagingService {
@@ -56,6 +60,9 @@ export class OrdersMessagingService {
   /**
    * Gửi tin nhắn 1 chạm cho khách theo mẫu của đơn, qua kênh được chọn
    * (SMS hoặc Zalo). Chế độ chạy thử (dryRun) thì không gửi và không đánh dấu đã gửi.
+   *
+   * Chọn Zalo mà Zalo không gửi được (khách không có Zalo, token hết hạn, lỗi mạng,
+   * chưa cấu hình...) thì tự gửi SMS thay thế; `fallbackReason` là lý do Zalo thất bại.
    */
   async sendMessage(id: number, channel: MessageChannel, actor: JwtPayload) {
     const order = await this.queryService.findEntity(id, actor);
@@ -65,7 +72,7 @@ export class OrdersMessagingService {
         ? order.seatCount
         : order.seatFront + order.seatMiddle + order.seatBack;
 
-    const { dryRun, referentId } = await this.messaging.send(channel, {
+    const message = {
       phone: order.phone,
       content: buildBookingSms({
         route: order.route.name,
@@ -82,21 +89,49 @@ export class OrdersMessagingService {
         dropoffPoint: order.dropoffPoint ?? '',
         seatCount: seats > 0 ? String(seats) : '',
       },
-    });
+    };
+
+    let usedChannel = channel;
+    let fallbackReason: string | null = null;
+    let sent: { dryRun: boolean; referentId?: string };
+    try {
+      sent = await this.messaging.send(channel, message);
+    } catch (err) {
+      if (channel !== MessageChannel.ZALO) throw err;
+      fallbackReason = errorText(err);
+      this.logger.warn(`Đơn #${order.id}: Zalo không gửi được (${fallbackReason}), chuyển sang SMS.`);
+      try {
+        sent = await this.messaging.send(MessageChannel.SMS, message);
+        usedChannel = MessageChannel.SMS;
+      } catch (smsErr) {
+        throw new BadGatewayException(
+          `Zalo không gửi được (${fallbackReason}) và gửi SMS dự phòng cũng thất bại (${errorText(smsErr)}).`,
+        );
+      }
+    }
+    const { dryRun, referentId } = sent;
 
     if (!dryRun) {
       await this.orderRepository.update(order.id, {
         smsSent: true,
         smsSentAt: new Date(),
-        messageChannel: channel,
+        messageChannel: usedChannel,
         messageRefId: referentId ?? null,
         messageStatus: null,
       });
     }
+    const label = usedChannel === MessageChannel.ZALO ? 'Zalo' : 'SMS';
     await this.record(order.id, 'SEND_MESSAGE', actor, {
-      summary: `Gửi ${channel === MessageChannel.ZALO ? 'Zalo' : 'SMS'} cho khách${dryRun ? ' (chạy thử, chưa gửi thật)' : ''}`,
+      summary: fallbackReason
+        ? `Zalo không gửi được (${fallbackReason}), đã tự gửi SMS cho khách${dryRun ? ' (chạy thử, chưa gửi thật)' : ''}`
+        : `Gửi ${label} cho khách${dryRun ? ' (chạy thử, chưa gửi thật)' : ''}`,
     });
-    return { order: await this.queryService.findOne(order.id, actor), dryRun };
+    return {
+      order: await this.queryService.findOne(order.id, actor),
+      dryRun,
+      channel: usedChannel,
+      fallbackReason,
+    };
   }
 
   /** Tra trạng thái tin đã gửi (VMG) và lưu lại */

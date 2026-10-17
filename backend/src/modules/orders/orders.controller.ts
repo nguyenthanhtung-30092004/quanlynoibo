@@ -278,15 +278,20 @@ export class OrdersController {
     @CurrentUser() user: JwtPayload,
   ) {
     const channel = dto.channel ?? MessageChannel.SMS;
-    const label = channel === MessageChannel.ZALO ? 'Zalo' : 'SMS';
-    const { order, dryRun } = await this.ordersService.sendMessage(id, channel, user);
+    const { order, dryRun, channel: usedChannel, fallbackReason } =
+      await this.ordersService.sendMessage(id, channel, user);
+    const label = usedChannel === MessageChannel.ZALO ? 'Zalo' : 'SMS';
+    const fallbackToSms = !!fallbackReason;
     return {
       statusCode: HttpStatus.OK,
       message: dryRun
         ? `Chế độ thử: chưa gửi ${label} thật tới khách (Sandbox hoặc chưa cấu hình nhà cung cấp).`
-        : `Đã gửi tin ${label} cho khách hàng`,
+        : fallbackToSms
+          ? `Zalo không gửi được (${fallbackReason}), đã tự gửi SMS cho khách hàng`
+          : `Đã gửi tin ${label} cho khách hàng`,
       data: order,
       dryRun,
+      fallbackToSms,
     };
   }
 }

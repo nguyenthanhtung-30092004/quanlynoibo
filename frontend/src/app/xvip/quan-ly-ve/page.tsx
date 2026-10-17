@@ -272,10 +272,18 @@ export default function TicketManagementPage() {
       }
 
       const channelsToSend = (['ZALO', 'SMS'] as MessageChannel[]).filter((c) => autoSend[c]);
+      // Zalo lỗi thì server đã tự gửi SMS thay, không gửi SMS lần nữa cho cùng đơn
+      let smsAlreadySent = false;
       for (const ch of channelsToSend) {
+        if (ch === 'SMS' && smsAlreadySent) continue;
         try {
-          await ordersApi.sendMessage(savedOrder.id, ch);
-          showToast(`Đã gửi ${ch === 'ZALO' ? 'Zalo' : 'SMS'} cho khách.`);
+          const res = await ordersApi.sendMessage(savedOrder.id, ch);
+          if (res.fallbackToSms) {
+            smsAlreadySent = true;
+            showToast('Zalo không gửi được, đã tự gửi SMS cho khách.');
+          } else {
+            showToast(`Đã gửi ${ch === 'ZALO' ? 'Zalo' : 'SMS'} cho khách.`);
+          }
         } catch (err) {
           showToast(`Lỗi khi gửi ${ch}: ${err instanceof Error ? err.message : 'thất bại'}`, 'error');
         }

@@ -122,9 +122,12 @@ export const ordersApi = {
       method: 'DELETE',
     }).then((res) => res.data),
 
-  /** Gửi tin cho khách qua kênh được chọn; dryRun = true nghĩa là server đang chạy thử, chưa gửi thật */
+  /**
+   * Gửi tin cho khách qua kênh được chọn; dryRun = true nghĩa là server đang chạy thử, chưa gửi thật;
+   * fallbackToSms = true nghĩa là Zalo không gửi được nên server đã tự gửi SMS thay
+   */
   sendMessage: (id: number, channel: MessageChannel) =>
-    api<ApiResponse<Order> & { dryRun?: boolean }>(`orders/${id}/send-sms`, {
+    api<ApiResponse<Order> & { dryRun?: boolean; fallbackToSms?: boolean }>(`orders/${id}/send-sms`, {
       method: 'POST',
       body: { channel },
     }),
