@@ -56,10 +56,19 @@ export class OrdersQueryService {
     const limit = query.limit ?? 20;
 
     // Các join đều là nhiều-một nên dùng offset/limit (không bị TypeORM chèn thêm DISTINCT id như skip/take)
+    // Tìm kiếm: xếp theo ngày xe chạy từ gần nhất (mới) đến xa nhất (cũ); xem thường: theo thời điểm tạo đơn
+    const searching = !!query.search?.trim();
+    const listQb = this.buildListQuery(query, actor);
+    if (searching) {
+      listQb
+        .orderBy('order.departureDate', 'DESC')
+        .addOrderBy('order.departureTime', 'DESC')
+        .addOrderBy('order.id', 'DESC');
+    } else {
+      listQb.orderBy('order.createdAt', 'DESC').addOrderBy('order.id', 'DESC');
+    }
     const [items, total] = await Promise.all([
-      this.buildListQuery(query, actor)
-        .orderBy('order.createdAt', 'DESC')
-        .addOrderBy('order.id', 'DESC')
+      listQb
         .offset((page - 1) * limit)
         .limit(limit)
         .getMany(),
