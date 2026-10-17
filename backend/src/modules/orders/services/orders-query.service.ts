@@ -12,6 +12,7 @@ import { toOrderView } from '../mappers/order.mapper.js';
 import { findUnlistedPartners, type UnlistedPartnerSummary } from '../order-partner.util.js';
 
 const ACTIVITY_DAYS = 7;
+const SEARCH_COUNT_CAP = 10000;
 
 @Injectable()
 export class OrdersQueryService {
@@ -72,10 +73,19 @@ export class OrdersQueryService {
         .offset((page - 1) * limit)
         .limit(limit)
         .getMany(),
-      this.buildListQuery(query, actor).getCount(),
+      searching ? this.countCapped(query, actor) : this.buildListQuery(query, actor).getCount(),
     ]);
 
     return { items: items.map((o) => toOrderView(o)), total, page, limit };
+  }
+
+  /** Khi tìm kiếm, chỉ đếm tối đa SEARCH_COUNT_CAP đơn để từ khóa quá rộng không phải đếm hết cả bảng */
+  private async countCapped(query: QueryOrdersDto, actor: JwtPayload): Promise<number> {
+    const rows = await this.buildListQuery(query, actor)
+      .select('order.id')
+      .limit(SEARCH_COUNT_CAP)
+      .getRawMany();
+    return rows.length;
   }
 
   async findOne(id: number, actor: JwtPayload) {

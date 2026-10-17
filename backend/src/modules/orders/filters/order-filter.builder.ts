@@ -220,9 +220,11 @@ export class OrderFilterBuilder {
     if (filter.search?.trim()) {
       const keyword = filter.search.trim();
       const orderCode = /^xv\s*(\d{1,9})$/i.exec(keyword);
-      // Mã đơn hiển thị là XV<id> (ví dụ XV116): gõ đúng dạng đó thì tìm thêm theo id
+      // Mã đơn hiển thị là XV<id> (ví dụ XV116): gõ đúng dạng đó thì tìm thêm theo id.
+      // Mỗi nhánh OR đều phải có index (search_text, partner: GIN trigram; routeId: B-tree qua bảng tuyến nhỏ),
+      // nếu không Postgres sẽ quét toàn bảng đơn.
       qb.andWhere(
-        `(order.search_text ILIKE :q OR order.partner ILIKE :q OR route.name ILIKE :q${orderCode ? ' OR order.id = :orderId' : ''})`,
+        `(order.search_text ILIKE :q OR order.partner ILIKE :q OR order.routeId IN (SELECT sr.id FROM routes sr WHERE sr.name ILIKE :q)${orderCode ? ' OR order.id = :orderId' : ''})`,
         {
           q: `%${escapeLike(keyword)}%`,
           ...(orderCode ? { orderId: Number(orderCode[1]) } : {}),

@@ -26,6 +26,7 @@ import { RenameShortPartnerNames1710000000005 } from './migrations/1710000000005
 import { RenameAnhHuyMc1710000000006 } from './migrations/1710000000006-RenameAnhHuyMc.js';
 import { RenameHkAndG81710000000007 } from './migrations/1710000000007-RenameHkAndG8.js';
 import { RenameHkBus1710000000008 } from './migrations/1710000000008-RenameHkBus.js';
+import { PartnerTrigramIndex1710000000009 } from './migrations/1710000000009-PartnerTrigramIndex.js';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { RenameHkBus1710000000008 } from './migrations/1710000000008-RenameHkBus
           RenameAnhHuyMc1710000000006,
           RenameHkAndG81710000000007,
           RenameHkBus1710000000008,
+          PartnerTrigramIndex1710000000009,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),
