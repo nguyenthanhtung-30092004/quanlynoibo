@@ -17,7 +17,6 @@ export const orderKeys = {
   histories: () => ['orders', 'history'] as const,
   history: (id: number) => ['orders', 'history', id] as const,
   activity: () => ['orders', 'activity'] as const,
-  unlistedPartners: () => ['orders', 'unlisted-partners'] as const,
   columnValues: (column: ColumnValuesKey, filters: OrderFilters, q?: string) =>
     ['orders', 'column-values', column, filters, q] as const,
 };
@@ -171,14 +170,6 @@ export function useDebts(range?: KpiRange) {
   return useQuery({
     queryKey: [...KPI_KEY, 'debts', range],
     queryFn: () => ordersApi.debts(range),
-  });
-}
-
-export function useUnlistedPartners(enabled = true) {
-  return useQuery({
-    queryKey: orderKeys.unlistedPartners(),
-    queryFn: () => ordersApi.unlistedPartners(),
-    enabled,
   });
 }
 

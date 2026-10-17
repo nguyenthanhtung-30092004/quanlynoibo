@@ -16,7 +16,6 @@ import {
   useImportOrders,
   useExportOrders,
   useRollbackImport,
-  useUnlistedPartners,
 } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
 import { useActiveRoutes } from '@/features/routes/hooks';
@@ -133,7 +132,6 @@ export default function TicketManagementPage() {
   const { data: me } = useCurrentUser();
   const isAdmin = me?.role === 'ADMIN';
   const { data: activeStaff = [] } = useActiveStaff(isAdmin);
-  const { data: unlistedPartners = [] } = useUnlistedPartners(isAdmin);
 
   const staffSelected = typeof filters.staffId === 'number';
   const { data: filterOptions } = useKpiFilterOptions(
@@ -367,13 +365,11 @@ export default function TicketManagementPage() {
     <>
       <OrdersToolbar
         isAdmin={isAdmin}
-        unlistedPartners={unlistedPartners}
         onOpenCreate={handleOpenCreate}
         onExportExcel={handleExportExcel}
         onImportFile={handleImportFile}
         isImporting={importMutation.isPending}
         importProgress={importProgress}
-        onSearchPartner={(partner) => setFilters((p) => ({ ...p, search: partner, page: 1 }))}
       />
 
       <OrdersFiltersBar

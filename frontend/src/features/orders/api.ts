@@ -14,7 +14,6 @@ import type {
   ImportResult,
   RollbackImportResult,
   PartnerDebt,
-  UnlistedPartnerInfo,
   UpdateOrderInput,
 } from './types';
 
@@ -150,9 +149,6 @@ export const ordersApi = {
     api<ApiResponse<PartnerDebt>>('orders/debts', { query: kpiQuery(undefined, range) }).then((res) => res.data),
 
   exportDebts: (range?: KpiRange) => apiDownload('orders/debts/export', kpiQuery(undefined, range)),
-
-  unlistedPartners: () =>
-    api<ApiResponse<UnlistedPartnerInfo[]>>('orders/unlisted-partners').then((res) => res.data),
 
   exportExcel: (filters: OrderFilters) =>
     apiDownload('orders/export', filterParams(filters)),

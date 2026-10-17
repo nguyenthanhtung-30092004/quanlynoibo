@@ -262,12 +262,6 @@ export interface PartnerDebt {
   excluded: PartnerDebtExcluded;
 }
 
-/** Đối tác ngoài danh sách trên các đơn còn hiệu lực */
-export interface UnlistedPartnerInfo {
-  partner: string;
-  orders: number;
-}
-
 /** Một hoạt động trên đơn, hiện trong chuông thông báo */
 export interface OrderActivity {
   id: number;
