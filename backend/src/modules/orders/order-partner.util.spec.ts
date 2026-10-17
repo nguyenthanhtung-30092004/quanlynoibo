@@ -112,3 +112,32 @@ describe('applyImportPartnerAlias', () => {
     expect(applyImportPartnerAlias('Sao Việt')).toBe('Sao Việt');
   });
 });
+
+describe('matchCanonicalPartner - lệch mã hóa / khoảng trắng / dấu', () => {
+  const partners = [{ name: 'Hoàng Phương' }, { name: 'Sao Việt' }];
+
+  it('khớp dù dấu tiếng Việt ở dạng dấu rời (NFD)', () => {
+    expect(matchCanonicalPartner('Hoàng Phương'.normalize('NFD'), partners)).toBe('Hoàng Phương');
+  });
+
+  it('khớp dù có khoảng trắng đặc biệt hoặc thừa ở giữa', () => {
+    expect(matchCanonicalPartner('Hoàng Phương', partners)).toBe('Hoàng Phương');
+    expect(matchCanonicalPartner('Hoàng   Phương', partners)).toBe('Hoàng Phương');
+    expect(matchCanonicalPartner('​Hoàng Phương', partners)).toBe('Hoàng Phương');
+  });
+
+  it('tên trong hệ thống bị dấu rời / khoảng trắng đặc biệt vẫn khớp tên gõ bình thường', () => {
+    const odd = [{ name: 'Hoàng Phương'.normalize('NFD') }];
+    expect(matchCanonicalPartner('Hoàng Phương', odd)).toBe(odd[0].name);
+  });
+
+  it('chỉ lệch dấu và duy nhất một đối tác thì vẫn khớp', () => {
+    expect(matchCanonicalPartner('Hoang Phuong', partners)).toBe('Hoàng Phương');
+  });
+
+  it('lệch dấu nhưng mơ hồ giữa nhiều đối tác thì không khớp', () => {
+    const dup = [{ name: 'Hoàng Phương' }, { name: 'Hoang Phuong' }];
+    expect(matchCanonicalPartner('HOANG PHUONG', dup)).toBe('Hoang Phuong');
+    expect(matchCanonicalPartner('Hoãng Phuong', dup)).toBeUndefined();
+  });
+});

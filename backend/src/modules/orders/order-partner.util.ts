@@ -2,10 +2,22 @@ export interface PartnerLike {
   name: string;
 }
 
+/** Chuẩn hóa để so tên: gộp Unicode (NFC), khoảng trắng lạ/thừa, bỏ ký tự vô hình, chữ thường */
+function comparableName(value: string): string {
+  return value
+    .normalize('NFC')
+    .replace(/[​-‍﻿]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
 /**
- * Tìm tên đối tác chuẩn từ danh sách đối tác theo tên (không phân biệt hoa thường, bỏ khoảng trắng đầu/cuối).
+ * Tìm tên đối tác chuẩn từ danh sách đối tác theo tên (không phân biệt hoa thường, khoảng trắng thừa,
+ * và kiểu mã hóa dấu tiếng Việt khác nhau như "Phương" gõ sẵn dấu hay dấu rời).
  * - rawPartner rỗng / chỉ khoảng trắng / null / undefined -> trả về null (hợp lệ cho đơn không gán đối tác).
  * - Khớp -> trả về tên chuẩn trong danh sách đối tác.
+ * - Không khớp chính xác nhưng chỉ lệch dấu và duy nhất một đối tác khớp ("Hoang Phuong") -> trả về tên chuẩn đó.
  * - Không khớp -> trả về undefined.
  */
 export function matchCanonicalPartner(
@@ -15,9 +27,12 @@ export function matchCanonicalPartner(
   if (!rawPartner || !rawPartner.trim()) {
     return null;
   }
-  const needle = rawPartner.trim().toLowerCase();
-  const matched = partners.find((p) => p.name.trim().toLowerCase() === needle);
-  return matched ? matched.name : undefined;
+  const needle = comparableName(rawPartner);
+  const exact = partners.find((p) => comparableName(p.name) === needle);
+  if (exact) return exact.name;
+  const folded = foldKey(rawPartner);
+  const loose = partners.filter((p) => foldKey(p.name) === folded);
+  return loose.length === 1 ? loose[0].name : undefined;
 }
 
 /** Bỏ dấu, chữ thường, gộp khoảng trắng: "  Đất  Cảng " -> "dat cang" */
