@@ -74,7 +74,7 @@ export default function TicketManagementPage() {
     () =>
       searching
         ? {
-            search: localFilters.search,
+            search: localFilters.search.trim(),
             staffId: ALL,
             routeId: ALL,
             routeIds: [],

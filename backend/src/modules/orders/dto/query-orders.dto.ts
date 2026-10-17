@@ -63,6 +63,7 @@ export class OrderFilterDto {
     description: 'Tìm theo tên khách, SĐT, tuyến, loại hình, đối tác, ghi chú',
   })
   @IsOptional()
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
   @IsString()
   @MaxLength(100)
   search?: string;
