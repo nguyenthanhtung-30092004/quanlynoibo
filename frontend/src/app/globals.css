@@ -631,3 +631,13 @@ div.input-3d {
     print-color-adjust: exact;
   }
 }
+
+/* Đơn đã hủy: ép mọi chữ trong dòng sang màu đỏ (ô <td> đang tự gán màu riêng nên phải dùng !important) */
+.order-row-cancelled > td,
+.order-row-cancelled > td *:not(.cancel-badge) {
+  color: #dc2626 !important; /* red-600 */
+}
+html.dark .order-row-cancelled > td,
+html.dark .order-row-cancelled > td *:not(.cancel-badge) {
+  color: #f87171 !important; /* red-400, dễ đọc trên nền tối */
+}

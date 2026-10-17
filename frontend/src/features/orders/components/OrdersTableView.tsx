@@ -116,7 +116,7 @@ export function OrdersTableView({
                   title="Bấm để xem chi tiết"
                   className={`group cursor-pointer hover:bg-blue-50/70 dark:hover:bg-slate-800/80 transition-colors ${
                     t.cancelledAt
-                      ? 'bg-slate-50 opacity-60 dark:bg-slate-900/60'
+                      ? 'order-row-cancelled bg-rose-50/60 dark:bg-rose-950/20'
                       : ''
                   }`}
                 >
@@ -131,7 +131,7 @@ export function OrdersTableView({
                   <td className={`${TD_CELL} font-mono text-xs font-bold text-blue-900 dark:text-blue-400`}>
                     {formatOrderCode(t.id)}
                     {t.cancelledAt && (
-                      <span className="mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                      <span className="cancel-badge mt-1 block w-fit rounded-md bg-rose-100 px-1.5 py-0.5 font-sans text-[10px] font-extrabold uppercase text-rose-700 dark:bg-rose-950 dark:text-rose-300">
                         Đã hủy
                       </span>
                     )}
