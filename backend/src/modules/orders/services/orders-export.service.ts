@@ -98,8 +98,6 @@ export class OrdersExportService {
       { header: 'NHỜ THU', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.collectOnDelivery },
       { header: 'HOA HỒNG', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.commission },
       { header: 'ĐỐI TÁC', width: 24, value: (o) => neutralizeFormula(o.partner ?? '') },
-      { header: 'ĐIỂM ĐÓN', width: 28, value: (o) => neutralizeFormula(o.pickupPoint ?? '') },
-      { header: 'ĐIỂM TRẢ', width: 28, value: (o) => neutralizeFormula(o.dropoffPoint ?? '') },
       { header: 'GHI CHÚ', width: 34, value: (o) => neutralizeFormula(o.note ?? '') },
     ];
     const N = COLS.length;
