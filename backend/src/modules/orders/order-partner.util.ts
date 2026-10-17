@@ -20,6 +20,32 @@ export function matchCanonicalPartner(
   return matched ? matched.name : undefined;
 }
 
+/** Bỏ dấu, chữ thường, gộp khoảng trắng: "  Đất  Cảng " -> "dat cang" */
+function foldKey(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/đ/gi, 'd')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Tên viết tắt hay gặp trong file Excel -> tên đối tác đầy đủ trong hệ thống.
+ * Khóa đã bỏ dấu + chữ thường; chỉ áp dụng khi TOÀN BỘ ô đối tác khớp khóa.
+ */
+const IMPORT_PARTNER_ALIASES: Record<string, string> = {
+  'viet nam': 'X.E Việt Nam',
+  'dat cang': 'Anh Huy Đất Cảng',
+  'anh huy': 'Anh Huy 92',
+};
+
+/** Đổi tên viết tắt trong file import sang tên đối tác đầy đủ; tên khác giữ nguyên. */
+export function applyImportPartnerAlias(rawPartner: string): string {
+  return IMPORT_PARTNER_ALIASES[foldKey(rawPartner)] ?? rawPartner;
+}
+
 export interface HasPartner {
   partner?: string | null;
 }

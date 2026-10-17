@@ -15,7 +15,7 @@ import {
   normalizeKey,
   parseOrderWorkbook,
 } from '../order-import.parser.js';
-import { matchCanonicalPartner } from '../order-partner.util.js';
+import { applyImportPartnerAlias, matchCanonicalPartner } from '../order-partner.util.js';
 import { resolveSeats, titleCaseName } from '../mappers/order.mapper.js';
 import { getBusinessDate } from '../order-time-lock.js';
 
@@ -112,7 +112,8 @@ export class OrdersImportService {
       let canonicalPartner: string | null = null;
       if (row.partner && row.partner.trim()) {
         // Đối tác chưa có trong danh sách vẫn nhập theo đúng tên trong file (không tạo đối tác mới)
-        canonicalPartner = matchCanonicalPartner(row.partner, partners) ?? row.partner.trim();
+        const aliased = applyImportPartnerAlias(row.partner);
+        canonicalPartner = matchCanonicalPartner(aliased, partners) ?? aliased.trim();
       }
 
       const dto = plainToInstance(CreateOrderDto, {

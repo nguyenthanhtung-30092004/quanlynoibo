@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  applyImportPartnerAlias,
   filterOrdersByPartner,
   findUnlistedPartners,
   matchCanonicalPartner,
@@ -93,5 +94,21 @@ describe('findUnlistedPartners', () => {
       { id: 2, partner: null },
     ];
     expect(findUnlistedPartners(orders, partners)).toEqual([]);
+  });
+});
+
+describe('applyImportPartnerAlias', () => {
+  it('đổi tên viết tắt sang tên đối tác đầy đủ, bỏ qua hoa thường, dấu và khoảng trắng', () => {
+    expect(applyImportPartnerAlias('Việt Nam')).toBe('X.E Việt Nam');
+    expect(applyImportPartnerAlias('  viet  nam ')).toBe('X.E Việt Nam');
+    expect(applyImportPartnerAlias('Đất Cảng')).toBe('Anh Huy Đất Cảng');
+    expect(applyImportPartnerAlias('ANH HUY')).toBe('Anh Huy 92');
+  });
+
+  it('tên khác hoặc đã đầy đủ thì giữ nguyên', () => {
+    expect(applyImportPartnerAlias('Anh Huy 92')).toBe('Anh Huy 92');
+    expect(applyImportPartnerAlias('Anh Huy Đất Cảng')).toBe('Anh Huy Đất Cảng');
+    expect(applyImportPartnerAlias('X.E Việt Nam')).toBe('X.E Việt Nam');
+    expect(applyImportPartnerAlias('Sao Việt')).toBe('Sao Việt');
   });
 });
