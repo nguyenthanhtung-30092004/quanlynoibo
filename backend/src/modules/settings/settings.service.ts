@@ -14,7 +14,6 @@ export const DEFAULT_SETTINGS = {
     'XVIP xac nhan ve xe: {tenKhach} ({sdt}) di {tuyenDuong}, gio chay {gioChay}, nha xe {nhaXe}. Gia ve: {giaVe}d. Hotline ho tro: {hotline}. Chuc quy khach thuong lo binh an!',
   /** Tài khoản nhận tiền của trang Tạo QR, lưu dạng JSON: [{ bank, number, holder, vietqrBank }] */
   qrAccounts: JSON.stringify([
-    { bank: 'Vietcombank', number: '1314389999', holder: 'NGUYEN THI NGAN', vietqrBank: 'vietcombank' },
     {
       bank: 'Vietcombank',
       number: '7770319999',

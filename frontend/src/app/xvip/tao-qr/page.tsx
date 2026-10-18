@@ -20,12 +20,6 @@ interface QrAccount {
 const DEFAULT_ACCOUNTS: QrAccount[] = [
   {
     bank: 'Vietcombank',
-    number: '1314389999',
-    holder: 'NGUYEN THI NGAN',
-    vietqrBank: 'vietcombank',
-  },
-  {
-    bank: 'Vietcombank',
     number: '7770319999',
     holder: 'Công Ty TNHH Thương Mại Và Dịch Vụ XVIP',
     vietqrBank: 'vietcombank',
@@ -73,7 +67,7 @@ export default function TaoQrPage() {
     const acc = accounts[accountIdx] ?? accounts[0];
     const base = `https://img.vietqr.io/image/${acc.vietqrBank}-${acc.number}-print.jpg`;
     setQrUrl(
-      `${base}?amount=${amount}&addInfo=${encodeURIComponent(content.trim())}`,
+      `${base}?amount=${amount}&addInfo=${encodeURIComponent(content.trim())}&accountName=${encodeURIComponent(acc.holder)}`,
     );
     setCopied(false);
   };
@@ -280,14 +274,6 @@ export default function TaoQrPage() {
                 alt="Mã QR thanh toán"
                 className="mx-auto w-full max-w-xs rounded-lg bg-white"
               />
-              <div className="text-center">
-                <div className="break-words text-sm font-extrabold uppercase text-slate-900 dark:text-white">
-                  {accounts[accountIdx]?.holder}
-                </div>
-                <div className="tnum text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  {accounts[accountIdx]?.bank} · {accounts[accountIdx]?.number}
-                </div>
-              </div>
               <button
                 type="button"
                 onClick={copyQr}
