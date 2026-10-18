@@ -12,13 +12,15 @@ export const DEFAULT_SETTINGS = {
   address: 'Số 12 Bến xe Mỹ Đình, Từ Liêm, Hà Nội',
   smsTemplate:
     'XVIP xac nhan ve xe: {tenKhach} ({sdt}) di {tuyenDuong}, gio chay {gioChay}, nha xe {nhaXe}. Gia ve: {giaVe}d. Hotline ho tro: {hotline}. Chuc quy khach thuong lo binh an!',
-  /** Tài khoản nhận tiền của trang Tạo QR, lưu dạng JSON: [{ bank, number, holder, vietqrBank }] */
+  /** Tài khoản nhận tiền của trang Tạo QR, lưu dạng JSON: [{ bank, number, holder, vietqrBank, showHolder? }] (showHolder: in tên chủ TK lên ảnh QR) */
   qrAccounts: JSON.stringify([
+    { bank: 'Vietcombank', number: '1314389999', holder: 'NGUYEN THI NGAN', vietqrBank: 'vietcombank', showHolder: false },
     {
       bank: 'Vietcombank',
       number: '7770319999',
       holder: 'Công Ty TNHH Thương Mại Và Dịch Vụ XVIP',
       vietqrBank: 'vietcombank',
+      showHolder: true,
     },
   ]),
 };
@@ -72,7 +74,8 @@ export class SettingsService {
           typeof a.number === 'string' &&
           /^\d{6,20}$/.test(a.number) &&
           typeof a.vietqrBank === 'string' &&
-          /^[a-z0-9]{2,30}$/i.test(a.vietqrBank),
+          /^[a-z0-9]{2,30}$/i.test(a.vietqrBank) &&
+          (a.showHolder === undefined || typeof a.showHolder === 'boolean'),
       );
     if (!ok) {
       throw new BadRequestException(

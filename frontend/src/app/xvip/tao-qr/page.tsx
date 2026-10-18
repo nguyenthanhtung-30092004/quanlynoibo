@@ -14,15 +14,25 @@ interface QrAccount {
   holder: string;
   /** Mã ngân hàng theo VietQR (img.vietqr.io/image/<bank>-<số tk>-print.jpg) */
   vietqrBank: string;
+  /** In tên chủ tài khoản lên ảnh QR (tài khoản công ty bật, tài khoản cá nhân tắt) */
+  showHolder?: boolean;
 }
 
 /** Dùng khi chưa tải được cài đặt hoặc dữ liệu lưu bị hỏng */
 const DEFAULT_ACCOUNTS: QrAccount[] = [
   {
     bank: 'Vietcombank',
+    number: '1314389999',
+    holder: 'NGUYEN THI NGAN',
+    vietqrBank: 'vietcombank',
+    showHolder: false,
+  },
+  {
+    bank: 'Vietcombank',
     number: '7770319999',
     holder: 'Công Ty TNHH Thương Mại Và Dịch Vụ XVIP',
     vietqrBank: 'vietcombank',
+    showHolder: true,
   },
 ];
 
@@ -66,8 +76,11 @@ export default function TaoQrPage() {
     }
     const acc = accounts[accountIdx] ?? accounts[0];
     const base = `https://img.vietqr.io/image/${acc.vietqrBank}-${acc.number}-print.jpg`;
+    const nameParam = acc.showHolder
+      ? `&accountName=${encodeURIComponent(acc.holder)}`
+      : '';
     setQrUrl(
-      `${base}?amount=${amount}&addInfo=${encodeURIComponent(content.trim())}&accountName=${encodeURIComponent(acc.holder)}`,
+      `${base}?amount=${amount}&addInfo=${encodeURIComponent(content.trim())}${nameParam}`,
     );
     setCopied(false);
   };
@@ -79,6 +92,7 @@ export default function TaoQrPage() {
       number: a.number.replace(/\s/g, ''),
       holder: a.holder.trim(),
       vietqrBank: a.vietqrBank.trim().toLowerCase(),
+      showHolder: !!a.showHolder,
     }));
     try {
       await updateSettings.mutateAsync({ qrAccounts: JSON.stringify(cleaned) });
@@ -168,6 +182,24 @@ export default function TaoQrPage() {
                           />
                         </label>
                       ))}
+                      <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300 sm:col-span-2">
+                        <input
+                          type="checkbox"
+                          checked={!!a.showHolder}
+                          onChange={(e) =>
+                            setDraft((d) =>
+                              d
+                                ? d.map((x, j) =>
+                                    j === i
+                                      ? { ...x, showHolder: e.target.checked }
+                                      : x,
+                                  )
+                                : d,
+                            )
+                          }
+                        />
+                        In tên chủ tài khoản lên ảnh QR
+                      </label>
                     </div>
                   ))}
                   <div className="flex justify-end gap-2">
