@@ -38,7 +38,7 @@ export class OrdersQueryService {
     return data;
   }
 
-  buildListQuery(filter: OrderFilterDto, actor: JwtPayload): SelectQueryBuilder<Order> {
+  buildListQuery(filter: OrderFilterDto, actor: JwtPayload, ownOnly = false): SelectQueryBuilder<Order> {
     const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.createdBy', 'staff')
@@ -46,7 +46,7 @@ export class OrdersQueryService {
       .leftJoin('order.route', 'route')
       .addSelect(['route.id', 'route.name']);
 
-    return OrderFilterBuilder.apply(qb, filter, actor);
+    return OrderFilterBuilder.apply(qb, filter, actor, ownOnly);
   }
 
   async findAll(query: QueryOrdersDto, actor: JwtPayload) {

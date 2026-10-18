@@ -14,6 +14,8 @@ export class OrderFilterBuilder {
     qb: SelectQueryBuilder<Order>,
     filter: OrderFilterDto,
     actor: JwtPayload,
+    /** Nhân viên chỉ thấy vé của chính mình kể cả khi tìm kiếm (dùng khi xuất Excel) */
+    ownOnly = false,
   ): SelectQueryBuilder<Order> {
     if (actor.role === UserRole.ADMIN) {
       if (filter.staffId !== undefined) {
@@ -22,9 +24,9 @@ export class OrderFilterBuilder {
       if (filter.staffIds?.length) {
         qb.andWhere('order.createdById IN (:...staffIds)', { staffIds: filter.staffIds });
       }
-    } else if (!filter.search?.trim()) {
+    } else if (ownOnly || !filter.search?.trim()) {
       // Quyền truy cập do server quyết định, bỏ qua staffId client gửi lên.
-      // Khi tìm kiếm thì nhân viên được xem vé phù hợp của cả nhân viên khác.
+      // Khi tìm kiếm thì nhân viên được xem vé phù hợp của cả nhân viên khác (trừ khi xuất Excel: ownOnly).
       qb.andWhere('order.createdById = :uid', { uid: actor.sub });
     }
 
