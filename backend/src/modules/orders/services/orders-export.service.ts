@@ -15,6 +15,8 @@ import {
 import { OrdersQueryService } from './orders-query.service.js';
 
 const EXPORT_LIMIT = 5000;
+/** Dấu phẩy cuối định dạng chia hiển thị cho 1.000 (25000 hiện là 25); giá trị thật trong ô vẫn đầy đủ nên tổng không đổi */
+const THOUSANDS_FMT = '#,##0,';
 
 @Injectable()
 export class OrdersExportService {
@@ -91,11 +93,11 @@ export class OrdersExportService {
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
       { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
-      { header: 'GIÁ NHẬP', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.costPrice },
-      { header: 'GIÁ BÁN', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.sellPrice },
-      { header: 'ĐÃ CỌC', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.deposit },
-      { header: 'NHỜ THU', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.collectOnDelivery },
-      { header: 'HOA HỒNG', width: 16, align: 'right', fmt: '#,##0', sum: true, value: (o) => o.commission },
+      { header: 'GIÁ NHẬP', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.costPrice },
+      { header: 'GIÁ BÁN', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.sellPrice },
+      { header: 'ĐÃ CỌC', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.deposit },
+      { header: 'NHỜ THU', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.collectOnDelivery },
+      { header: 'HOA HỒNG', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.commission },
       { header: 'ĐỐI TÁC', width: 24, value: (o) => neutralizeFormula(o.partner ?? '') },
       { header: 'GHI CHÚ', width: 34, value: (o) => neutralizeFormula(o.note ?? '') },
     ];
