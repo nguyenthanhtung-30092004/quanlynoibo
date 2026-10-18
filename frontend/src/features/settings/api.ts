@@ -6,6 +6,8 @@ export interface AppSettings {
   email: string;
   address: string;
   smsTemplate: string;
+  /** JSON: [{ bank, number, holder, vietqrBank }] */
+  qrAccounts: string;
 }
 
 export const settingsApi = {

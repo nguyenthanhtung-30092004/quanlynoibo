@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { UpdateSettingsDto } from './dto/update-settings.dto.js';
@@ -12,6 +12,16 @@ export const DEFAULT_SETTINGS = {
   address: 'Số 12 Bến xe Mỹ Đình, Từ Liêm, Hà Nội',
   smsTemplate:
     'XVIP xac nhan ve xe: {tenKhach} ({sdt}) di {tuyenDuong}, gio chay {gioChay}, nha xe {nhaXe}. Gia ve: {giaVe}d. Hotline ho tro: {hotline}. Chuc quy khach thuong lo binh an!',
+  /** Tài khoản nhận tiền của trang Tạo QR, lưu dạng JSON: [{ bank, number, holder, vietqrBank }] */
+  qrAccounts: JSON.stringify([
+    { bank: 'Vietcombank', number: '1314389999', holder: 'NGUYEN THI NGAN', vietqrBank: 'vietcombank' },
+    {
+      bank: 'Vietcombank',
+      number: '7770319999',
+      holder: 'Công Ty TNHH Thương Mại Và Dịch Vụ XVIP',
+      vietqrBank: 'vietcombank',
+    },
+  ]),
 };
 
 export type SettingsMap = typeof DEFAULT_SETTINGS;
@@ -41,7 +51,39 @@ export class SettingsService {
     return out;
   }
 
+  /** qrAccounts phải là JSON mảng 1-5 tài khoản hợp lệ, tránh lưu dữ liệu làm hỏng trang Tạo QR */
+  private assertValidQrAccounts(raw: string): void {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new BadRequestException('Danh sách tài khoản QR không hợp lệ');
+    }
+    const ok =
+      Array.isArray(parsed) &&
+      parsed.length >= 1 &&
+      parsed.length <= 5 &&
+      parsed.every(
+        (a) =>
+          a &&
+          typeof a.bank === 'string' &&
+          a.bank.trim() !== '' &&
+          typeof a.holder === 'string' &&
+          a.holder.trim() !== '' &&
+          typeof a.number === 'string' &&
+          /^\d{6,20}$/.test(a.number) &&
+          typeof a.vietqrBank === 'string' &&
+          /^[a-z0-9]{2,30}$/i.test(a.vietqrBank),
+      );
+    if (!ok) {
+      throw new BadRequestException(
+        'Tài khoản QR không hợp lệ: số tài khoản chỉ gồm 6-20 chữ số, tên ngân hàng/chủ tài khoản/mã VietQR không được để trống',
+      );
+    }
+  }
+
   async update(dto: UpdateSettingsDto): Promise<SettingsMap> {
+    if (dto.qrAccounts !== undefined) this.assertValidQrAccounts(dto.qrAccounts);
     const entries = (Object.keys(DEFAULT_SETTINGS) as (keyof SettingsMap)[])
       .filter((key) => dto[key] !== undefined)
       .map((key) => this.repo.create({ key, value: dto[key] as string }));

@@ -39,4 +39,10 @@ export class UpdateSettingsDto {
   @IsString()
   @MaxLength(1000)
   smsTemplate?: string;
+
+  @ApiPropertyOptional({ description: 'Tài khoản nhận tiền trang Tạo QR (JSON)' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(3000)
+  qrAccounts?: string;
 }
