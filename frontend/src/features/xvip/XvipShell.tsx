@@ -12,6 +12,7 @@ import {
   Handshake,
   List,
   MapPin,
+  QrCode,
   Money,
   SignOut,
   SquaresFour,
@@ -49,6 +50,7 @@ const NAV: NavItem[] = [
   { href: '/xvip/nghi-phep', label: 'Đăng ký nghỉ', icon: CalendarX },
   { href: '/xvip/bang-luong', label: 'Bảng lương', icon: Money, adminOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
+  { href: '/xvip/tao-qr', label: 'Tạo QR', icon: QrCode },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear, adminOnly: true },
 ];
 
