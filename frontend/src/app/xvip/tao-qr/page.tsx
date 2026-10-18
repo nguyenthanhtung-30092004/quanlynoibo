@@ -280,6 +280,14 @@ export default function TaoQrPage() {
                 alt="Mã QR thanh toán"
                 className="mx-auto w-full max-w-xs rounded-lg bg-white"
               />
+              <div className="text-center">
+                <div className="break-words text-sm font-extrabold uppercase text-slate-900 dark:text-white">
+                  {accounts[accountIdx]?.holder}
+                </div>
+                <div className="tnum text-xs font-semibold text-slate-500 dark:text-slate-400">
+                  {accounts[accountIdx]?.bank} · {accounts[accountIdx]?.number}
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={copyQr}
