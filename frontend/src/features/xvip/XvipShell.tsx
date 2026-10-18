@@ -42,6 +42,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/xvip', label: 'Tổng quan', icon: SquaresFour, adminOnly: true },
   { href: '/xvip/quan-ly-ve', label: 'Quản lý vé / Đơn', icon: Ticket },
+  { href: '/xvip/tao-qr', label: 'Tạo QR', icon: QrCode },
   { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake },
   { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },
   { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle, adminOnly: true },
@@ -50,7 +51,6 @@ const NAV: NavItem[] = [
   { href: '/xvip/nghi-phep', label: 'Đăng ký nghỉ', icon: CalendarX },
   { href: '/xvip/bang-luong', label: 'Bảng lương', icon: Money, adminOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
-  { href: '/xvip/tao-qr', label: 'Tạo QR', icon: QrCode },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear, adminOnly: true },
 ];
 
