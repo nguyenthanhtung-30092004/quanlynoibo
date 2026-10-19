@@ -817,12 +817,12 @@ export function OrderFormModal({
               <div className="space-y-2">
                 <div className="grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <span>Nhóm</span>
-                  <span className="text-center">Số ghế</span>
+                  <span className="text-center">Số lượng</span>
                   <span>Giá vé (VNĐ / ghế)</span>
                 </div>
                 {(
                   [
-                    { key: 'seatCount', label: 'Chung' },
+                    { key: 'seatCount', label: 'Số ghế' },
                     { key: 'seatFront', label: 'Đầu' },
                     { key: 'seatMiddle', label: 'Giữa' },
                     { key: 'seatBack', label: 'Cuối' },
