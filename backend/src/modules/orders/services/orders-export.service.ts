@@ -63,8 +63,9 @@ export class OrdersExportService {
           seatBack: 0,
           seatZone: null,
           seatCount: line.quantity,
-          costPrice: line.costPrice,
-          sellPrice: line.sellPrice,
+          // Cột giá nhập / giá bán là tổng tiền của dòng = đơn giá x số lượng
+          costPrice: line.costPrice * line.quantity,
+          sellPrice: line.sellPrice * line.quantity,
           deposit: i === 0 ? o.deposit : 0,
           collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
           commission: i === 0 ? o.commission : 0,

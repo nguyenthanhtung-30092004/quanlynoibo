@@ -97,13 +97,13 @@ export function sortCabinLines(lines: readonly CabinLine[] | null | undefined): 
   return [...lines].sort((a, b) => CABIN_ORDER.indexOf(a.kind) - CABIN_ORDER.indexOf(b.kind));
 }
 
-/** Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng chi tiết */
+/** Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng (đơn giá 1 cabin nhân số lượng) */
 export function cabinTotals(lines: readonly CabinLine[]) {
   return lines.reduce(
     (acc, l) => ({
       seatCount: acc.seatCount + l.quantity,
-      costPrice: acc.costPrice + l.costPrice,
-      sellPrice: acc.sellPrice + l.sellPrice,
+      costPrice: acc.costPrice + l.costPrice * l.quantity,
+      sellPrice: acc.sellPrice + l.sellPrice * l.quantity,
     }),
     { seatCount: 0, costPrice: 0, sellPrice: 0 },
   );

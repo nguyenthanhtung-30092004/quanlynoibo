@@ -37,7 +37,7 @@ export const CABIN_LABELS: Record<CabinKind, string> = {
   [CabinKind.DOUBLE]: 'Cabin Đôi',
 };
 
-/** Một dòng chi tiết cabin; giá nhập / giá bán là tổng tiền của dòng đó */
+/** Một dòng chi tiết cabin; giá nhập / giá bán là đơn giá của 1 cabin (tổng dòng = đơn giá x số lượng) */
 export interface CabinLine {
   kind: CabinKind;
   quantity: number;

@@ -33,14 +33,14 @@ export class CabinLineDto {
   @Max(60, { message: 'Số lượng cabin quá lớn' })
   quantity: number;
 
-  @ApiProperty({ description: 'Giá nhập của dòng (VNĐ)', example: 500000 })
+  @ApiProperty({ description: 'Giá nhập của 1 cabin (VNĐ)', example: 500000 })
   @Type(() => Number)
   @IsInt({ message: 'Giá nhập phải là số nguyên' })
   @Min(0, { message: 'Giá nhập không được âm' })
   @Max(MONEY_MAX, { message: 'Giá nhập quá lớn' })
   costPrice: number;
 
-  @ApiProperty({ description: 'Giá bán của dòng (VNĐ)', example: 600000 })
+  @ApiProperty({ description: 'Giá bán của 1 cabin (VNĐ)', example: 600000 })
   @Type(() => Number)
   @IsInt({ message: 'Giá bán phải là số nguyên' })
   @Min(0, { message: 'Giá bán không được âm' })

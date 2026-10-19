@@ -48,7 +48,7 @@ export const VEHICLE_TYPES = [
   'Vé Fan',
 ];
 
-/** Số lượng, giá nhập, giá bán (tổng tiền của dòng) cho từng loại cabin */
+/** Số lượng, giá nhập, giá bán (đơn giá 1 cabin) cho từng loại cabin */
 export type CabinState = Record<CabinKind, { quantity: number; costPrice: number; sellPrice: number }>;
 
 function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
@@ -63,15 +63,22 @@ function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
   return out;
 }
 
+/** Tổng số ghế, tổng giá nhập, tổng giá bán = đơn giá x số lượng của từng dòng */
 function cabinTotals(cabin: CabinState) {
   return CABIN_KINDS.reduce(
     (acc, k) => ({
       seatCount: acc.seatCount + (Number(cabin[k].quantity) || 0),
-      costPrice: acc.costPrice + (Number(cabin[k].costPrice) || 0),
-      sellPrice: acc.sellPrice + (Number(cabin[k].sellPrice) || 0),
+      costPrice: acc.costPrice + (Number(cabin[k].costPrice) || 0) * (Number(cabin[k].quantity) || 0),
+      sellPrice: acc.sellPrice + (Number(cabin[k].sellPrice) || 0) * (Number(cabin[k].quantity) || 0),
     }),
     { seatCount: 0, costPrice: 0, sellPrice: 0 },
   );
+}
+
+/** Hoa hồng xe cabin = (giá bán - giá nhập) x số lượng của từng dòng, cộng lại; không âm */
+function cabinCommission(cabin: CabinState): number {
+  const t = cabinTotals(cabin);
+  return Math.max(0, t.sellPrice - t.costPrice);
 }
 
 export interface OrderFormState {
@@ -498,8 +505,11 @@ export function OrderFormModal({
 
   const fullFare = calcFullFare(formState, zonePrices);
 
+  const isCabinType = formState.vehicleType === CABIN_VEHICLE_TYPE;
+
   useEffect(() => {
-    if (!isOpen) return;
+    // Xe cabin tự tính hoa hồng theo (giá bán - giá nhập) x số lượng, không theo % đối tác
+    if (!isOpen || isCabinType) return;
     const key = `${formState.partner.trim().toLowerCase()}|${quoteTickets}|${fullFare}`;
     if (editingId && lastQuoteKey.current === null) {
       lastQuoteKey.current = key;
@@ -544,7 +554,7 @@ export function OrderFormModal({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [isOpen, editingId, formState.partner, quoteTickets, fullFare]);
+  }, [isOpen, editingId, isCabinType, formState.partner, quoteTickets, fullFare]);
 
   const isCabin = formState.vehicleType === CABIN_VEHICLE_TYPE;
 
@@ -552,8 +562,17 @@ export function OrderFormModal({
   const updateCabin = (kind: CabinKind, patch: Partial<CabinState[CabinKind]>) => {
     setFormState((p) => {
       const cabin = { ...p.cabin, [kind]: { ...p.cabin[kind], ...patch } };
-      return { ...p, cabin, ...cabinTotals(cabin), seatFront: 0, seatMiddle: 0, seatBack: 0 };
+      return {
+        ...p,
+        cabin,
+        ...cabinTotals(cabin),
+        commission: cabinCommission(cabin),
+        seatFront: 0,
+        seatMiddle: 0,
+        seatBack: 0,
+      };
     });
+    setQuoteNote('Tự tính: (giá bán - giá nhập) x số lượng');
     setFormErrors((er) => ({ ...er, seats: undefined }));
   };
 
@@ -878,7 +897,13 @@ export function OrderFormModal({
                         vehicleType,
                         // Chọn Xe Cabin thì số ghế và giá lấy theo tổng các dòng cabin
                         ...(vehicleType === CABIN_VEHICLE_TYPE
-                          ? { ...cabinTotals(p.cabin), seatFront: 0, seatMiddle: 0, seatBack: 0 }
+                          ? {
+                              ...cabinTotals(p.cabin),
+                              commission: cabinCommission(p.cabin),
+                              seatFront: 0,
+                              seatMiddle: 0,
+                              seatBack: 0,
+                            }
                           : {}),
                         // Xe riêng không có ghế, chỉ nhập số xe
                         ...(vehicleType === PRIVATE_VEHICLE_TYPE
@@ -950,8 +975,8 @@ export function OrderFormModal({
                   <div className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     <span>Loại</span>
                     <span className="text-center">Số lượng</span>
-                    <span>Giá nhập</span>
-                    <span>Giá bán</span>
+                    <span>Giá nhập (1 cabin)</span>
+                    <span>Giá bán (1 cabin)</span>
                   </div>
                   {CABIN_KINDS.map((kind) => (
                     <div

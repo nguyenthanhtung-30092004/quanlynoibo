@@ -75,7 +75,7 @@ export function OrderDetailModal({
             <DetailRow
               key={l.kind}
               label={CABIN_LABELS[l.kind]}
-              value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ`}
+              value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ / cabin`}
             />
           ))}
           <DetailRow label="Điểm đón" value={order.pickupPoint} />

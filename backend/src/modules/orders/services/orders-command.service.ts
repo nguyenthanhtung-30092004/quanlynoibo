@@ -36,6 +36,9 @@ import { OrdersQueryService } from './orders-query.service.js';
 import { OrdersReportService } from './orders-report.service.js';
 import { OrdersColumnValuesService } from './orders-column-values.service.js';
 
+/** Cột tiền của đơn là int4; tổng đơn giá x số lượng không được vượt giới hạn này */
+const MONEY_COLUMN_MAX = 2_000_000_000;
+
 @Injectable()
 export class OrdersCommandService {
   private readonly logger = new Logger(OrdersCommandService.name);
@@ -109,6 +112,10 @@ export class OrdersCommandService {
     }
     if (new Set(sorted.map((l) => l.kind)).size !== sorted.length) {
       throw new BadRequestException('Mỗi loại cabin chỉ được có một dòng.');
+    }
+    const totals = cabinTotals(sorted);
+    if (totals.costPrice > MONEY_COLUMN_MAX || totals.sellPrice > MONEY_COLUMN_MAX) {
+      throw new BadRequestException('Tổng giá nhập hoặc giá bán của các dòng cabin quá lớn.');
     }
     return sorted.map((l) => ({
       kind: l.kind,

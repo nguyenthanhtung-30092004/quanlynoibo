@@ -24,8 +24,9 @@ describe('cabin lines', () => {
   it('tổng số ghế, giá nhập, giá bán bằng tổng các dòng', () => {
     expect(cabinTotals([single, double])).toEqual({
       seatCount: 3,
-      costPrice: 1_500_000,
-      sellPrice: 1_900_000,
+      // đơn giá x số lượng: 2 x 800k + 1 x 700k, 2 x 1M + 1 x 900k
+      costPrice: 2_300_000,
+      sellPrice: 2_900_000,
     });
   });
 
