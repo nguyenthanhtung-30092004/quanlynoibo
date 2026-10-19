@@ -81,8 +81,9 @@ export function OrderDetailModal({
           <DetailRow label="Điểm đón" value={order.pickupPoint} />
           <DetailRow label="Điểm trả" value={order.dropoffPoint} />
           <DetailRow
-            label="Số ghế"
+            label={order.vehicleCount > 0 ? 'Số xe' : 'Số ghế'}
             value={[
+              order.vehicleCount > 0 && `${order.vehicleCount} xe`,
               order.seatCount > 0 && `${order.seatCount} ghế`,
               order.seatFront > 0 && `${order.seatFront} đầu`,
               order.seatMiddle > 0 && `${order.seatMiddle} giữa`,

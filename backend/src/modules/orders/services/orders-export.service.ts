@@ -4,7 +4,7 @@ import { Repository } from 'typeorm';
 import ExcelJS from 'exceljs';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { User } from '../../users/entities/user.entity.js';
-import { CABIN_LABELS, Order } from '../entities/order.entity.js';
+import { CABIN_LABELS, Order, PRIVATE_VEHICLE_TYPE } from '../entities/order.entity.js';
 import type { OrderFilterDto } from '../dto/query-orders.dto.js';
 import { filterOrdersByPartner } from '../order-partner.util.js';
 import {
@@ -115,7 +115,17 @@ export class OrdersExportService {
       { header: 'TUYẾN ĐI', width: 30, value: (o) => neutralizeFormula(o.route?.name ?? '') },
       { header: 'GIỜ ĐI', width: 11, align: 'center', value: (o) => o.departureTime },
       { header: 'NGÀY KHỞI HÀNH', width: 18, align: 'center', fmt: 'dd/mm/yyyy', value: (o) => toExcelDate(o.departureDate) },
-      { header: 'LOẠI HÌNH', width: 22, value: (o) => neutralizeFormula(o.vehicleType ?? '') },
+      {
+        header: 'LOẠI HÌNH',
+        width: 22,
+        // Xe riêng ghi kèm số xe (không tính vào cột SỐ GHẾ)
+        value: (o) =>
+          neutralizeFormula(
+            o.vehicleType === PRIVATE_VEHICLE_TYPE && o.vehicleCount > 0
+              ? `${o.vehicleType} x${o.vehicleCount}`
+              : (o.vehicleType ?? ''),
+          ),
+      },
       { header: 'ĐẦU', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatFront || '' },
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },

@@ -30,6 +30,7 @@ import { PartnerTrigramIndex1710000000009 } from './migrations/1710000000009-Par
 import { PhoneTrigramDropSearchText1710000000010 } from './migrations/1710000000010-PhoneTrigramDropSearchText.js';
 import { PartnerCommissionPercent1710000000011 } from './migrations/1710000000011-PartnerCommissionPercent.js';
 import { OrderCabinLines1710000000012 } from './migrations/1710000000012-OrderCabinLines.js';
+import { OrderVehicleCount1710000000013 } from './migrations/1710000000013-OrderVehicleCount.js';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { OrderCabinLines1710000000012 } from './migrations/1710000000012-OrderCa
           PhoneTrigramDropSearchText1710000000010,
           PartnerCommissionPercent1710000000011,
           OrderCabinLines1710000000012,
+          OrderVehicleCount1710000000013,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

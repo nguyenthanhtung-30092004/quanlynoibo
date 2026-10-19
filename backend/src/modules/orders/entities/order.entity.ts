@@ -22,6 +22,9 @@ export enum SeatZone {
 /** Loại hình "Xe Cabin": đơn có thể gồm cả cabin đơn và cabin đôi, mỗi loại một dòng chi tiết */
 export const CABIN_VEHICLE_TYPE = 'Xe Cabin';
 
+/** Loại hình "Xe Riêng": chỉ ghi số xe, không có ghế và không tính vào số vé */
+export const PRIVATE_VEHICLE_TYPE = 'Xe Riêng';
+
 export enum CabinKind {
   SINGLE = 'SINGLE',
   DOUBLE = 'DOUBLE',
@@ -128,6 +131,10 @@ export class Order {
    */
   @Column({ name: 'cabinLines', type: 'jsonb', nullable: true })
   cabinLines: CabinLine[] | null;
+
+  /** Số xe của đơn "Xe Riêng"; các loại hình khác luôn là 0 */
+  @Column({ name: 'vehicleCount', type: 'int', default: 0 })
+  vehicleCount: number;
 
   /** ĐÃ CỌC (VNĐ) */
   @Column({ type: 'int', default: 0 })

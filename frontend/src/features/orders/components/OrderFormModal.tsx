@@ -34,10 +34,13 @@ import {
 /** Loại hình "Xe Cabin": hiện bảng cabin đơn / cabin đôi thay cho ô số ghế */
 export const CABIN_VEHICLE_TYPE = 'Xe Cabin';
 
+/** Loại hình "Xe Riêng": chỉ nhập số xe và giá, không có ghế và không tính vào số vé */
+export const PRIVATE_VEHICLE_TYPE = 'Xe Riêng';
+
 /** Loại hình cho sẵn để chọn */
 export const VEHICLE_TYPES = [
   'Xe Limousine',
-  'Xe Riêng',
+  PRIVATE_VEHICLE_TYPE,
   CABIN_VEHICLE_TYPE,
   'Giường Nằm',
   'Gửi Hàng',
@@ -77,6 +80,7 @@ export interface OrderFormState {
   partner: string;
   vehicleType: string;
   cabin: CabinState;
+  vehicleCount: number;
   seatFront: number;
   seatMiddle: number;
   seatBack: number;
@@ -262,6 +266,8 @@ const EMPTY_ZONE_PRICES: Record<SeatKey, number> = {
 function calcFullFare(f: OrderFormState, prices: Record<SeatKey, number>): number {
   // Xe cabin: giá bán các dòng cabin chính là tổng tiền vé
   if (f.vehicleType === CABIN_VEHICLE_TYPE) return cabinTotals(f.cabin).sellPrice;
+  // Xe riêng: giá bán nhập tay chính là giá vé
+  if (f.vehicleType === PRIVATE_VEHICLE_TYPE) return Number(f.sellPrice) || 0;
   const front = Number(f.seatFront) || 0;
   const middle = Number(f.seatMiddle) || 0;
   const back = Number(f.seatBack) || 0;
@@ -297,7 +303,9 @@ function buildPreviewLines(f: OrderFormState): string[] {
     f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
     f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
     // Xe cabin đã có dòng "x Cabin Đơn + y Cabin Đôi" nên không ghi thêm tổng số ghế
-    f.vehicleType !== CABIN_VEHICLE_TYPE && seats > 0 && `${seats} ghế`,
+    f.vehicleType === PRIVATE_VEHICLE_TYPE
+      ? Number(f.vehicleCount) > 0 && `${Number(f.vehicleCount)} xe`
+      : f.vehicleType !== CABIN_VEHICLE_TYPE && seats > 0 && `${seats} ghế`,
     zones.length > 0 && zones.join(' + '),
   ].filter((line): line is string => !!line);
 }
@@ -341,6 +349,7 @@ export function OrderFormModal({
       partner: '',
       vehicleType: '',
       cabin: cabinFromLines(null),
+      vehicleCount: 0,
       seatFront: 0,
       seatMiddle: 0,
       seatBack: 0,
@@ -399,6 +408,11 @@ export function OrderFormModal({
         partner: editingOrder.partner ?? '',
         vehicleType: editingOrder.vehicleType ?? '',
         cabin: cabinFromLines(editingOrder.cabinLines),
+        // Đơn xe riêng cũ chưa có số xe thì lấy tạm số ghế đã nhập trước đây
+        vehicleCount:
+          editingOrder.vehicleType === PRIVATE_VEHICLE_TYPE
+            ? editingOrder.vehicleCount || editingOrder.seatCount
+            : 0,
         seatFront: editingOrder.seatFront,
         seatMiddle: editingOrder.seatMiddle,
         seatBack: editingOrder.seatBack,
@@ -425,6 +439,10 @@ export function OrderFormModal({
         partner: rebookOrder.partner ?? '',
         vehicleType: rebookOrder.vehicleType ?? '',
         cabin: cabinFromLines(rebookOrder.cabinLines),
+        vehicleCount:
+          rebookOrder.vehicleType === PRIVATE_VEHICLE_TYPE
+            ? rebookOrder.vehicleCount || rebookOrder.seatCount
+            : 0,
         seatFront: rebookOrder.seatFront,
         seatMiddle: rebookOrder.seatMiddle,
         seatBack: rebookOrder.seatBack,
@@ -464,8 +482,14 @@ export function OrderFormModal({
     el.style.height = `${el.scrollHeight}px`;
   }, [boxText, isOpen]);
 
-  const quoteTickets =
-    Number(formState.seatCount) > 0
+  const isPrivate = formState.vehicleType === PRIVATE_VEHICLE_TYPE;
+
+  // Xe riêng không tính vé: chỉ cần 1 để hỏi server hoa hồng theo % giá bán
+  const quoteTickets = isPrivate
+    ? Number(formState.vehicleCount) > 0
+      ? 1
+      : 0
+    : Number(formState.seatCount) > 0
       ? Number(formState.seatCount)
       : (Number(formState.seatFront) || 0) +
         (Number(formState.seatMiddle) || 0) +
@@ -605,8 +629,16 @@ export function OrderFormModal({
       (Number(formState.seatMiddle) || 0) +
       (Number(formState.seatBack) || 0);
     const cabinSum = cabinTotals(formState.cabin);
-    const count = isCabin ? cabinSum.seatCount : Number(formState.seatCount) || 0;
-    if (isCabin) {
+    const count = isCabin
+      ? cabinSum.seatCount
+      : isPrivate
+        ? 0
+        : Number(formState.seatCount) || 0;
+    if (isPrivate) {
+      if ((Number(formState.vehicleCount) || 0) < 1) {
+        errors.seats = 'Nhập số xe (ít nhất 1).';
+      }
+    } else if (isCabin) {
       if (cabinSum.seatCount < 1) {
         errors.seats = 'Nhập số lượng cabin đơn hoặc cabin đôi (ít nhất 1).';
       }
@@ -638,9 +670,10 @@ export function OrderFormModal({
             ),
           }
         : {}),
-      seatFront: isCabin ? 0 : Number(formState.seatFront) || 0,
-      seatMiddle: isCabin ? 0 : Number(formState.seatMiddle) || 0,
-      seatBack: isCabin ? 0 : Number(formState.seatBack) || 0,
+      ...(isPrivate ? { vehicleCount: Number(formState.vehicleCount) || 0 } : {}),
+      seatFront: isCabin || isPrivate ? 0 : Number(formState.seatFront) || 0,
+      seatMiddle: isCabin || isPrivate ? 0 : Number(formState.seatMiddle) || 0,
+      seatBack: isCabin || isPrivate ? 0 : Number(formState.seatBack) || 0,
       seatCount: count,
       departureTime: formState.departureTime.trim(),
       departureDate: formState.departureDate.trim(),
@@ -846,6 +879,10 @@ export function OrderFormModal({
                         ...(vehicleType === CABIN_VEHICLE_TYPE
                           ? { ...cabinTotals(p.cabin), seatFront: 0, seatMiddle: 0, seatBack: 0 }
                           : {}),
+                        // Xe riêng không có ghế, chỉ nhập số xe
+                        ...(vehicleType === PRIVATE_VEHICLE_TYPE
+                          ? { seatCount: 0, seatFront: 0, seatMiddle: 0, seatBack: 0 }
+                          : {}),
                       }));
                       setFormErrors((er) => ({ ...er, vehicleType: undefined, seats: undefined }));
                     }}
@@ -892,8 +929,22 @@ export function OrderFormModal({
 
           {/* Cột phải: số ghế + giá tiền + nội dung đơn */}
           <div className="space-y-4">
-            <Section step={3} title={isCabin ? 'Số lượng cabin' : 'Số ghế'}>
-              {isCabin ? (
+            <Section step={3} title={isCabin ? 'Số lượng cabin' : isPrivate ? 'Số xe' : 'Số ghế'}>
+              {isPrivate ? (
+                <Field label="Số lượng xe">
+                  <NumInput
+                    className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
+                    value={formState.vehicleCount}
+                    onChange={(n) => {
+                      setFormState((p) => ({ ...p, vehicleCount: n }));
+                      setFormErrors((er) => ({ ...er, seats: undefined }));
+                    }}
+                    min={0}
+                    max={60}
+                    blankZero
+                  />
+                </Field>
+              ) : isCabin ? (
                 <div className="space-y-2">
                   <div className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     <span>Loại</span>

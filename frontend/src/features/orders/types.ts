@@ -37,6 +37,8 @@ export interface Order {
   vehicleType: string | null;
   /** Chi tiết cabin đơn / cabin đôi; chỉ có khi loại hình là "Xe Cabin" */
   cabinLines: CabinLine[] | null;
+  /** Số xe của đơn "Xe Riêng" (không tính vào số vé); loại hình khác là 0 */
+  vehicleCount: number;
   seatZone: SeatZone | null;
   seatFront: number;
   seatMiddle: number;
@@ -179,6 +181,7 @@ export interface CreateOrderInput {
   departureDate: string;
   vehicleType?: string;
   cabinLines?: CabinLine[];
+  vehicleCount?: number;
   seatZone?: SeatZone;
   seatFront?: number;
   seatMiddle?: number;

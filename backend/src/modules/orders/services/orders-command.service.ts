@@ -12,7 +12,7 @@ import { Route } from '../../routes/entities/route.entity.js';
 import { User, UserRole } from '../../users/entities/user.entity.js';
 import { CabinLineDto, CreateOrderDto } from '../dto/create-order.dto.js';
 import { UpdateOrderDto } from '../dto/update-order.dto.js';
-import { CABIN_VEHICLE_TYPE, CabinLine, Order } from '../entities/order.entity.js';
+import { CABIN_VEHICLE_TYPE, CabinLine, Order, PRIVATE_VEHICLE_TYPE } from '../entities/order.entity.js';
 import {
   OrderChange,
   OrderHistory,
@@ -172,10 +172,19 @@ export class OrdersCommandService {
     const costPrice = cabin ? cabin.costPrice : (dto.costPrice ?? 0);
     const sellPrice = cabin ? cabin.sellPrice : (dto.sellPrice ?? 0);
 
+    // Xe riêng: chỉ ghi số xe, không có ghế và không tính vào số vé
+    const isPrivate = (dto.vehicleType ?? '').trim() === PRIVATE_VEHICLE_TYPE;
+    const vehicleCount = isPrivate ? (dto.vehicleCount ?? 0) : 0;
+    if (isPrivate && vehicleCount < 1) {
+      throw new BadRequestException('Nhập số xe (ít nhất 1).');
+    }
+
     const seats = cabin
       ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
-      : resolveSeats(dto);
-    if (seats.seatCount + seats.seatFront + seats.seatMiddle + seats.seatBack < 1) {
+      : isPrivate
+        ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: 0 }
+        : resolveSeats(dto);
+    if (!isPrivate && seats.seatCount + seats.seatFront + seats.seatMiddle + seats.seatBack < 1) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
 
@@ -189,6 +198,7 @@ export class OrdersCommandService {
         departureTime: dto.departureTime,
         departureDate: dto.departureDate,
         vehicleType: dto.vehicleType || null,
+        vehicleCount,
         cabinLines,
         seatZone: null,
         ...seats,
@@ -256,10 +266,21 @@ export class OrdersCommandService {
     );
     const cabin = nextCabinLines ? cabinTotals(nextCabinLines) : null;
 
+    const nextIsPrivate = (nextVehicleType ?? '').trim() === PRIVATE_VEHICLE_TYPE;
+    const nextVehicleCount = nextIsPrivate ? (dto.vehicleCount ?? order.vehicleCount) : 0;
+    if (nextIsPrivate && nextVehicleCount < 1) {
+      throw new BadRequestException('Nhập số xe (ít nhất 1).');
+    }
+
     const nextSeats = cabin
       ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
-      : resolveSeats(dto, order);
-    if (nextSeats.seatCount + nextSeats.seatFront + nextSeats.seatMiddle + nextSeats.seatBack < 1) {
+      : nextIsPrivate
+        ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: 0 }
+        : resolveSeats(dto, order);
+    if (
+      !nextIsPrivate &&
+      nextSeats.seatCount + nextSeats.seatFront + nextSeats.seatMiddle + nextSeats.seatBack < 1
+    ) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
 
@@ -273,6 +294,7 @@ export class OrdersCommandService {
       departureTime: dto.departureTime ?? order.departureTime,
       departureDate: dto.departureDate ?? order.departureDate,
       vehicleType: nextVehicleType,
+      vehicleCount: nextVehicleCount,
       ...nextSeats,
       costPrice: cabin ? cabin.costPrice : (dto.costPrice ?? order.costPrice),
       sellPrice: cabin ? cabin.sellPrice : (dto.sellPrice ?? order.sellPrice),
@@ -313,6 +335,7 @@ export class OrdersCommandService {
       partner: order.partner,
       vehicleType: order.vehicleType,
       cabinLines: describeCabinLines(order.cabinLines),
+      vehicleCount: order.vehicleCount,
       seatCount: order.seatCount,
       pickupPoint: order.pickupPoint,
       dropoffPoint: order.dropoffPoint,

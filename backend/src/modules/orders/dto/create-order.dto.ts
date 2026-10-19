@@ -140,6 +140,14 @@ export class CreateOrderDto {
   @Type(() => CabinLineDto)
   cabinLines?: CabinLineDto[];
 
+  @ApiPropertyOptional({ description: 'Số xe (chỉ cho loại hình "Xe Riêng")', example: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Số xe phải là số nguyên' })
+  @Min(0, { message: 'Số xe không được âm' })
+  @Max(60, { message: 'Số xe quá lớn' })
+  vehicleCount?: number;
+
   @ApiPropertyOptional({ description: 'Giá nhập (VNĐ)', example: 250000 })
   @IsOptional()
   @Type(() => Number)
