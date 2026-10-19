@@ -25,10 +25,10 @@ export class PartnersService {
   /** Gắn cờ canEdit theo người đang xem để giao diện biết có hiện nút sửa/xóa không */
   withPermission<T extends Partner>(partner: T, actor: JwtPayload) {
     // Hoa hồng mỗi vé chỉ Admin được xem: nhân viên không nhận trường này
-    const { commissionPerSeat, ...rest } = partner;
+    const { commissionPerSeat, commissionPercent, ...rest } = partner;
     return {
       ...rest,
-      ...(actor.role === UserRole.ADMIN ? { commissionPerSeat } : {}),
+      ...(actor.role === UserRole.ADMIN ? { commissionPerSeat, commissionPercent } : {}),
       canEdit: canModifyOwnToday(partner, actor),
     };
   }
@@ -47,6 +47,7 @@ export class PartnersService {
         name: dto.name,
         note: dto.note || null,
         commissionPerSeat: actor.role === UserRole.ADMIN ? (dto.commissionPerSeat ?? 0) : 0,
+        commissionPercent: actor.role === UserRole.ADMIN ? (dto.commissionPercent ?? 0) : 0,
         createdById: actor.sub,
       }),
     );
@@ -71,10 +72,11 @@ export class PartnersService {
   }
 
   /**
-   * Hoa hồng gợi ý cho một vé = hoa hồng mỗi vé của nhà xe x số vé.
-   * Trả null nếu nhà xe chưa có hoặc chưa đặt mức hoa hồng; không lộ mức mỗi vé cho nhân viên.
+   * Hoa hồng gợi ý cho một đơn. Ưu tiên theo %: tổng giá vé đầy đủ x % của đối tác;
+   * không có % (hoặc chưa nhập giá vé) thì dùng mức cố định mỗi vé x số vé.
+   * Trả null nếu đối tác chưa đặt mức nào; không lộ % hay mức mỗi vé cho nhân viên.
    */
-  async commissionQuote(name: string, seats: number) {
+  async commissionQuote(name: string, seats: number, fare = 0) {
     const key = name.trim();
     if (!key || seats < 1) return { commission: null };
     const lowerKey = key.toLowerCase();
@@ -90,7 +92,11 @@ export class PartnersService {
         .getOne();
       this.partnerByNameCache.set(lowerKey, { partner, expiresAt: now + this.CACHE_TTL_MS });
     }
-    if (!partner || partner.commissionPerSeat <= 0) return { commission: null };
+    if (!partner) return { commission: null };
+    if (partner.commissionPercent > 0 && fare > 0) {
+      return { commission: Math.round((fare * partner.commissionPercent) / 100) };
+    }
+    if (partner.commissionPerSeat <= 0) return { commission: null };
     return { commission: partner.commissionPerSeat * seats };
   }
 
@@ -110,6 +116,9 @@ export class PartnersService {
     if (dto.note !== undefined) partner.note = dto.note || null;
     if (dto.commissionPerSeat !== undefined && actor.role === UserRole.ADMIN) {
       partner.commissionPerSeat = dto.commissionPerSeat;
+    }
+    if (dto.commissionPercent !== undefined && actor.role === UserRole.ADMIN) {
+      partner.commissionPercent = dto.commissionPercent;
     }
     const saved = await this.repo.save(partner);
     this.clearCache();

@@ -6,6 +6,8 @@ export interface Partner {
   canEdit?: boolean;
   /** Hoa hồng mỗi vé (VNĐ); chỉ Admin nhận được, nhân viên không có trường này */
   commissionPerSeat?: number;
+  /** Hoa hồng theo % giá vé (0-100); chỉ Admin nhận được */
+  commissionPercent?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -15,4 +17,5 @@ export interface PartnerInput {
   note?: string;
   /** Chỉ Admin gửi; server bỏ qua nếu là nhân viên */
   commissionPerSeat?: number;
+  commissionPercent?: number;
 }

@@ -54,11 +54,12 @@ export class PartnersController {
   async commissionQuote(
     @Query('name') name = '',
     @Query('seats', new DefaultValuePipe(0), ParseIntPipe) seats: number,
+    @Query('fare', new DefaultValuePipe(0), ParseIntPipe) fare: number,
   ) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Tính hoa hồng thành công',
-      data: await this.partnersService.commissionQuote(name, seats),
+      data: await this.partnersService.commissionQuote(name, seats, Math.max(0, fare)),
     };
   }
 

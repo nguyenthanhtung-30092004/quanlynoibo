@@ -14,9 +14,10 @@ interface Draft {
   name: string;
   note: string;
   commissionPerSeat: number;
+  commissionPercent: number;
 }
 
-const EMPTY: Draft = { name: '', note: '', commissionPerSeat: 0 };
+const EMPTY: Draft = { name: '', note: '', commissionPerSeat: 0, commissionPercent: 0 };
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
@@ -33,7 +34,7 @@ export default function PartnersPage() {
   const { data: me } = useCurrentUser();
   // Hoa hồng mỗi vé chỉ Admin được xem và sửa
   const isAdmin = me?.role === 'ADMIN';
-  const columnCount = isAdmin ? 5 : 4;
+  const columnCount = isAdmin ? 6 : 4;
 
   const { data: partners = [], isLoading, isError, error } = usePartners();
   const createMutation = useCreatePartner();
@@ -63,7 +64,12 @@ export default function PartnersPage() {
 
   const openEdit = (p: Partner) => {
     setEditingId(p.id);
-    setDraft({ name: p.name, note: p.note ?? '', commissionPerSeat: p.commissionPerSeat ?? 0 });
+    setDraft({
+      name: p.name,
+      note: p.note ?? '',
+      commissionPerSeat: p.commissionPerSeat ?? 0,
+      commissionPercent: p.commissionPercent ?? 0,
+    });
     setIsOpenModal(true);
   };
 
@@ -77,7 +83,9 @@ export default function PartnersPage() {
     const input = {
       name,
       note: draft.note.trim(),
-      ...(isAdmin ? { commissionPerSeat: draft.commissionPerSeat } : {}),
+      ...(isAdmin
+        ? { commissionPerSeat: draft.commissionPerSeat, commissionPercent: draft.commissionPercent }
+        : {}),
     };
 
     try {
@@ -152,6 +160,7 @@ export default function PartnersPage() {
                 <th className={TH}>STT</th>
                 <th className={TH}>Tên đối tác</th>
                 <th className={TH}>Ghi chú</th>
+                {isAdmin && <th className={`${TH} text-right`}>Hoa hồng %</th>}
                 {isAdmin && <th className={`${TH} text-right`}>Hoa hồng / vé</th>}
                 <th className={`${TH} text-center`}>Thao tác</th>
               </tr>
@@ -190,6 +199,11 @@ export default function PartnersPage() {
                     <td className={`${TD} max-w-[420px] whitespace-normal text-slate-600 dark:text-slate-300`}>
                       {p.note || <span className="text-slate-400">—</span>}
                     </td>
+                    {isAdmin && (
+                      <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
+                        {p.commissionPercent ? `${p.commissionPercent}%` : <span className="font-normal text-slate-400">Chưa đặt</span>}
+                      </td>
+                    )}
                     {isAdmin && (
                       <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
                         {p.commissionPerSeat ? `${money(p.commissionPerSeat)}đ` : <span className="font-normal text-slate-400">Chưa đặt</span>}
@@ -241,6 +255,28 @@ export default function PartnersPage() {
               />
             </Field>
             {isAdmin && (
+              <Field label="Hoa hồng theo % giá vé">
+                <input
+                  className="input-3d font-bold"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.5}
+                  value={draft.commissionPercent || ''}
+                  onChange={(e) =>
+                    setDraft((d) => ({
+                      ...d,
+                      commissionPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                    }))
+                  }
+                  placeholder="VD: 10 (để trống nếu không tính theo %)"
+                />
+                <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+                  Khi nhập vé, hoa hồng tự tính = tổng giá vé đầy đủ x %. Có % thì ưu tiên hơn mức cố định mỗi vé.
+                </span>
+              </Field>
+            )}
+            {isAdmin && (
               <Field label="Hoa hồng mỗi vé (VNĐ)">
                 <input
                   className="input-3d font-bold"
@@ -252,7 +288,7 @@ export default function PartnersPage() {
                   placeholder="VD: 20000 (để trống nếu chưa có)"
                 />
                 <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                  Khi nhập vé của nhà xe này, hoa hồng tự tính = mức này x số ghế. Nhân viên không thấy mục này.
+                  Khi nhập vé của nhà xe này, hoa hồng tự tính = mức này x số ghế (dùng khi không đặt %). Nhân viên không thấy mục này.
                 </span>
               </Field>
             )}

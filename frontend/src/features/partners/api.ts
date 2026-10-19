@@ -8,11 +8,14 @@ export const partnersApi = {
   list: (signal?: AbortSignal) =>
     api<Paginated<Partner>>('partners', { signal, query: { limit: PARTNERS_LIMIT } }),
 
-  /** Hoa hồng gợi ý = hoa hồng mỗi vé của nhà xe x số vé; null nếu nhà xe chưa đặt mức */
-  commissionQuote: (name: string, seats: number, signal?: AbortSignal) =>
+  /**
+   * Hoa hồng gợi ý: ưu tiên % của đối tác x tổng giá vé đầy đủ (`fare`),
+   * không có thì mức cố định mỗi vé x số vé; null nếu đối tác chưa đặt mức nào
+   */
+  commissionQuote: (name: string, seats: number, fare: number, signal?: AbortSignal) =>
     api<ApiResponse<{ commission: number | null }>>('partners/commission-quote', {
       signal,
-      query: { name, seats },
+      query: { name, seats, fare },
     }).then((res) => res.data.commission),
 
   create: (input: PartnerInput) =>
