@@ -929,10 +929,6 @@ export function OrderFormModal({
                       />
                     </div>
                   ))}
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
-                    Giá nhập, giá bán là tổng tiền của từng loại cabin. Đơn có cả hai loại sẽ được tách
-                    thành hai dòng khi xuất Excel.
-                  </p>
                 </div>
               ) : (
               <>
