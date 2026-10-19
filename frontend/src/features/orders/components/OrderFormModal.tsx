@@ -814,24 +814,29 @@ export function OrderFormModal({
           {/* Cột phải: số ghế + giá tiền + nội dung đơn */}
           <div className="space-y-4">
             <Section step={3} title="Số ghế">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="space-y-2">
+                <div className="grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <span>Nhóm</span>
+                  <span className="text-center">Số ghế</span>
+                  <span>Giá vé (VNĐ / ghế)</span>
+                </div>
                 {(
                   [
-                    { key: 'seatCount', label: 'Số ghế' },
+                    { key: 'seatCount', label: 'Chung' },
                     { key: 'seatFront', label: 'Đầu' },
                     { key: 'seatMiddle', label: 'Giữa' },
                     { key: 'seatBack', label: 'Cuối' },
                   ] as const
                 ).map((z) => (
-                  <label
+                  <div
                     key={z.key}
-                    className={`block min-w-0 rounded-lg border p-2 ${
+                    className={`grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 rounded-lg border p-2 ${
                       z.key === 'seatCount'
                         ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40'
                         : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/60'
                     }`}
                   >
-                    <span className="mb-1 block text-center text-[11px] font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                    <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                       {z.label}
                     </span>
                     <NumInput
@@ -845,15 +850,12 @@ export function OrderFormModal({
                       max={60}
                       blankZero
                     />
-                    <span className="mb-1 mt-2 block text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                      Giá vé
-                    </span>
                     <MoneyInput
-                      className="input-3d !px-1 text-center !text-xs font-bold"
+                      className="input-3d min-w-0 text-right font-bold"
                       value={zonePrices[z.key]}
                       onChange={(n) => setZonePrices((p) => ({ ...p, [z.key]: n }))}
                     />
-                  </label>
+                  </div>
                 ))}
               </div>
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
