@@ -19,6 +19,27 @@ export enum SeatZone {
   BACK = 'BACK',
 }
 
+/** Loại hình "Xe Cabin": đơn có thể gồm cả cabin đơn và cabin đôi, mỗi loại một dòng chi tiết */
+export const CABIN_VEHICLE_TYPE = 'Xe Cabin';
+
+export enum CabinKind {
+  SINGLE = 'SINGLE',
+  DOUBLE = 'DOUBLE',
+}
+
+export const CABIN_LABELS: Record<CabinKind, string> = {
+  [CabinKind.SINGLE]: 'Cabin Đơn',
+  [CabinKind.DOUBLE]: 'Cabin Đôi',
+};
+
+/** Một dòng chi tiết cabin; giá nhập / giá bán là tổng tiền của dòng đó */
+export interface CabinLine {
+  kind: CabinKind;
+  quantity: number;
+  costPrice: number;
+  sellPrice: number;
+}
+
 /** Một dòng trong sổ "Nhật ký" */
 @Index(['createdAt', 'id'])
 @Index(['createdById', 'createdAt', 'id'])
@@ -100,6 +121,13 @@ export class Order {
   /** GIÁ BÁN (VNĐ) */
   @Column({ name: 'sellPrice', type: 'int', default: 0 })
   sellPrice: number;
+
+  /**
+   * Chi tiết cabin đơn / cabin đôi (chỉ có khi loại hình là "Xe Cabin").
+   * Số ghế, giá nhập, giá bán của đơn luôn bằng tổng các dòng này nên báo cáo và bộ lọc không đổi.
+   */
+  @Column({ name: 'cabinLines', type: 'jsonb', nullable: true })
+  cabinLines: CabinLine[] | null;
 
   /** ĐÃ CỌC (VNĐ) */
   @Column({ type: 'int', default: 0 })

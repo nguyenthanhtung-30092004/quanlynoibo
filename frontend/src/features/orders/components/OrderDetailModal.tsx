@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { money } from '@/features/xvip/data';
 import { Modal } from '@/features/xvip/Modal';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
-import type { Order } from '../types';
+import { CABIN_LABELS, type Order } from '../types';
 
 /** Nhóm các dòng thông tin trong hộp chi tiết đơn */
 function DetailGroup({ title, children }: { title: string; children: ReactNode }) {
@@ -71,6 +71,13 @@ export function OrderDetailModal({
           />
           <DetailRow label="Nhà xe" value={order.partner || 'XVIP'} />
           <DetailRow label="Loại hình" value={order.vehicleType} />
+          {order.cabinLines?.map((l) => (
+            <DetailRow
+              key={l.kind}
+              label={CABIN_LABELS[l.kind]}
+              value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ`}
+            />
+          ))}
           <DetailRow label="Điểm đón" value={order.pickupPoint} />
           <DetailRow label="Điểm trả" value={order.dropoffPoint} />
           <DetailRow

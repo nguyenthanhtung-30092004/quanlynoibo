@@ -15,29 +15,60 @@ import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import { handleArrowNav } from '@/features/xvip/arrow-nav';
-import { formatDateVN, formatOrderCode } from '@/lib/format';
+import { formatDateVN, formatOrderCode, formatVND } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '../parse-order-text';
 import { partnersApi } from '@/features/partners/api';
 import type { Route } from '@/features/routes/types';
 import type { User } from '@/features/users/types';
-import type {
-  CreateOrderInput,
-  MessageChannel,
-  Order,
+import {
+  CABIN_KINDS,
+  CABIN_LABELS,
+  type CabinKind,
+  type CabinLine,
+  type CreateOrderInput,
+  type MessageChannel,
+  type Order,
 } from '../types';
+
+/** Loại hình "Xe Cabin": hiện bảng cabin đơn / cabin đôi thay cho ô số ghế */
+export const CABIN_VEHICLE_TYPE = 'Xe Cabin';
 
 /** Loại hình cho sẵn để chọn */
 export const VEHICLE_TYPES = [
   'Xe Limousine',
   'Xe Riêng',
-  'Cabin Đơn',
-  'Cabin Đôi',
+  CABIN_VEHICLE_TYPE,
   'Giường Nằm',
   'Gửi Hàng',
   'Khách Sạn',
   'Vé Fan',
 ];
+
+/** Số lượng, giá nhập, giá bán (tổng tiền của dòng) cho từng loại cabin */
+export type CabinState = Record<CabinKind, { quantity: number; costPrice: number; sellPrice: number }>;
+
+function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
+  const out: CabinState = {
+    SINGLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
+    DOUBLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
+  };
+  for (const l of lines ?? []) {
+    out[l.kind] = { quantity: l.quantity, costPrice: l.costPrice, sellPrice: l.sellPrice };
+  }
+  return out;
+}
+
+function cabinTotals(cabin: CabinState) {
+  return CABIN_KINDS.reduce(
+    (acc, k) => ({
+      seatCount: acc.seatCount + (Number(cabin[k].quantity) || 0),
+      costPrice: acc.costPrice + (Number(cabin[k].costPrice) || 0),
+      sellPrice: acc.sellPrice + (Number(cabin[k].sellPrice) || 0),
+    }),
+    { seatCount: 0, costPrice: 0, sellPrice: 0 },
+  );
+}
 
 export interface OrderFormState {
   customerName: string;
@@ -45,6 +76,7 @@ export interface OrderFormState {
   routeId: number;
   partner: string;
   vehicleType: string;
+  cabin: CabinState;
   seatFront: number;
   seatMiddle: number;
   seatBack: number;
@@ -228,6 +260,8 @@ const EMPTY_ZONE_PRICES: Record<SeatKey, number> = {
 
 /** Tổng tiền vé đầy đủ: mỗi nhóm đầu/giữa/cuối nhân giá riêng, ghế còn lại nhân giá ở ô "Số ghế" */
 function calcFullFare(f: OrderFormState, prices: Record<SeatKey, number>): number {
+  // Xe cabin: giá bán các dòng cabin chính là tổng tiền vé
+  if (f.vehicleType === CABIN_VEHICLE_TYPE) return cabinTotals(f.cabin).sellPrice;
   const front = Number(f.seatFront) || 0;
   const middle = Number(f.seatMiddle) || 0;
   const back = Number(f.seatBack) || 0;
@@ -244,11 +278,16 @@ function buildPreviewLines(f: OrderFormState): string[] {
   const join = (parts: (string | false | undefined)[], sep = ' - ') =>
     parts.filter(Boolean).join(sep);
   const seats = Number(f.seatCount) || 0;
-  const zones = [
-    Number(f.seatFront) > 0 && `${Number(f.seatFront)} ghế đầu`,
-    Number(f.seatMiddle) > 0 && `${Number(f.seatMiddle)} ghế giữa`,
-    Number(f.seatBack) > 0 && `${Number(f.seatBack)} ghế cuối`,
-  ].filter(Boolean);
+  const zones =
+    f.vehicleType === CABIN_VEHICLE_TYPE
+      ? CABIN_KINDS.map(
+          (k) => Number(f.cabin[k].quantity) > 0 && `${Number(f.cabin[k].quantity)} ${CABIN_LABELS[k]}`,
+        ).filter(Boolean)
+      : [
+          Number(f.seatFront) > 0 && `${Number(f.seatFront)} ghế đầu`,
+          Number(f.seatMiddle) > 0 && `${Number(f.seatMiddle)} ghế giữa`,
+          Number(f.seatBack) > 0 && `${Number(f.seatBack)} ghế cuối`,
+        ].filter(Boolean);
   return [
     join(
       [f.departureTime, f.departureDate && formatDateVN(f.departureDate)],
@@ -300,6 +339,7 @@ export function OrderFormModal({
       routeId: 0,
       partner: '',
       vehicleType: '',
+      cabin: cabinFromLines(null),
       seatFront: 0,
       seatMiddle: 0,
       seatBack: 0,
@@ -357,6 +397,7 @@ export function OrderFormModal({
         routeId: editingOrder.route?.id ?? 0,
         partner: editingOrder.partner ?? '',
         vehicleType: editingOrder.vehicleType ?? '',
+        cabin: cabinFromLines(editingOrder.cabinLines),
         seatFront: editingOrder.seatFront,
         seatMiddle: editingOrder.seatMiddle,
         seatBack: editingOrder.seatBack,
@@ -382,6 +423,7 @@ export function OrderFormModal({
         routeId: rebookOrder.route?.id ?? 0,
         partner: rebookOrder.partner ?? '',
         vehicleType: rebookOrder.vehicleType ?? '',
+        cabin: cabinFromLines(rebookOrder.cabinLines),
         seatFront: rebookOrder.seatFront,
         seatMiddle: rebookOrder.seatMiddle,
         seatBack: rebookOrder.seatBack,
@@ -478,6 +520,17 @@ export function OrderFormModal({
     };
   }, [isOpen, editingId, formState.partner, quoteTickets, fullFare]);
 
+  const isCabin = formState.vehicleType === CABIN_VEHICLE_TYPE;
+
+  /** Đổi dòng cabin: số ghế và giá nhập, giá bán của đơn luôn bằng tổng các dòng */
+  const updateCabin = (kind: CabinKind, patch: Partial<CabinState[CabinKind]>) => {
+    setFormState((p) => {
+      const cabin = { ...p.cabin, [kind]: { ...p.cabin[kind], ...patch } };
+      return { ...p, cabin, ...cabinTotals(cabin), seatFront: 0, seatMiddle: 0, seatBack: 0 };
+    });
+    setFormErrors((er) => ({ ...er, seats: undefined }));
+  };
+
   const handleBoxChange = (text: string) => {
     const year = Number(getVnToday().slice(0, 4));
     const prev = parseOrderText(boxText, year);
@@ -550,8 +603,13 @@ export function OrderFormModal({
       (Number(formState.seatFront) || 0) +
       (Number(formState.seatMiddle) || 0) +
       (Number(formState.seatBack) || 0);
-    const count = Number(formState.seatCount) || 0;
-    if (count < 1 && totalSeats < 1) {
+    const cabinSum = cabinTotals(formState.cabin);
+    const count = isCabin ? cabinSum.seatCount : Number(formState.seatCount) || 0;
+    if (isCabin) {
+      if (cabinSum.seatCount < 1) {
+        errors.seats = 'Nhập số lượng cabin đơn hoặc cabin đôi (ít nhất 1).';
+      }
+    } else if (count < 1 && totalSeats < 1) {
       errors.seats = 'Nhập số ghế hoặc ghế đầu / giữa / cuối (ít nhất 1).';
     }
 
@@ -567,14 +625,26 @@ export function OrderFormModal({
       routeId: formState.routeId,
       partner: formState.partner.trim(),
       vehicleType: formState.vehicleType.trim(),
-      seatFront: Number(formState.seatFront) || 0,
-      seatMiddle: Number(formState.seatMiddle) || 0,
-      seatBack: Number(formState.seatBack) || 0,
+      ...(isCabin
+        ? {
+            cabinLines: CABIN_KINDS.filter((k) => Number(formState.cabin[k].quantity) > 0).map(
+              (kind): CabinLine => ({
+                kind,
+                quantity: Number(formState.cabin[kind].quantity) || 0,
+                costPrice: Number(formState.cabin[kind].costPrice) || 0,
+                sellPrice: Number(formState.cabin[kind].sellPrice) || 0,
+              }),
+            ),
+          }
+        : {}),
+      seatFront: isCabin ? 0 : Number(formState.seatFront) || 0,
+      seatMiddle: isCabin ? 0 : Number(formState.seatMiddle) || 0,
+      seatBack: isCabin ? 0 : Number(formState.seatBack) || 0,
       seatCount: count,
       departureTime: formState.departureTime.trim(),
       departureDate: formState.departureDate.trim(),
-      sellPrice: Number(formState.sellPrice) || 0,
-      costPrice: Number(formState.costPrice) || 0,
+      sellPrice: isCabin ? cabinSum.sellPrice : Number(formState.sellPrice) || 0,
+      costPrice: isCabin ? cabinSum.costPrice : Number(formState.costPrice) || 0,
       deposit: Number(formState.deposit) || 0,
       collectOnDelivery: Number(formState.collectOnDelivery) || 0,
       commission: Number(formState.commission) || 0,
@@ -767,8 +837,16 @@ export function OrderFormModal({
                     aria-invalid={!!formErrors.vehicleType}
                     value={formState.vehicleType}
                     onChange={(e) => {
-                      setFormState((p) => ({ ...p, vehicleType: e.target.value }));
-                      setFormErrors((er) => ({ ...er, vehicleType: undefined }));
+                      const vehicleType = e.target.value;
+                      setFormState((p) => ({
+                        ...p,
+                        vehicleType,
+                        // Chọn Xe Cabin thì số ghế và giá lấy theo tổng các dòng cabin
+                        ...(vehicleType === CABIN_VEHICLE_TYPE
+                          ? { ...cabinTotals(p.cabin), seatFront: 0, seatMiddle: 0, seatBack: 0 }
+                          : {}),
+                      }));
+                      setFormErrors((er) => ({ ...er, vehicleType: undefined, seats: undefined }));
                     }}
                   >
                     <option value="" hidden disabled />
@@ -813,7 +891,50 @@ export function OrderFormModal({
 
           {/* Cột phải: số ghế + giá tiền + nội dung đơn */}
           <div className="space-y-4">
-            <Section step={3} title="Số ghế">
+            <Section step={3} title={isCabin ? 'Số lượng cabin' : 'Số ghế'}>
+              {isCabin ? (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    <span>Loại</span>
+                    <span className="text-center">Số lượng</span>
+                    <span>Giá nhập</span>
+                    <span>Giá bán</span>
+                  </div>
+                  {CABIN_KINDS.map((kind) => (
+                    <div
+                      key={kind}
+                      className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/60"
+                    >
+                      <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                        {CABIN_LABELS[kind]}
+                      </span>
+                      <NumInput
+                        className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
+                        value={formState.cabin[kind].quantity}
+                        onChange={(n) => updateCabin(kind, { quantity: n })}
+                        min={0}
+                        max={60}
+                        blankZero
+                      />
+                      <MoneyInput
+                        className="input-3d min-w-0 text-right font-bold"
+                        value={formState.cabin[kind].costPrice}
+                        onChange={(n) => updateCabin(kind, { costPrice: n })}
+                      />
+                      <MoneyInput
+                        className="input-3d min-w-0 text-right font-bold text-blue-900 dark:text-blue-400"
+                        value={formState.cabin[kind].sellPrice}
+                        onChange={(n) => updateCabin(kind, { sellPrice: n })}
+                      />
+                    </div>
+                  ))}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Giá nhập, giá bán là tổng tiền của từng loại cabin. Đơn có cả hai loại sẽ được tách
+                    thành hai dòng khi xuất Excel.
+                  </p>
+                </div>
+              ) : (
+              <>
               <div className="space-y-2">
                 <div className="grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   <span>Nhóm</span>
@@ -861,6 +982,8 @@ export function OrderFormModal({
               <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                 Ô &quot;Giá vé&quot; là giá đầy đủ 1 vé, dùng để tự tính hoa hồng theo % đã đặt ở mục Đối tác.
               </p>
+              </>
+              )}
               {formErrors.seats && (
                 <span
                   role="alert"
@@ -873,22 +996,39 @@ export function OrderFormModal({
 
             <Section step={4} title="Giá tiền (VNĐ)">
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                <Field label="Giá nhập">
-                  <MoneyInput
-                    className="input-3d"
-                    value={formState.costPrice}
-                    onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))}
-                  />
-                </Field>
+                {isCabin ? (
+                  <>
+                    <Field label="Tổng giá nhập (từ bảng cabin)">
+                      <div className="input-3d flex items-center justify-end font-bold tnum">
+                        {formatVND(formState.costPrice)}
+                      </div>
+                    </Field>
+                    <Field label="Tổng giá bán (từ bảng cabin)">
+                      <div className="input-3d flex items-center justify-end font-bold tnum text-blue-900 dark:text-blue-400">
+                        {formatVND(formState.sellPrice)}
+                      </div>
+                    </Field>
+                  </>
+                ) : (
+                  <>
+                    <Field label="Giá nhập">
+                      <MoneyInput
+                        className="input-3d"
+                        value={formState.costPrice}
+                        onChange={(n) => setFormState((p) => ({ ...p, costPrice: n }))}
+                      />
+                    </Field>
 
-                <Field label="Giá bán" required>
-                  <MoneyInput
-                    className="input-3d font-bold text-blue-900 dark:text-blue-400"
-                    value={formState.sellPrice}
-                    onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))}
-                    required
-                  />
-                </Field>
+                    <Field label="Giá bán" required>
+                      <MoneyInput
+                        className="input-3d font-bold text-blue-900 dark:text-blue-400"
+                        value={formState.sellPrice}
+                        onChange={(n) => setFormState((p) => ({ ...p, sellPrice: n }))}
+                        required
+                      />
+                    </Field>
+                  </>
+                )}
 
                 <Field label="Đã cọc">
                   <MoneyInput

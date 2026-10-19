@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsEnum,
   IsInt,
   IsNotEmpty,
@@ -10,13 +12,41 @@ import {
   Matches,
   Max,
   Min,
+  ValidateNested,
 } from 'class-validator';
-import { SeatZone } from '../entities/order.entity.js';
+import { CabinKind, SeatZone } from '../entities/order.entity.js';
 
 const trim = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim() : value;
 
 const MONEY_MAX = 2_000_000_000;
+
+export class CabinLineDto {
+  @ApiProperty({ enum: CabinKind, description: 'Cabin đơn hoặc cabin đôi' })
+  @IsEnum(CabinKind, { message: 'Loại cabin phải là SINGLE hoặc DOUBLE' })
+  kind: CabinKind;
+
+  @ApiProperty({ description: 'Số lượng cabin', example: 2 })
+  @Type(() => Number)
+  @IsInt({ message: 'Số lượng cabin phải là số nguyên' })
+  @Min(1, { message: 'Số lượng cabin ít nhất là 1' })
+  @Max(60, { message: 'Số lượng cabin quá lớn' })
+  quantity: number;
+
+  @ApiProperty({ description: 'Giá nhập của dòng (VNĐ)', example: 500000 })
+  @Type(() => Number)
+  @IsInt({ message: 'Giá nhập phải là số nguyên' })
+  @Min(0, { message: 'Giá nhập không được âm' })
+  @Max(MONEY_MAX, { message: 'Giá nhập quá lớn' })
+  costPrice: number;
+
+  @ApiProperty({ description: 'Giá bán của dòng (VNĐ)', example: 600000 })
+  @Type(() => Number)
+  @IsInt({ message: 'Giá bán phải là số nguyên' })
+  @Min(0, { message: 'Giá bán không được âm' })
+  @Max(MONEY_MAX, { message: 'Giá bán quá lớn' })
+  sellPrice: number;
+}
 
 /**
  * Ngày vào sổ và nhân viên (NV) KHÔNG nằm ở đây: server tự điền
@@ -97,6 +127,18 @@ export class CreateOrderDto {
   @Min(0, { message: 'Số ghế không được âm' })
   @Max(60, { message: 'Số ghế quá lớn' })
   seatCount?: number;
+
+  @ApiPropertyOptional({
+    type: [CabinLineDto],
+    description:
+      'Chi tiết cabin đơn / cabin đôi (loại hình "Xe Cabin"); khi có, số ghế và giá nhập, giá bán lấy bằng tổng các dòng',
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(2, { message: 'Chỉ có cabin đơn và cabin đôi' })
+  @ValidateNested({ each: true })
+  @Type(() => CabinLineDto)
+  cabinLines?: CabinLineDto[];
 
   @ApiPropertyOptional({ description: 'Giá nhập (VNĐ)', example: 250000 })
   @IsOptional()

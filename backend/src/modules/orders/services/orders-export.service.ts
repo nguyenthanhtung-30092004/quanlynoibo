@@ -4,12 +4,13 @@ import { Repository } from 'typeorm';
 import ExcelJS from 'exceljs';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { User } from '../../users/entities/user.entity.js';
-import { Order } from '../entities/order.entity.js';
+import { CABIN_LABELS, Order } from '../entities/order.entity.js';
 import type { OrderFilterDto } from '../dto/query-orders.dto.js';
 import { filterOrdersByPartner } from '../order-partner.util.js';
 import {
   neutralizeFormula,
   seatsOf,
+  sortCabinLines,
   toExcelDate,
 } from '../mappers/order.mapper.js';
 import { OrdersQueryService } from './orders-query.service.js';
@@ -46,6 +47,32 @@ export class OrdersExportService {
     const activeCount = orders.filter((o) => !isCancelled(o)).length;
     const cancelledCount = orders.length - activeCount;
 
+    // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
+    // Tiền cọc, nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi.
+    type Row = { order: Order; view: Order; orderIndex: number };
+    const rows: Row[] = orders.flatMap((o, orderIndex) => {
+      const lines = sortCabinLines(o.cabinLines);
+      if (!lines) return [{ order: o, view: o, orderIndex }];
+      return lines.map((line, i): Row => ({
+        order: o,
+        orderIndex,
+        view: Object.assign(Object.create(Object.getPrototypeOf(o)) as Order, o, {
+          vehicleType: CABIN_LABELS[line.kind],
+          seatFront: 0,
+          seatMiddle: 0,
+          seatBack: 0,
+          seatZone: null,
+          seatCount: line.quantity,
+          costPrice: line.costPrice,
+          sellPrice: line.sellPrice,
+          deposit: i === 0 ? o.deposit : 0,
+          collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
+          commission: i === 0 ? o.commission : 0,
+        }),
+      }));
+    });
+    const hasSplitRows = rows.length !== orders.length;
+
     // ---- bảng màu
     const NAVY = 'FF0F2A5C';
     const BLUE = 'FF2563EB';
@@ -79,7 +106,7 @@ export class OrdersExportService {
     };
     const seats = (o: Order) => seatsOf(o);
     const COLS: Col[] = [
-      { header: 'STT', width: 8, align: 'center', value: (_o, i) => i + 1 },
+      { header: 'STT', width: 8, align: 'center', value: (_o, i) => rows[i].orderIndex + 1 },
       { header: 'TRẠNG THÁI', width: 16, align: 'center', value: (o) => (isCancelled(o) ? 'ĐÃ HỦY' : 'Hợp lệ') },
       { header: 'NGÀY VÀO SỔ', width: 16, align: 'center', fmt: 'dd/mm/yyyy', value: (o) => toExcelDate(o.entryDate) },
       { header: 'NV', width: 20, value: (o) => o.createdBy?.fullName ?? '' },
@@ -151,7 +178,7 @@ export class OrdersExportService {
     });
 
     // ---- dữ liệu
-    orders.forEach((o, idx) => {
+    rows.forEach(({ view: o, orderIndex }, idx) => {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
       row.height = 21;
       const cancelled = isCancelled(o);
@@ -164,7 +191,7 @@ export class OrdersExportService {
         if (cancelled) {
           cell.fill = solid(RED_BG);
           cell.font = { color: { argb: 'FF7F1D1D' } };
-        } else if (idx % 2 === 1) {
+        } else if (orderIndex % 2 === 1) {
           cell.fill = solid(BAND);
         }
       });
@@ -176,7 +203,7 @@ export class OrdersExportService {
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)
     const first = HEADER_ROW + 1;
-    const last = HEADER_ROW + orders.length;
+    const last = HEADER_ROW + rows.length;
     const totalRow = sheet.getRow(last + 1);
     totalRow.height = 26;
     sheet.mergeCells(last + 1, 1, last + 1, 4);
@@ -187,12 +214,12 @@ export class OrdersExportService {
       const cell = totalRow.getCell(i + 1);
       cell.fill = solid(GOLD);
       cell.font = { bold: true, size: 12, color: { argb: NAVY } };
-      if (c.sum && orders.length > 0) {
+      if (c.sum && rows.length > 0) {
         const colLetter = sheet.getColumn(i + 1).letter;
-        const result = orders
-          .filter((o) => !isCancelled(o))
-          .reduce((acc, o) => {
-            const v = c.value(o, 0);
+        const result = rows
+          .filter((r) => !isCancelled(r.view))
+          .reduce((acc, r) => {
+            const v = c.value(r.view, 0);
             return acc + (typeof v === 'number' ? v : 0);
           }, 0);
         cell.value = {
@@ -204,7 +231,7 @@ export class OrdersExportService {
       }
     });
 
-    if (orders.length > 0) {
+    if (rows.length > 0) {
       sheet.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: last, column: N } };
     }
     sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
@@ -213,13 +240,14 @@ export class OrdersExportService {
     const colIndex = (header: string) => COLS.findIndex((c) => c.header === header) + 1;
     const totalCell = (header: string) => `${sheet.getColumn(colIndex(header)).letter}${last + 1}`;
     const sumOf = (pick: (o: Order) => number) =>
-      orders.filter((o) => !isCancelled(o)).reduce((acc, o) => acc + pick(o), 0);
+      rows.filter((r) => !isCancelled(r.view)).reduce((acc, r) => acc + pick(r.view), 0);
     const hasRows = orders.length > 0;
     const statusRange = `$B$${first}:$B$${last}`;
     const panel: Array<{ label: string; value: ExcelJS.CellValue; fmt?: string; color?: string }> = [
-      { label: 'Tổng số đơn', value: hasRows ? { formula: `COUNTA(${statusRange})`, result: orders.length } : 0 },
-      { label: 'Đơn hợp lệ', value: hasRows ? { formula: `COUNTIF(${statusRange},"Hợp lệ")`, result: activeCount } : 0, color: GREEN },
-      { label: 'Đơn đã hủy', value: hasRows ? { formula: `COUNTIF(${statusRange},"ĐÃ HỦY")`, result: cancelledCount } : 0, color: RED },
+      // Có đơn tách dòng thì một đơn chiếm nhiều dòng, nên đếm đơn bằng số cố định thay vì công thức đếm dòng
+      { label: 'Tổng số đơn', value: hasRows ? (hasSplitRows ? orders.length : { formula: `COUNTA(${statusRange})`, result: orders.length }) : 0 },
+      { label: 'Đơn hợp lệ', value: hasRows ? (hasSplitRows ? activeCount : { formula: `COUNTIF(${statusRange},"Hợp lệ")`, result: activeCount }) : 0, color: GREEN },
+      { label: 'Đơn đã hủy', value: hasRows ? (hasSplitRows ? cancelledCount : { formula: `COUNTIF(${statusRange},"ĐÃ HỦY")`, result: cancelledCount }) : 0, color: RED },
       { label: 'Tổng vé (số ghế, vé hợp lệ)', value: hasRows ? { formula: totalCell('SỐ GHẾ'), result: sumOf((o) => o.seatCount) } : 0 },
       { label: 'Tổng giá bán (vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: sumOf((o) => o.sellPrice) } : 0, fmt: '#,##0" đ"' },
       { label: 'Tổng hoa hồng (vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: sumOf((o) => o.commission) } : 0, fmt: '#,##0" đ"' },

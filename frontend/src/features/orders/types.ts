@@ -35,6 +35,8 @@ export interface Order {
   /** YYYY-MM-DD */
   departureDate: string;
   vehicleType: string | null;
+  /** Chi tiết cabin đơn / cabin đôi; chỉ có khi loại hình là "Xe Cabin" */
+  cabinLines: CabinLine[] | null;
   seatZone: SeatZone | null;
   seatFront: number;
   seatMiddle: number;
@@ -152,6 +154,23 @@ export interface ColumnValueOption {
   count: number;
 }
 
+export type CabinKind = 'SINGLE' | 'DOUBLE';
+
+export const CABIN_KINDS: CabinKind[] = ['SINGLE', 'DOUBLE'];
+
+export const CABIN_LABELS: Record<CabinKind, string> = {
+  SINGLE: 'Cabin Đơn',
+  DOUBLE: 'Cabin Đôi',
+};
+
+/** Một dòng chi tiết cabin; giá nhập / giá bán là tổng tiền của dòng đó */
+export interface CabinLine {
+  kind: CabinKind;
+  quantity: number;
+  costPrice: number;
+  sellPrice: number;
+}
+
 export interface CreateOrderInput {
   customerName?: string;
   phone: string;
@@ -159,6 +178,7 @@ export interface CreateOrderInput {
   departureTime: string;
   departureDate: string;
   vehicleType?: string;
+  cabinLines?: CabinLine[];
   seatZone?: SeatZone;
   seatFront?: number;
   seatMiddle?: number;

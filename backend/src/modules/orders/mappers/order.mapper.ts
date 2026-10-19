@@ -1,4 +1,4 @@
-import { Order, SeatZone } from '../entities/order.entity.js';
+import { CABIN_LABELS, CabinKind, CabinLine, Order, SeatZone } from '../entities/order.entity.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 
 /** Viết hoa chữ cái đầu mỗi từ của tên khách (nguyễn văn a -> Nguyễn Văn A) */
@@ -88,6 +88,34 @@ export function resolveSeats(
   return { seatFront, seatMiddle, seatBack, seatCount };
 }
 
+/** Cabin đơn đứng trước cabin đôi để thứ tự dòng luôn ổn định */
+const CABIN_ORDER: CabinKind[] = [CabinKind.SINGLE, CabinKind.DOUBLE];
+
+/** Sắp xếp dòng cabin theo thứ tự cố định; không có dòng nào thì trả null */
+export function sortCabinLines(lines: readonly CabinLine[] | null | undefined): CabinLine[] | null {
+  if (!lines || lines.length === 0) return null;
+  return [...lines].sort((a, b) => CABIN_ORDER.indexOf(a.kind) - CABIN_ORDER.indexOf(b.kind));
+}
+
+/** Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng chi tiết */
+export function cabinTotals(lines: readonly CabinLine[]) {
+  return lines.reduce(
+    (acc, l) => ({
+      seatCount: acc.seatCount + l.quantity,
+      costPrice: acc.costPrice + l.costPrice,
+      sellPrice: acc.sellPrice + l.sellPrice,
+    }),
+    { seatCount: 0, costPrice: 0, sellPrice: 0 },
+  );
+}
+
+/** Mô tả ngắn để ghi lịch sử, ví dụ "Cabin Đơn x2; Cabin Đôi x1" */
+export function describeCabinLines(lines: readonly CabinLine[] | null | undefined): string | null {
+  const sorted = sortCabinLines(lines);
+  if (!sorted) return null;
+  return sorted.map((l) => `${CABIN_LABELS[l.kind]} x${l.quantity}`).join('; ');
+}
+
 /** Các trường được so sánh để ghi lịch sử khi sửa đơn */
 export const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'customerName', label: 'Tên khách' },
@@ -97,6 +125,7 @@ export const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'departureDate', label: 'Ngày đi' },
   { key: 'partner', label: 'Đối tác' },
   { key: 'vehicleType', label: 'Loại hình' },
+  { key: 'cabinLines', label: 'Chi tiết cabin' },
   { key: 'seatCount', label: 'Số ghế' },
   { key: 'seatFront', label: 'Ghế đầu' },
   { key: 'seatMiddle', label: 'Ghế giữa' },
@@ -126,6 +155,7 @@ export function toOrderView(order: Order) {
     departureTime: order.departureTime,
     departureDate: order.departureDate,
     vehicleType: order.vehicleType,
+    cabinLines: sortCabinLines(order.cabinLines),
     seatZone: order.seatZone,
     ...seatsOf(order),
     seatCount: order.seatCount,

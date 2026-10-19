@@ -10,9 +10,9 @@ import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js
 import { Partner } from '../../partners/entities/partner.entity.js';
 import { Route } from '../../routes/entities/route.entity.js';
 import { User, UserRole } from '../../users/entities/user.entity.js';
-import { CreateOrderDto } from '../dto/create-order.dto.js';
+import { CabinLineDto, CreateOrderDto } from '../dto/create-order.dto.js';
 import { UpdateOrderDto } from '../dto/update-order.dto.js';
-import { Order } from '../entities/order.entity.js';
+import { CABIN_VEHICLE_TYPE, CabinLine, Order } from '../entities/order.entity.js';
 import {
   OrderChange,
   OrderHistory,
@@ -24,8 +24,11 @@ import {
 } from '../order-time-lock.js';
 import { applyImportPartnerAlias, matchCanonicalPartner } from '../order-partner.util.js';
 import {
+  cabinTotals,
+  describeCabinLines,
   resolveSeats,
   seatsOf,
+  sortCabinLines,
   titleCaseName,
   TRACKED_FIELDS,
 } from '../mappers/order.mapper.js';
@@ -86,6 +89,36 @@ export class OrdersCommandService {
   }
 
   /**
+   * Kiểm tra và chuẩn hóa dòng cabin. Trả null nếu đơn không phải "Xe Cabin";
+   * ngược lại bắt buộc có ít nhất một dòng, không trùng loại cabin.
+   */
+  private resolveCabinLines(
+    vehicleType: string | null | undefined,
+    lines: CabinLineDto[] | CabinLine[] | null | undefined,
+  ): CabinLine[] | null {
+    const isCabin = (vehicleType ?? '').trim() === CABIN_VEHICLE_TYPE;
+    const sorted = sortCabinLines(lines);
+    if (!isCabin) {
+      if (sorted) {
+        throw new BadRequestException(`Chi tiết cabin chỉ dùng cho loại hình "${CABIN_VEHICLE_TYPE}".`);
+      }
+      return null;
+    }
+    if (!sorted) {
+      throw new BadRequestException('Nhập số lượng cabin đơn hoặc cabin đôi (ít nhất 1).');
+    }
+    if (new Set(sorted.map((l) => l.kind)).size !== sorted.length) {
+      throw new BadRequestException('Mỗi loại cabin chỉ được có một dòng.');
+    }
+    return sorted.map((l) => ({
+      kind: l.kind,
+      quantity: l.quantity,
+      costPrice: l.costPrice,
+      sellPrice: l.sellPrice,
+    }));
+  }
+
+  /**
    * Tạo đơn. Nhân viên chỉ tạo được từ 04h30 đến 22h30 (giờ VN), Admin không bị khóa.
    * Ngày vào sổ và nhân viên được điền tự động.
    */
@@ -132,10 +165,16 @@ export class OrdersCommandService {
       canonicalPartner = matchCanonicalPartner(aliased, allPartners) ?? aliased.trim();
     }
 
-    const costPrice = dto.costPrice ?? 0;
-    const sellPrice = dto.sellPrice ?? 0;
+    // Xe cabin: số ghế và giá nhập, giá bán lấy bằng tổng các dòng cabin
+    const cabinLines = this.resolveCabinLines(dto.vehicleType, dto.cabinLines);
+    const cabin = cabinLines ? cabinTotals(cabinLines) : null;
 
-    const seats = resolveSeats(dto);
+    const costPrice = cabin ? cabin.costPrice : (dto.costPrice ?? 0);
+    const sellPrice = cabin ? cabin.sellPrice : (dto.sellPrice ?? 0);
+
+    const seats = cabin
+      ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
+      : resolveSeats(dto);
     if (seats.seatCount + seats.seatFront + seats.seatMiddle + seats.seatBack < 1) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
@@ -150,6 +189,7 @@ export class OrdersCommandService {
         departureTime: dto.departureTime,
         departureDate: dto.departureDate,
         vehicleType: dto.vehicleType || null,
+        cabinLines,
         seatZone: null,
         ...seats,
         costPrice,
@@ -203,7 +243,22 @@ export class OrdersCommandService {
       }
     }
 
-    const nextSeats = resolveSeats(dto, order);
+    // Loại hình sau khi sửa quyết định đơn có chi tiết cabin hay không
+    const nextVehicleType =
+      dto.vehicleType !== undefined ? dto.vehicleType || null : order.vehicleType;
+    const nextCabinLines = this.resolveCabinLines(
+      nextVehicleType,
+      dto.cabinLines !== undefined
+        ? dto.cabinLines
+        : (nextVehicleType ?? '').trim() === CABIN_VEHICLE_TYPE
+          ? order.cabinLines
+          : null,
+    );
+    const cabin = nextCabinLines ? cabinTotals(nextCabinLines) : null;
+
+    const nextSeats = cabin
+      ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
+      : resolveSeats(dto, order);
     if (nextSeats.seatCount + nextSeats.seatFront + nextSeats.seatMiddle + nextSeats.seatBack < 1) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
@@ -217,13 +272,10 @@ export class OrdersCommandService {
       routeId: dto.routeId ?? order.routeId,
       departureTime: dto.departureTime ?? order.departureTime,
       departureDate: dto.departureDate ?? order.departureDate,
-      vehicleType:
-        dto.vehicleType !== undefined
-          ? dto.vehicleType || null
-          : order.vehicleType,
+      vehicleType: nextVehicleType,
       ...nextSeats,
-      costPrice: dto.costPrice ?? order.costPrice,
-      sellPrice: dto.sellPrice ?? order.sellPrice,
+      costPrice: cabin ? cabin.costPrice : (dto.costPrice ?? order.costPrice),
+      sellPrice: cabin ? cabin.sellPrice : (dto.sellPrice ?? order.sellPrice),
       deposit: dto.deposit ?? order.deposit,
       collectOnDelivery: dto.collectOnDelivery ?? order.collectOnDelivery,
       partner: nextPartner,
@@ -241,6 +293,8 @@ export class OrdersCommandService {
     const nextCommission = dto.commission ?? order.commission;
     await this.orderRepository.update(order.id, {
       ...next,
+      // null xóa chi tiết cabin khi đổi sang loại hình khác
+      cabinLines: nextCabinLines,
       commission: nextCommission,
     });
 
@@ -258,6 +312,7 @@ export class OrdersCommandService {
       departureDate: order.departureDate,
       partner: order.partner,
       vehicleType: order.vehicleType,
+      cabinLines: describeCabinLines(order.cabinLines),
       seatCount: order.seatCount,
       pickupPoint: order.pickupPoint,
       dropoffPoint: order.dropoffPoint,
@@ -271,6 +326,7 @@ export class OrdersCommandService {
     const after: Record<string, string | number | null> = {
       ...before,
       ...next,
+      cabinLines: describeCabinLines(nextCabinLines),
       commission: nextCommission,
       routeName: newRoute ? newRoute.name : before.routeName,
     };
