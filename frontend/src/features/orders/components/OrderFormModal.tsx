@@ -217,6 +217,29 @@ function Section({
   );
 }
 
+type SeatKey = 'seatCount' | 'seatFront' | 'seatMiddle' | 'seatBack';
+
+const EMPTY_ZONE_PRICES: Record<SeatKey, number> = {
+  seatCount: 0,
+  seatFront: 0,
+  seatMiddle: 0,
+  seatBack: 0,
+};
+
+/** Tổng tiền vé đầy đủ: mỗi nhóm đầu/giữa/cuối nhân giá riêng, ghế còn lại nhân giá ở ô "Số ghế" */
+function calcFullFare(f: OrderFormState, prices: Record<SeatKey, number>): number {
+  const front = Number(f.seatFront) || 0;
+  const middle = Number(f.seatMiddle) || 0;
+  const back = Number(f.seatBack) || 0;
+  const rest = Math.max(0, (Number(f.seatCount) || 0) - front - middle - back);
+  return (
+    front * prices.seatFront +
+    middle * prices.seatMiddle +
+    back * prices.seatBack +
+    rest * prices.seatCount
+  );
+}
+
 function buildPreviewLines(f: OrderFormState): string[] {
   const join = (parts: (string | false | undefined)[], sep = ' - ') =>
     parts.filter(Boolean).join(sep);
@@ -309,6 +332,11 @@ export function OrderFormModal({
   const lastQuoteKey = useRef<string | null>(null);
   const [quoteNote, setQuoteNote] = useState('');
   const boxRef = useRef<HTMLTextAreaElement>(null);
+  // Giá vé đầy đủ theo từng nhóm ghế + % hoa hồng nhập tay (chỉ dùng để tự tính hoa hồng)
+  const [zonePrices, setZonePrices] = useState<Record<SeatKey, number>>(EMPTY_ZONE_PRICES);
+  const [commissionPercent, setCommissionPercent] = useState(0);
+  const percentRef = useRef(0);
+  percentRef.current = commissionPercent;
 
   const editingId = editingOrder?.id;
   const rebookFromId = rebookOrder?.id;
@@ -322,6 +350,8 @@ export function OrderFormModal({
     ownText.current = null;
     setBoxVersion((v) => v + 1);
     setFormErrors({});
+    setZonePrices(EMPTY_ZONE_PRICES);
+    setCommissionPercent(0);
 
     if (editingOrder) {
       setEditingRouteFallback(editingOrder.route?.name);
@@ -426,6 +456,7 @@ export function OrderFormModal({
       partnersApi
         .commissionQuote(formState.partner, quoteTickets, ctrl.signal)
         .then((commission) => {
+          if (percentRef.current > 0) return;
           if (commission !== null) {
             setFormState((p) => ({ ...p, commission }));
             setQuoteNote(`Tự tính theo nhà xe x ${quoteTickets} vé`);
@@ -445,6 +476,18 @@ export function OrderFormModal({
       ctrl.abort();
     };
   }, [isOpen, editingId, formState.partner, quoteTickets]);
+
+  const fullFare = calcFullFare(formState, zonePrices);
+
+  // Có % + giá vé thì tự tính hoa hồng = tổng giá vé x %
+  useEffect(() => {
+    if (!isOpen || commissionPercent <= 0 || fullFare <= 0) return;
+    const commission = Math.round((fullFare * commissionPercent) / 100);
+    setFormState((p) => (p.commission === commission ? p : { ...p, commission }));
+    setQuoteNote(
+      `Tự tính: ${fullFare.toLocaleString('vi-VN')} x ${commissionPercent}%`,
+    );
+  }, [isOpen, fullFare, commissionPercent]);
 
   const handleBoxChange = (text: string) => {
     const year = Number(getVnToday().slice(0, 4));
@@ -725,6 +768,18 @@ export function OrderFormModal({
                   />
                 </Field>
 
+                <Field label="Hoa hồng đối tác (%)">
+                  <NumInput
+                    className="input-3d font-bold"
+                    value={commissionPercent}
+                    onChange={setCommissionPercent}
+                    min={0}
+                    max={100}
+                    step={0.5}
+                    blankZero
+                  />
+                </Field>
+
                 <Field
                   label="Loại hình"
                   required
@@ -782,7 +837,7 @@ export function OrderFormModal({
           {/* Cột phải: số ghế + giá tiền + nội dung đơn */}
           <div className="space-y-4">
             <Section step={3} title="Số ghế">
-              <div className="grid max-w-sm grid-cols-4 gap-2">
+              <div className="grid max-w-lg grid-cols-4 gap-2">
                 {(
                   [
                     { key: 'seatCount', label: 'Số ghế' },
@@ -813,9 +868,20 @@ export function OrderFormModal({
                       max={60}
                       blankZero
                     />
+                    <span className="mb-1 mt-2 block text-center text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      Giá vé
+                    </span>
+                    <MoneyInput
+                      className="input-3d px-1 text-center text-xs font-bold"
+                      value={zonePrices[z.key]}
+                      onChange={(n) => setZonePrices((p) => ({ ...p, [z.key]: n }))}
+                    />
                   </label>
                 ))}
               </div>
+              <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                Ô &quot;Giá vé&quot; là giá đầy đủ 1 vé, dùng để tự tính hoa hồng theo % của đối tác.
+              </p>
               {formErrors.seats && (
                 <span
                   role="alert"
