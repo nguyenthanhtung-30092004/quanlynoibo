@@ -193,7 +193,12 @@ export function CreateOrderModal() {
             </Form.Item>
 
             <Form.Item name="departureDate" label="Ngày đi" rules={[{ required: true, message: 'Chọn ngày đi' }]}>
-              <DatePicker format="DD/MM/YYYY" className="w-full" allowClear={false} />
+              <DatePicker
+                format="DD/MM/YYYY"
+                className="w-full"
+                allowClear={false}
+                disabledDate={(d) => d.isBefore(dayjs(getVnToday()), 'day')}
+              />
             </Form.Item>
 
             <Form.Item name="departureTime" label="Giờ đón" rules={[{ required: true, message: 'Chọn giờ đón' }]}>

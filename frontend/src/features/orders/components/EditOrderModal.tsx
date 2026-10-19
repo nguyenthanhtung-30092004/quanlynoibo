@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { App, Button, DatePicker, Form, Input, InputNumber, Modal, Radio, Select, TimePicker } from 'antd';
 import dayjs, { type Dayjs } from 'dayjs';
+import { getVnToday } from '@/lib/time';
 import { useActiveRoutes } from '@/features/routes/hooks';
 import { antdSearch } from '@/features/xvip/search-rank';
 import { ApiError } from '@/lib/api-client';
@@ -187,7 +188,14 @@ export function EditOrderModal() {
             </Form.Item>
 
             <Form.Item name="departureDate" label="Ngày đi" rules={[{ required: true, message: 'Chọn ngày' }]}>
-              <DatePicker format="DD/MM/YYYY" className="w-full" allowClear={false} />
+              <DatePicker
+                format="DD/MM/YYYY"
+                className="w-full"
+                allowClear={false}
+                disabledDate={(d) =>
+                  d.isBefore(dayjs(getVnToday()), 'day') && !d.isSame(dayjs(order?.departureDate), 'day')
+                }
+              />
             </Form.Item>
 
             <Form.Item name="departureTime" label="Giờ đón" rules={[{ required: true, message: 'Chọn giờ' }]}>

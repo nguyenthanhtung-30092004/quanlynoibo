@@ -100,6 +100,11 @@ export class OrdersCommandService {
       );
     }
 
+    // Không tạo vé cho ngày đã qua (bỏ qua khi nhập bù có chỉ định ngày vào sổ)
+    if (!options.entryDate && dto.departureDate < getBusinessDate()) {
+      throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
+    }
+
     // Staff luôn tạo đơn cho chính mình; chỉ Admin được chỉ định nhân viên khác
     let ownerId = actor.sub;
     if (dto.staffId !== undefined && dto.staffId !== actor.sub) {
@@ -167,6 +172,15 @@ export class OrdersCommandService {
     const order = await this.queryService.findEntity(id, actor);
     if (order.cancelledAt) {
       throw new BadRequestException('Vé đã hủy, không thể sửa.');
+    }
+
+    // Chỉ chặn khi đổi sang ngày đã qua; vé cũ vẫn sửa được các trường khác
+    if (
+      dto.departureDate !== undefined &&
+      dto.departureDate !== order.departureDate &&
+      dto.departureDate < getBusinessDate()
+    ) {
+      throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
     }
 
     if (dto.routeId !== undefined && dto.routeId !== order.routeId) {
