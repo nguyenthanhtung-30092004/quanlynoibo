@@ -156,12 +156,13 @@ export interface ColumnValueOption {
   count: number;
 }
 
-export type CabinKind = 'SINGLE' | 'DOUBLE';
+export type CabinKind = 'SINGLE' | 'SINGLE_FLOOR1' | 'DOUBLE';
 
-export const CABIN_KINDS: CabinKind[] = ['SINGLE', 'DOUBLE'];
+export const CABIN_KINDS: CabinKind[] = ['SINGLE', 'SINGLE_FLOOR1', 'DOUBLE'];
 
 export const CABIN_LABELS: Record<CabinKind, string> = {
   SINGLE: 'Cabin Đơn',
+  SINGLE_FLOOR1: 'Cabin Đơn Tầng 1',
   DOUBLE: 'Cabin Đôi',
 };
 

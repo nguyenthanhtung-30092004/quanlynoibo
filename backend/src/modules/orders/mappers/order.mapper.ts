@@ -88,8 +88,8 @@ export function resolveSeats(
   return { seatFront, seatMiddle, seatBack, seatCount };
 }
 
-/** Cabin đơn đứng trước cabin đôi để thứ tự dòng luôn ổn định */
-const CABIN_ORDER: CabinKind[] = [CabinKind.SINGLE, CabinKind.DOUBLE];
+/** Cabin đơn, cabin đơn tầng 1, cabin đôi để thứ tự dòng luôn ổn định */
+const CABIN_ORDER: CabinKind[] = [CabinKind.SINGLE, CabinKind.SINGLE_FLOOR1, CabinKind.DOUBLE];
 
 /** Sắp xếp dòng cabin theo thứ tự cố định; không có dòng nào thì trả null */
 export function sortCabinLines(lines: readonly CabinLine[] | null | undefined): CabinLine[] | null {

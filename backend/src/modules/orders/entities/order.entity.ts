@@ -27,11 +27,13 @@ export const PRIVATE_VEHICLE_TYPE = 'Xe Riêng';
 
 export enum CabinKind {
   SINGLE = 'SINGLE',
+  SINGLE_FLOOR1 = 'SINGLE_FLOOR1',
   DOUBLE = 'DOUBLE',
 }
 
 export const CABIN_LABELS: Record<CabinKind, string> = {
   [CabinKind.SINGLE]: 'Cabin Đơn',
+  [CabinKind.SINGLE_FLOOR1]: 'Cabin Đơn Tầng 1',
   [CabinKind.DOUBLE]: 'Cabin Đôi',
 };
 

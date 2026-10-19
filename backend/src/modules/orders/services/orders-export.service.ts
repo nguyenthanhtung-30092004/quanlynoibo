@@ -78,7 +78,7 @@ export class OrdersExportService {
     const BLUE = 'FF2563EB';
     const BAND = 'FFF1F5FF';
     const LINE = 'FFCBD5E1';
-    const RED_BG = 'FFFDE2E2';
+    const YELLOW = 'FFFFF176';
     const RED = 'FFB91C1C';
     const GOLD = 'FFFFE9A8';
     const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
@@ -167,7 +167,8 @@ export class OrdersExportService {
       `Xuất lúc ${stamp}  •  Người xuất: ${exporter?.fullName ?? actor.username}  •  ` +
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
       (excludedCount > 0 ? `, ${excludedCount} đơn bị loại vì đối tác không có trong danh sách` : '') +
-      (cancelledCount > 0 ? '  (vé đã hủy tô đỏ và không tính vào dòng TỔNG)' : '');
+      (cancelledCount > 0 ? '  (vé đã hủy chữ đỏ và không tính vào dòng TỔNG)' : '') +
+      '  •  Vé đã cọc nền vàng';
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
     info.fill = solid('FFE0EAFF');
     info.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
@@ -188,10 +189,12 @@ export class OrdersExportService {
     });
 
     // ---- dữ liệu
-    rows.forEach(({ view: o, orderIndex }, idx) => {
+    rows.forEach(({ order, view: o, orderIndex }, idx) => {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
       row.height = 21;
       const cancelled = isCancelled(o);
+      // Đã cọc theo cả đơn: đơn tách nhiều dòng thì dòng nào cũng vàng dù tiền cọc chỉ ghi ở dòng đầu
+      const deposited = !cancelled && order.deposit > 0;
       COLS.forEach((c, i) => {
         const cell = row.getCell(i + 1);
         cell.value = c.value(o, idx);
@@ -199,16 +202,21 @@ export class OrdersExportService {
         cell.border = box;
         cell.alignment = { horizontal: c.align ?? 'left', vertical: 'middle' };
         if (cancelled) {
-          cell.fill = solid(RED_BG);
-          cell.font = { color: { argb: 'FF7F1D1D' } };
+          // Vé hủy: nền trắng, chữ đỏ
+          cell.fill = solid('FFFFFFFF');
+          cell.font = { color: { argb: RED } };
+        } else if (deposited) {
+          // Vé đã cọc: nền vàng, chữ đen
+          cell.fill = solid(YELLOW);
+          cell.font = { color: { argb: 'FF000000' } };
         } else if (orderIndex % 2 === 1) {
           cell.fill = solid(BAND);
         }
       });
       // Ô trạng thái nổi bật
       const status = row.getCell(2);
-      status.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-      status.fill = solid(cancelled ? RED : GREEN);
+      status.font = { bold: true, color: { argb: cancelled ? RED : 'FFFFFFFF' } };
+      status.fill = solid(cancelled ? 'FFFFFFFF' : GREEN);
     });
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)

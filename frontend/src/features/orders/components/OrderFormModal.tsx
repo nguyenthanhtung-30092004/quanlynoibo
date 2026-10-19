@@ -54,6 +54,7 @@ export type CabinState = Record<CabinKind, { quantity: number; costPrice: number
 function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
   const out: CabinState = {
     SINGLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
+    SINGLE_FLOOR1: { quantity: 0, costPrice: 0, sellPrice: 0 },
     DOUBLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
   };
   for (const l of lines ?? []) {
@@ -1065,7 +1066,7 @@ export function OrderFormModal({
                   </>
                 )}
 
-                <Field label="Đã cọc">
+                <Field label="Đã cọc XVIP">
                   <MoneyInput
                     className="input-3d"
                     value={formState.deposit}

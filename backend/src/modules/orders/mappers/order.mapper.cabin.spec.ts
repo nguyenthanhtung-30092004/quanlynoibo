@@ -6,7 +6,13 @@ const double: CabinLine = { kind: CabinKind.DOUBLE, quantity: 1, costPrice: 700_
 const single: CabinLine = { kind: CabinKind.SINGLE, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000 };
 
 describe('cabin lines', () => {
-  it('sắp cabin đơn trước cabin đôi, không có dòng thì trả null', () => {
+  it('sắp cabin đơn, cabin đơn tầng 1, cabin đôi; không có dòng thì trả null', () => {
+    const floor1: CabinLine = { kind: CabinKind.SINGLE_FLOOR1, quantity: 1, costPrice: 0, sellPrice: 0 };
+    expect(sortCabinLines([double, floor1, single])?.map((l) => l.kind)).toEqual([
+      CabinKind.SINGLE,
+      CabinKind.SINGLE_FLOOR1,
+      CabinKind.DOUBLE,
+    ]);
     expect(sortCabinLines([double, single])?.map((l) => l.kind)).toEqual([
       CabinKind.SINGLE,
       CabinKind.DOUBLE,

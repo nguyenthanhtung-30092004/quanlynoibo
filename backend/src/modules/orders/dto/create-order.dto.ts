@@ -23,7 +23,7 @@ const MONEY_MAX = 2_000_000_000;
 
 export class CabinLineDto {
   @ApiProperty({ enum: CabinKind, description: 'Cabin đơn hoặc cabin đôi' })
-  @IsEnum(CabinKind, { message: 'Loại cabin phải là SINGLE hoặc DOUBLE' })
+  @IsEnum(CabinKind, { message: 'Loại cabin phải là SINGLE, SINGLE_FLOOR1 hoặc DOUBLE' })
   kind: CabinKind;
 
   @ApiProperty({ description: 'Số lượng cabin', example: 2 })
@@ -135,7 +135,7 @@ export class CreateOrderDto {
   })
   @IsOptional()
   @IsArray()
-  @ArrayMaxSize(2, { message: 'Chỉ có cabin đơn và cabin đôi' })
+  @ArrayMaxSize(3, { message: 'Chỉ có cabin đơn, cabin đơn tầng 1 và cabin đôi' })
   @ValidateNested({ each: true })
   @Type(() => CabinLineDto)
   cabinLines?: CabinLineDto[];
