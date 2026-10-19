@@ -296,7 +296,8 @@ function buildPreviewLines(f: OrderFormState): string[] {
     join([f.customerName.trim(), f.phone.trim()]),
     f.pickupPoint.trim() && `Đón: ${f.pickupPoint.trim()}`,
     f.dropoffPoint.trim() && `Trả: ${f.dropoffPoint.trim()}`,
-    seats > 0 && `${seats} ghế`,
+    // Xe cabin đã có dòng "x Cabin Đơn + y Cabin Đôi" nên không ghi thêm tổng số ghế
+    f.vehicleType !== CABIN_VEHICLE_TYPE && seats > 0 && `${seats} ghế`,
     zones.length > 0 && zones.join(' + '),
   ].filter((line): line is string => !!line);
 }
