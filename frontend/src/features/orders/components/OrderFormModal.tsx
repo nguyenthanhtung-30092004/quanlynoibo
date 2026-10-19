@@ -22,6 +22,12 @@ import { partnersApi } from '@/features/partners/api';
 import type { Route } from '@/features/routes/types';
 import type { User } from '@/features/users/types';
 import {
+  cabinCommission,
+  cabinFromLines,
+  cabinTotals,
+  type CabinState,
+} from '../cabin-pricing';
+import {
   CABIN_KINDS,
   CABIN_LABELS,
   type CabinKind,
@@ -47,39 +53,6 @@ export const VEHICLE_TYPES = [
   'Khách Sạn',
   'Vé Fan',
 ];
-
-/** Số lượng, giá nhập, giá bán (đơn giá 1 cabin) cho từng loại cabin */
-export type CabinState = Record<CabinKind, { quantity: number; costPrice: number; sellPrice: number }>;
-
-function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
-  const out: CabinState = {
-    SINGLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
-    SINGLE_FLOOR1: { quantity: 0, costPrice: 0, sellPrice: 0 },
-    DOUBLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
-  };
-  for (const l of lines ?? []) {
-    out[l.kind] = { quantity: l.quantity, costPrice: l.costPrice, sellPrice: l.sellPrice };
-  }
-  return out;
-}
-
-/** Tổng số ghế, tổng giá nhập, tổng giá bán = đơn giá x số lượng của từng dòng */
-function cabinTotals(cabin: CabinState) {
-  return CABIN_KINDS.reduce(
-    (acc, k) => ({
-      seatCount: acc.seatCount + (Number(cabin[k].quantity) || 0),
-      costPrice: acc.costPrice + (Number(cabin[k].costPrice) || 0) * (Number(cabin[k].quantity) || 0),
-      sellPrice: acc.sellPrice + (Number(cabin[k].sellPrice) || 0) * (Number(cabin[k].quantity) || 0),
-    }),
-    { seatCount: 0, costPrice: 0, sellPrice: 0 },
-  );
-}
-
-/** Hoa hồng xe cabin = (giá bán - giá nhập) x số lượng của từng dòng, cộng lại; không âm */
-function cabinCommission(cabin: CabinState): number {
-  const t = cabinTotals(cabin);
-  return Math.max(0, t.sellPrice - t.costPrice);
-}
 
 export interface OrderFormState {
   customerName: string;
@@ -972,7 +945,7 @@ export function OrderFormModal({
                 </Field>
               ) : isCabin ? (
                 <div className="space-y-2">
-                  <div className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <div className="hidden grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
                     <span>Loại</span>
                     <span className="text-center">Số lượng</span>
                     <span>Giá nhập (1 cabin)</span>
@@ -981,36 +954,45 @@ export function OrderFormModal({
                   {CABIN_KINDS.map((kind) => (
                     <div
                       key={kind}
-                      className="grid grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/60"
+                      className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/60 sm:grid-cols-[5rem_4.5rem_1fr_1fr] sm:items-center"
                     >
                       <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                         {CABIN_LABELS[kind]}
                       </span>
-                      <NumInput
-                        className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
-                        value={formState.cabin[kind].quantity}
-                        onChange={(n) => updateCabin(kind, { quantity: n })}
-                        min={0}
-                        max={60}
-                        blankZero
-                      />
-                      <MoneyInput
-                        className="input-3d min-w-0 text-right font-bold"
-                        value={formState.cabin[kind].costPrice}
-                        onChange={(n) => updateCabin(kind, { costPrice: n })}
-                      />
-                      <MoneyInput
-                        className="input-3d min-w-0 text-right font-bold text-blue-900 dark:text-blue-400"
-                        value={formState.cabin[kind].sellPrice}
-                        onChange={(n) => updateCabin(kind, { sellPrice: n })}
-                      />
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Số lượng</span>
+                        <NumInput
+                          className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
+                          value={formState.cabin[kind].quantity}
+                          onChange={(n) => updateCabin(kind, { quantity: n })}
+                          min={0}
+                          max={60}
+                          blankZero
+                        />
+                      </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Giá nhập (1 cabin)</span>
+                        <MoneyInput
+                          className="input-3d min-w-0 text-right font-bold"
+                          value={formState.cabin[kind].costPrice}
+                          onChange={(n) => updateCabin(kind, { costPrice: n })}
+                        />
+                      </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Giá bán (1 cabin)</span>
+                        <MoneyInput
+                          className="input-3d min-w-0 text-right font-bold text-blue-900 dark:text-blue-400"
+                          value={formState.cabin[kind].sellPrice}
+                          onChange={(n) => updateCabin(kind, { sellPrice: n })}
+                        />
+                      </label>
                     </div>
                   ))}
                 </div>
               ) : (
               <>
               <div className="space-y-2">
-                <div className="grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <div className="hidden grid-cols-[4.5rem_5rem_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
                   <span>Nhóm</span>
                   <span className="text-center">Số lượng</span>
                   <span>Giá vé (VNĐ / ghế)</span>
@@ -1025,7 +1007,7 @@ export function OrderFormModal({
                 ).map((z) => (
                   <div
                     key={z.key}
-                    className={`grid grid-cols-[4.5rem_5rem_1fr] items-center gap-2 rounded-lg border p-2 ${
+                    className={`grid grid-cols-1 gap-2 rounded-lg border p-2 sm:grid-cols-[4.5rem_5rem_1fr] sm:items-center ${
                       z.key === 'seatCount'
                         ? 'border-blue-300 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/40'
                         : 'border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800/60'
@@ -1034,22 +1016,28 @@ export function OrderFormModal({
                     <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                       {z.label}
                     </span>
-                    <NumInput
-                      className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
-                      value={formState[z.key]}
-                      onChange={(n) => {
-                        setFormState((p) => ({ ...p, [z.key]: n }));
-                        setFormErrors((er) => ({ ...er, seats: undefined }));
-                      }}
-                      min={0}
-                      max={60}
-                      blankZero
-                    />
-                    <MoneyInput
-                      className="input-3d min-w-0 text-right font-bold"
-                      value={zonePrices[z.key]}
-                      onChange={(n) => setZonePrices((p) => ({ ...p, [z.key]: n }))}
-                    />
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Số lượng</span>
+                      <NumInput
+                        className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
+                        value={formState[z.key]}
+                        onChange={(n) => {
+                          setFormState((p) => ({ ...p, [z.key]: n }));
+                          setFormErrors((er) => ({ ...er, seats: undefined }));
+                        }}
+                        min={0}
+                        max={60}
+                        blankZero
+                      />
+                    </label>
+                    <label className="block min-w-0">
+                      <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Giá vé (VNĐ / ghế)</span>
+                      <MoneyInput
+                        className="input-3d min-w-0 text-right font-bold"
+                        value={zonePrices[z.key]}
+                        onChange={(n) => setZonePrices((p) => ({ ...p, [z.key]: n }))}
+                      />
+                    </label>
                   </div>
                 ))}
               </div>
