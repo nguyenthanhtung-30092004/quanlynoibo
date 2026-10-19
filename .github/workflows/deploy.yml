@@ -23,6 +23,8 @@ env:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Job treo thì tự báo đỏ sau 15 phút thay vì quay mãi
+    timeout-minutes: 15
     strategy:
       matrix:
         service: [backend, frontend]
@@ -42,6 +44,7 @@ jobs:
   build:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       matrix:
         service: [backend, frontend]
