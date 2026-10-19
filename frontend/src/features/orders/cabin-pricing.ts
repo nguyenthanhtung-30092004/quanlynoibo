@@ -35,3 +35,23 @@ export function cabinCommission(cabin: CabinState): number {
   const t = cabinTotals(cabin);
   return Math.max(0, t.sellPrice - t.costPrice);
 }
+
+/** Xe riêng: giá nhập, giá bán nhập theo 1 xe; tổng đơn = đơn giá x số xe */
+export function privateTotals(vehicleCount: number, unitCost: number, unitSell: number) {
+  const count = Number(vehicleCount) || 0;
+  return {
+    costPrice: (Number(unitCost) || 0) * count,
+    sellPrice: (Number(unitSell) || 0) * count,
+  };
+}
+
+/** Hoa hồng xe riêng = (giá bán - giá nhập) x số xe; không âm */
+export function privateCommission(vehicleCount: number, unitCost: number, unitSell: number): number {
+  const t = privateTotals(vehicleCount, unitCost, unitSell);
+  return Math.max(0, t.sellPrice - t.costPrice);
+}
+
+/** Đơn giá 1 xe của đơn đã lưu = tổng / số xe (làm tròn); chưa có số xe thì giữ nguyên tổng */
+export function perVehicle(total: number, vehicleCount: number): number {
+  return vehicleCount > 0 ? Math.round(total / vehicleCount) : total;
+}

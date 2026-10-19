@@ -1,4 +1,5 @@
 import {
+  departurePastReason,
   getBusinessDate,
   isOrderCreationLocked,
   startOfBusinessDay,
@@ -39,5 +40,22 @@ describe('business date helpers', () => {
     const to = startOfNextBusinessDay('2026-10-08');
     expect(to.getTime() - from.getTime()).toBe(86_400_000);
     expect(from.toISOString()).toBe('2026-10-07T17:00:00.000Z');
+  });
+});
+
+describe('departurePastReason', () => {
+  // Bây giờ là 22:30 ngày 08/10/2026 giờ VN
+  const now = vn('2026-10-08T22:30:00');
+
+  it.each([
+    ['2026-10-07', '23:59', 'DATE'],
+    ['2026-10-08', '22:29', 'TIME'],
+    ['2026-10-08', '08:00', 'TIME'],
+    ['2026-10-08', '22:30', null],
+    ['2026-10-08', '22:35', null],
+    ['2026-10-08', '23:00', null],
+    ['2026-10-09', '00:00', null],
+  ])('%s %s -> %s', (date, time, reason) => {
+    expect(departurePastReason(date, time, now)).toBe(reason);
   });
 });

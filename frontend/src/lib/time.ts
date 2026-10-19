@@ -23,6 +23,12 @@ export function getVnMinuteOfDay(now: Date = new Date()): number {
   return hour * 60 + minute;
 }
 
+/** Giờ hiện tại dạng HH:mm theo giờ Việt Nam */
+export function getVnTime(now: Date = new Date()): string {
+  const m = getVnMinuteOfDay(now);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+
 export function isOrderingLocked(now: Date = new Date()): boolean {
   const minute = getVnMinuteOfDay(now);
   return minute >= CLOSE_MINUTE || minute < OPEN_MINUTE;

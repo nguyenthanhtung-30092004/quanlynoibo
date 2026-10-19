@@ -16,7 +16,7 @@ import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import { handleArrowNav } from '@/features/xvip/arrow-nav';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
-import { getVnToday } from '@/lib/time';
+import { getVnTime, getVnToday } from '@/lib/time';
 import { parseOrderText } from '../parse-order-text';
 import { partnersApi } from '@/features/partners/api';
 import type { Route } from '@/features/routes/types';
@@ -25,6 +25,9 @@ import {
   cabinCommission,
   cabinFromLines,
   cabinTotals,
+  perVehicle,
+  privateCommission,
+  privateTotals,
   type CabinState,
 } from '../cabin-pricing';
 import {
@@ -62,6 +65,9 @@ export interface OrderFormState {
   vehicleType: string;
   cabin: CabinState;
   vehicleCount: number;
+  /** Xe riêng: giá nhập, giá bán của 1 xe (tổng đơn = đơn giá x số xe) */
+  unitCost: number;
+  unitSell: number;
   seatFront: number;
   seatMiddle: number;
   seatBack: number;
@@ -261,6 +267,17 @@ function calcFullFare(f: OrderFormState, prices: Record<SeatKey, number>): numbe
   );
 }
 
+/** Xe riêng: số xe và đơn giá 1 xe lấy từ đơn đã lưu (đơn cũ chưa có số xe thì lấy tạm số ghế) */
+function privateFields(o: Order) {
+  if (o.vehicleType !== PRIVATE_VEHICLE_TYPE) return { vehicleCount: 0, unitCost: 0, unitSell: 0 };
+  const vehicleCount = o.vehicleCount || o.seatCount;
+  return {
+    vehicleCount,
+    unitCost: perVehicle(o.costPrice, vehicleCount),
+    unitSell: perVehicle(o.sellPrice, vehicleCount),
+  };
+}
+
 function buildPreviewLines(f: OrderFormState): string[] {
   const join = (parts: (string | false | undefined)[], sep = ' - ') =>
     parts.filter(Boolean).join(sep);
@@ -331,6 +348,8 @@ export function OrderFormModal({
       vehicleType: '',
       cabin: cabinFromLines(null),
       vehicleCount: 0,
+      unitCost: 0,
+      unitSell: 0,
       seatFront: 0,
       seatMiddle: 0,
       seatBack: 0,
@@ -389,11 +408,7 @@ export function OrderFormModal({
         partner: editingOrder.partner ?? '',
         vehicleType: editingOrder.vehicleType ?? '',
         cabin: cabinFromLines(editingOrder.cabinLines),
-        // Đơn xe riêng cũ chưa có số xe thì lấy tạm số ghế đã nhập trước đây
-        vehicleCount:
-          editingOrder.vehicleType === PRIVATE_VEHICLE_TYPE
-            ? editingOrder.vehicleCount || editingOrder.seatCount
-            : 0,
+        ...privateFields(editingOrder),
         seatFront: editingOrder.seatFront,
         seatMiddle: editingOrder.seatMiddle,
         seatBack: editingOrder.seatBack,
@@ -420,10 +435,7 @@ export function OrderFormModal({
         partner: rebookOrder.partner ?? '',
         vehicleType: rebookOrder.vehicleType ?? '',
         cabin: cabinFromLines(rebookOrder.cabinLines),
-        vehicleCount:
-          rebookOrder.vehicleType === PRIVATE_VEHICLE_TYPE
-            ? rebookOrder.vehicleCount || rebookOrder.seatCount
-            : 0,
+        ...privateFields(rebookOrder),
         seatFront: rebookOrder.seatFront,
         seatMiddle: rebookOrder.seatMiddle,
         seatBack: rebookOrder.seatBack,
@@ -478,11 +490,11 @@ export function OrderFormModal({
 
   const fullFare = calcFullFare(formState, zonePrices);
 
-  const isCabinType = formState.vehicleType === CABIN_VEHICLE_TYPE;
+  // Xe cabin và xe riêng tính hoa hồng theo (giá bán - giá nhập) x số lượng, ưu tiên hơn % hay mức cố định của đối tác
+  const usesMarginFormula = formState.vehicleType === CABIN_VEHICLE_TYPE || isPrivate;
 
   useEffect(() => {
-    // Xe cabin tự tính hoa hồng theo (giá bán - giá nhập) x số lượng, không theo % đối tác
-    if (!isOpen || isCabinType) return;
+    if (!isOpen || usesMarginFormula) return;
     const key = `${formState.partner.trim().toLowerCase()}|${quoteTickets}|${fullFare}`;
     if (editingId && lastQuoteKey.current === null) {
       lastQuoteKey.current = key;
@@ -527,7 +539,7 @@ export function OrderFormModal({
       clearTimeout(timer);
       ctrl.abort();
     };
-  }, [isOpen, editingId, isCabinType, formState.partner, quoteTickets, fullFare]);
+  }, [isOpen, editingId, usesMarginFormula, formState.partner, quoteTickets, fullFare]);
 
   const isCabin = formState.vehicleType === CABIN_VEHICLE_TYPE;
 
@@ -546,6 +558,24 @@ export function OrderFormModal({
       };
     });
     setQuoteNote('Tự tính: (giá bán - giá nhập) x số lượng');
+    setFormErrors((er) => ({ ...er, seats: undefined }));
+  };
+
+  /** Đổi số xe hoặc đơn giá xe riêng: tổng đơn và hoa hồng tính lại ngay */
+  const updatePrivate = (patch: Partial<Pick<OrderFormState, 'vehicleCount' | 'unitCost' | 'unitSell'>>) => {
+    setFormState((p) => {
+      const next = { ...p, ...patch };
+      return {
+        ...next,
+        ...privateTotals(next.vehicleCount, next.unitCost, next.unitSell),
+        commission: privateCommission(next.vehicleCount, next.unitCost, next.unitSell),
+        seatCount: 0,
+        seatFront: 0,
+        seatMiddle: 0,
+        seatBack: 0,
+      };
+    });
+    setQuoteNote('Tự tính: (giá bán - giá nhập) x số xe');
     setFormErrors((er) => ({ ...er, seats: undefined }));
   };
 
@@ -604,7 +634,19 @@ export function OrderFormModal({
     if (!formState.routeId) {
       errors.routeId = 'Vui lòng chọn tuyến đường.';
     }
-    if (!formState.departureTime.trim()) {
+    // Vé hôm nay không được có giờ đi đã qua; sửa vé cũ giữ nguyên ngày giờ thì không bị chặn
+    const keepsOriginalTime =
+      !!editingOrder &&
+      editingOrder.departureDate === formState.departureDate &&
+      editingOrder.departureTime === formState.departureTime;
+    if (
+      formState.departureTime.trim() &&
+      formState.departureDate === getVnToday() &&
+      formState.departureTime < getVnTime() &&
+      !keepsOriginalTime
+    ) {
+      errors.departureTime = `Giờ đi đã qua, chọn từ ${getVnTime()} trở đi.`;
+    } else if (!formState.departureTime.trim()) {
       errors.departureTime = 'Vui lòng nhập giờ khởi hành.';
     }
     if (!formState.departureDate.trim()) {
@@ -622,6 +664,7 @@ export function OrderFormModal({
       (Number(formState.seatMiddle) || 0) +
       (Number(formState.seatBack) || 0);
     const cabinSum = cabinTotals(formState.cabin);
+    const privateSum = privateTotals(formState.vehicleCount, formState.unitCost, formState.unitSell);
     const count = isCabin
       ? cabinSum.seatCount
       : isPrivate
@@ -670,8 +713,16 @@ export function OrderFormModal({
       seatCount: count,
       departureTime: formState.departureTime.trim(),
       departureDate: formState.departureDate.trim(),
-      sellPrice: isCabin ? cabinSum.sellPrice : Number(formState.sellPrice) || 0,
-      costPrice: isCabin ? cabinSum.costPrice : Number(formState.costPrice) || 0,
+      sellPrice: isCabin
+        ? cabinSum.sellPrice
+        : isPrivate
+          ? privateSum.sellPrice
+          : Number(formState.sellPrice) || 0,
+      costPrice: isCabin
+        ? cabinSum.costPrice
+        : isPrivate
+          ? privateSum.costPrice
+          : Number(formState.costPrice) || 0,
       deposit: Number(formState.deposit) || 0,
       collectOnDelivery: Number(formState.collectOnDelivery) || 0,
       commission: Number(formState.commission) || 0,
@@ -815,6 +866,8 @@ export function OrderFormModal({
                   error={formErrors.departureTime}
                 >
                   <TimeInput
+                    // Chọn ngày hôm nay thì khóa các giờ, phút đã qua
+                    min={formState.departureDate === getVnToday() ? getVnTime() : undefined}
                     value={formState.departureTime}
                     invalid={!!formErrors.departureTime}
                     onChange={(v) => {
@@ -880,7 +933,14 @@ export function OrderFormModal({
                           : {}),
                         // Xe riêng không có ghế, chỉ nhập số xe
                         ...(vehicleType === PRIVATE_VEHICLE_TYPE
-                          ? { seatCount: 0, seatFront: 0, seatMiddle: 0, seatBack: 0 }
+                          ? {
+                              ...privateTotals(p.vehicleCount, p.unitCost, p.unitSell),
+                              commission: privateCommission(p.vehicleCount, p.unitCost, p.unitSell),
+                              seatCount: 0,
+                              seatFront: 0,
+                              seatMiddle: 0,
+                              seatBack: 0,
+                            }
                           : {}),
                       }));
                       setFormErrors((er) => ({ ...er, vehicleType: undefined, seats: undefined }));
@@ -934,10 +994,7 @@ export function OrderFormModal({
                   <NumInput
                     className={`input-3d text-center font-bold ${formErrors.seats ? '!border-red-500' : ''}`}
                     value={formState.vehicleCount}
-                    onChange={(n) => {
-                      setFormState((p) => ({ ...p, vehicleCount: n }));
-                      setFormErrors((er) => ({ ...er, seats: undefined }));
-                    }}
+                    onChange={(n) => updatePrivate({ vehicleCount: n })}
                     min={0}
                     max={60}
                     blankZero
@@ -1058,7 +1115,26 @@ export function OrderFormModal({
 
             <Section step={4} title="Giá tiền (VNĐ)">
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {!isCabin && (
+                {isPrivate && (
+                  <>
+                    <Field label="Giá nhập (1 xe)">
+                      <MoneyInput
+                        className="input-3d"
+                        value={formState.unitCost}
+                        onChange={(n) => updatePrivate({ unitCost: n })}
+                      />
+                    </Field>
+
+                    <Field label="Giá bán (1 xe)" required>
+                      <MoneyInput
+                        className="input-3d font-bold text-blue-900 dark:text-blue-400"
+                        value={formState.unitSell}
+                        onChange={(n) => updatePrivate({ unitSell: n })}
+                      />
+                    </Field>
+                  </>
+                )}
+                {!isCabin && !isPrivate && (
                   <>
                     <Field label="Giá nhập">
                       <MoneyInput

@@ -30,6 +30,26 @@ export function getBusinessDate(now: Date = new Date()): string {
   return dateFormatter.format(now);
 }
 
+/** Giờ HH:mm tại múi giờ nghiệp vụ */
+export function getBusinessTime(now: Date = new Date()): string {
+  return timeFormatter.format(now);
+}
+
+/**
+ * Chuyến đã qua chưa? 'DATE' nếu ngày khởi hành trước hôm nay,
+ * 'TIME' nếu là hôm nay nhưng giờ đi đã qua, null nếu còn hợp lệ.
+ */
+export function departurePastReason(
+  date: string,
+  time: string,
+  now: Date = new Date(),
+): 'DATE' | 'TIME' | null {
+  const today = getBusinessDate(now);
+  if (date < today) return 'DATE';
+  if (date === today && time < getBusinessTime(now)) return 'TIME';
+  return null;
+}
+
 export function isOrderCreationLocked(now: Date = new Date()): boolean {
   const minute = getBusinessMinuteOfDay(now);
   return minute >= ORDER_CLOSE_MINUTE || minute < ORDER_OPEN_MINUTE;

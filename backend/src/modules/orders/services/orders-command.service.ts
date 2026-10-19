@@ -19,6 +19,7 @@ import {
   OrderHistoryAction,
 } from '../entities/order-history.entity.js';
 import {
+  departurePastReason,
   getBusinessDate,
   isOrderCreationLocked,
 } from '../order-time-lock.js';
@@ -140,9 +141,13 @@ export class OrdersCommandService {
       );
     }
 
-    // Không tạo vé cho ngày đã qua (bỏ qua khi nhập bù có chỉ định ngày vào sổ)
-    if (!options.entryDate && dto.departureDate < getBusinessDate()) {
-      throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
+    // Không tạo vé cho ngày hoặc giờ đã qua (bỏ qua khi nhập bù có chỉ định ngày vào sổ)
+    if (!options.entryDate) {
+      const past = departurePastReason(dto.departureDate, dto.departureTime);
+      if (past === 'DATE') throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
+      if (past === 'TIME') {
+        throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
+      }
     }
 
     // Staff luôn tạo đơn cho chính mình; chỉ Admin được chỉ định nhân viên khác
@@ -231,13 +236,15 @@ export class OrdersCommandService {
       throw new BadRequestException('Vé đã hủy, không thể sửa.');
     }
 
-    // Chỉ chặn khi đổi sang ngày đã qua; vé cũ vẫn sửa được các trường khác
-    if (
-      dto.departureDate !== undefined &&
-      dto.departureDate !== order.departureDate &&
-      dto.departureDate < getBusinessDate()
-    ) {
-      throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
+    // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác
+    const nextDate = dto.departureDate ?? order.departureDate;
+    const nextTime = dto.departureTime ?? order.departureTime;
+    if (nextDate !== order.departureDate || nextTime !== order.departureTime) {
+      const past = departurePastReason(nextDate, nextTime);
+      if (past === 'DATE') throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
+      if (past === 'TIME') {
+        throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
+      }
     }
 
     if (dto.routeId !== undefined && dto.routeId !== order.routeId) {

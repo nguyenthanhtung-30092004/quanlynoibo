@@ -2,6 +2,7 @@ import { BadRequestException } from '@nestjs/common';
 import { describe, expect, it } from 'vitest';
 import { UserRole } from '../../users/entities/user.entity.js';
 import { CabinKind } from '../entities/order.entity.js';
+import { getBusinessDate } from '../order-time-lock.js';
 import { OrdersCommandService } from './orders-command.service.js';
 
 const admin = { sub: 1, username: 'admin', role: UserRole.ADMIN } as never;
@@ -170,6 +171,25 @@ describe('tạo đơn xe riêng và đơn thường', () => {
         admin,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('giờ đi trong ngày hôm nay', () => {
+  const today = getBusinessDate();
+
+  it('hôm nay mà giờ đi đã qua thì bị từ chối, giờ sắp tới thì được', async () => {
+    const { service, saved } = build();
+    await expect(
+      service.create(
+        { ...baseDto, departureDate: today, departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+        admin,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await service.create(
+      { ...baseDto, departureDate: today, departureTime: '23:59', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+      admin,
+    );
+    expect(saved).toHaveLength(1);
   });
 });
 

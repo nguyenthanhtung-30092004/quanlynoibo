@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { cabinCommission, cabinFromLines, cabinTotals } from './cabin-pricing';
+import {
+  cabinCommission,
+  cabinFromLines,
+  cabinTotals,
+  perVehicle,
+  privateCommission,
+  privateTotals,
+} from './cabin-pricing';
 
 const lines = [
   { kind: 'SINGLE' as const, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000 },
@@ -38,5 +45,26 @@ describe('cabin pricing', () => {
   it('chưa nhập gì thì mọi số là 0', () => {
     expect(cabinTotals(cabinFromLines(null))).toEqual({ seatCount: 0, costPrice: 0, sellPrice: 0 });
     expect(cabinCommission(cabinFromLines(null))).toBe(0);
+  });
+});
+
+describe('xe riêng', () => {
+  it('tổng = đơn giá x số xe, hoa hồng = (bán - nhập) x số xe', () => {
+    expect(privateTotals(3, 800_000, 1_000_000)).toEqual({ costPrice: 2_400_000, sellPrice: 3_000_000 });
+    expect(privateCommission(3, 800_000, 1_000_000)).toBe(600_000);
+  });
+
+  it('chưa nhập số xe thì tổng và hoa hồng là 0', () => {
+    expect(privateTotals(0, 800_000, 1_000_000)).toEqual({ costPrice: 0, sellPrice: 0 });
+    expect(privateCommission(0, 800_000, 1_000_000)).toBe(0);
+  });
+
+  it('bán thấp hơn nhập thì hoa hồng là 0, không âm', () => {
+    expect(privateCommission(2, 900_000, 800_000)).toBe(0);
+  });
+
+  it('đơn giá 1 xe của đơn đã lưu = tổng / số xe', () => {
+    expect(perVehicle(3_000_000, 3)).toBe(1_000_000);
+    expect(perVehicle(1_000_000, 0)).toBe(1_000_000);
   });
 });

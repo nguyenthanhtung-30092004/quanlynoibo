@@ -264,8 +264,23 @@ export function DateInput({
 
 const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
 
-function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: string) => void; close: () => void }) {
+function TimeColumns({
+  value,
+  onChange,
+  close,
+  min,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  close: () => void;
+  /** Giờ nhỏ nhất được chọn (HH:mm): các giờ, phút trước mốc này bị khóa */
+  min?: string;
+}) {
   const [h, m] = value ? value.split(':') : ['', ''];
+  const [minH, minM] = min ? min.split(':') : ['', ''];
+  const hourBlocked = (hh: string) => !!min && hh < minH;
+  // Phút chỉ bị khóa khi đang đứng đúng ở giờ sát mốc
+  const minuteBlocked = (hh: string, mm: string) => !!min && hh === minH && mm < minM;
   const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5));
   // Giờ cũ có phút lẻ (không chia hết cho 5) vẫn hiển thị và chọn được
   if (m && !minutes.includes(m)) {
@@ -281,11 +296,13 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
       if (box) box.scrollTop = el.offsetTop - box.clientHeight / 2 + el.clientHeight / 2;
     });
   }, []);
-  const cell = (selected: boolean) =>
+  const cell = (selected: boolean, blocked = false) =>
     `flex h-10 w-full items-center justify-center rounded-xl text-[15px] tnum transition-colors ${
-      selected
-        ? 'bg-gradient-to-b from-blue-500 to-blue-700 font-extrabold text-white shadow-[0_2px_0_#1d4ed8]'
-        : 'font-semibold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-slate-800'
+      blocked
+        ? 'cursor-not-allowed font-semibold text-slate-300 line-through dark:text-slate-600'
+        : selected
+          ? 'bg-gradient-to-b from-blue-500 to-blue-700 font-extrabold text-white shadow-[0_2px_0_#1d4ed8]'
+          : 'font-semibold text-slate-700 hover:bg-blue-50 dark:text-slate-200 dark:hover:bg-slate-800'
     }`;
 
   return (
@@ -301,8 +318,14 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
               key={hh}
               type="button"
               data-selected={hh === h}
-              className={cell(hh === h)}
-              onClick={() => onChange(`${hh}:${m || '00'}`)}
+              disabled={hourBlocked(hh)}
+              className={cell(hh === h, hourBlocked(hh))}
+              onClick={() => {
+                // Chọn đúng giờ sát mốc thì đẩy phút lên phút hợp lệ đầu tiên
+                const keep = m || '00';
+                const firstOk = minutes.find((mm) => !minuteBlocked(hh, mm)) ?? keep;
+                onChange(`${hh}:${minuteBlocked(hh, keep) ? firstOk : keep}`);
+              }}
             >
               {hh}
             </button>
@@ -314,7 +337,8 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
               key={mm}
               type="button"
               data-selected={mm === m}
-              className={cell(mm === m)}
+              disabled={minuteBlocked(h || '08', mm)}
+              className={cell(mm === m, minuteBlocked(h || '08', mm))}
               onClick={() => {
                 onChange(`${h || '08'}:${mm}`);
                 close();
@@ -329,7 +353,7 @@ function TimeColumns({ value, onChange, close }: { value: string; onChange: (v: 
   );
 }
 
-export function TimeInput({ placeholder = '', value, onChange, invalid }: BaseProps) {
+export function TimeInput({ placeholder = '', value, onChange, invalid, min }: BaseProps & { min?: string }) {
   return (
     <PickerShell
       value={value}
@@ -338,7 +362,7 @@ export function TimeInput({ placeholder = '', value, onChange, invalid }: BasePr
       invalid={invalid}
       icon={<Clock size={18} weight="duotone" />}
     >
-      {(close) => <TimeColumns value={value} onChange={onChange} close={close} />}
+      {(close) => <TimeColumns value={value} onChange={onChange} close={close} min={min} />}
     </PickerShell>
   );
 }
