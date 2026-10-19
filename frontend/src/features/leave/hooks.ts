@@ -35,6 +35,14 @@ export function useRegisterLeave() {
   });
 }
 
+export function useRegisterLeaveForStaff() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ day, userId }: { day: string; userId: number }) => leaveApi.registerForStaff(day, userId),
+    onSettled: invalidate,
+  });
+}
+
 export function useRemoveLeave() {
   const invalidate = useInvalidate();
   return useMutation({ mutationFn: (id: number) => leaveApi.remove(id), onSuccess: invalidate });

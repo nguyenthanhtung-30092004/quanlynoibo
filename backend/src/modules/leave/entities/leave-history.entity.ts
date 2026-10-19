@@ -1,6 +1,7 @@
 import { Column, CreateDateColumn, Entity, Index, PrimaryGeneratedColumn } from 'typeorm';
 
-export type LeaveHistoryAction = 'REGISTER' | 'CANCEL';
+/** URGENT = Admin đăng ký nghỉ đột xuất hộ nhân viên */
+export type LeaveHistoryAction = 'REGISTER' | 'CANCEL' | 'URGENT';
 
 /** Lịch sử đăng ký / hủy nghỉ theo ngày: ai nghỉ, ai thao tác, lúc nào */
 @Entity('leave_history')

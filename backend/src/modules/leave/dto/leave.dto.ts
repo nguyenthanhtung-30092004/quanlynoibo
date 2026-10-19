@@ -1,3 +1,4 @@
+import { Type } from 'class-transformer';
 import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -16,6 +17,16 @@ export class LeaveDayQueryDto {
 export class RegisterLeaveDto {
   @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
   day: string;
+}
+
+export class AdminRegisterLeaveDto {
+  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
+  day: string;
+
+  @Type(() => Number)
+  @IsInt({ message: 'Nhân viên không hợp lệ' })
+  @Min(1, { message: 'Nhân viên không hợp lệ' })
+  userId: number;
 }
 
 export class SaveLeaveConfigDto {

@@ -11,6 +11,13 @@ export const leaveApi = {
   register: (day: string) =>
     api<ApiResponse<{ id: number; day: string }>>('leave', { method: 'POST', body: { day } }).then((r) => r.data),
 
+  /** Admin đăng ký nghỉ hộ nhân viên; ngày hôm nay là nghỉ đột xuất */
+  registerForStaff: (day: string, userId: number) =>
+    api<ApiResponse<{ id: number; day: string; urgent: boolean }>>('leave/admin', {
+      method: 'POST',
+      body: { day, userId },
+    }).then((r) => r.data),
+
   remove: (id: number) => api<ApiResponse<{ id: number }>>(`leave/${id}`, { method: 'DELETE' }).then((r) => r.data),
 
   saveConfig: (config: LeaveConfig) =>

@@ -32,6 +32,7 @@ import { PartnerCommissionPercent1710000000011 } from './migrations/171000000001
 import { OrderCabinLines1710000000012 } from './migrations/1710000000012-OrderCabinLines.js';
 import { OrderVehicleCount1710000000013 } from './migrations/1710000000013-OrderVehicleCount.js';
 import { OrderCabinUnitPrices1710000000014 } from './migrations/1710000000014-OrderCabinUnitPrices.js';
+import { LeaveUrgent1710000000015 } from './migrations/1710000000015-LeaveUrgent.js';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { OrderCabinUnitPrices1710000000014 } from './migrations/1710000000014-Or
           OrderCabinLines1710000000012,
           OrderVehicleCount1710000000013,
           OrderCabinUnitPrices1710000000014,
+          LeaveUrgent1710000000015,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

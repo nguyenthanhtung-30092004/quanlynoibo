@@ -32,7 +32,7 @@ export interface LeaveDay {
   /** Người đang xem đã đăng ký nghỉ ngày này */
   mine: boolean;
   /** Ai đã đăng ký nghỉ ngày này (mọi người dùng đều xem được, chỉ Admin mới hủy được) */
-  people: Array<{ requestId: number; userId: number; fullName: string }>;
+  people: Array<{ requestId: number; userId: number; fullName: string; urgent: boolean }>;
 }
 
 const addDays = (day: string, delta: number): string => {
@@ -79,7 +79,7 @@ export class LeaveService {
       this.requests
         .createQueryBuilder('r')
         .innerJoin('r.user', 'u')
-        .select(['r.id', 'r.userId', 'r.day', 'u.id', 'u.fullName'])
+        .select(['r.id', 'r.userId', 'r.day', 'r.urgent', 'u.id', 'u.fullName'])
         .where('r.day >= :first AND r.day <= :last', { first, last })
         .orderBy('r.createdAt', 'ASC')
         .getMany(),
@@ -102,7 +102,12 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
-        people: list.map((r) => ({ requestId: r.id, userId: r.userId, fullName: r.user?.fullName ?? '' })),
+        people: list.map((r) => ({
+          requestId: r.id,
+          userId: r.userId,
+          fullName: r.user?.fullName ?? '',
+          urgent: r.urgent,
+        })),
       };
     });
 
@@ -156,6 +161,60 @@ export class LeaveService {
         }),
       );
       return { id: saved.id, day, count: count + 1, limit };
+    });
+  }
+
+  /**
+   * Admin đăng ký nghỉ hộ nhân viên (nhân viên báo nghỉ ngay trong ngày).
+   * Chỉ từ hôm nay trở đi. Ngày hôm nay là nghỉ đột xuất: được ghi nhận dù ngày đã đủ người
+   * vì việc nghỉ đã xảy ra; ngày sau hôm nay vẫn theo giới hạn số người.
+   */
+  async registerForStaff(actor: JwtPayload, userId: number, day: string) {
+    if (!isRealDay(day)) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+    const today = vietnamClock().day;
+    if (day < today) {
+      throw new BadRequestException('Không đăng ký nghỉ cho ngày đã qua');
+    }
+    if (day > addDays(today, MAX_DAYS_AHEAD)) {
+      throw new BadRequestException(`Chỉ được đăng ký nghỉ trước tối đa ${MAX_DAYS_AHEAD} ngày`);
+    }
+    const urgent = day === today;
+    const config = await this.loadConfig();
+
+    return this.dataSource.transaction(async (manager) => {
+      const staff = await manager.findOne(User, {
+        where: { id: userId, isActive: true },
+        select: { id: true, fullName: true, role: true },
+      });
+      if (!staff || staff.role !== UserRole.STAFF) {
+        throw new BadRequestException('Nhân viên không tồn tại hoặc đã bị khóa');
+      }
+      await manager.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`leave:${day}`]);
+
+      const already = await manager.count(LeaveRequest, { where: { userId, day } });
+      if (already > 0) {
+        throw new ConflictException(`${staff.fullName} đã đăng ký nghỉ ngày này rồi`);
+      }
+      const count = await manager.count(LeaveRequest, { where: { day } });
+      const override = await manager.findOne(LeaveDayLimit, { where: { day } });
+      const limit = limitForDay(day, config, override?.maxOff);
+      if (!urgent && (limit <= 0 || count >= limit)) {
+        throw new ConflictException('Ngày này đã đủ số người nghỉ, hãy nâng giới hạn của ngày trước khi đăng ký');
+      }
+      const saved = await manager.save(manager.create(LeaveRequest, { userId, day, urgent }));
+      await manager.save(
+        manager.create(LeaveHistory, {
+          day,
+          action: urgent ? 'URGENT' : 'REGISTER',
+          userId,
+          userName: staff.fullName,
+          actorId: actor.sub,
+          actorName: await this.nameOf(manager.getRepository(User), actor),
+        }),
+      );
+      return { id: saved.id, day, urgent, count: count + 1, limit };
     });
   }
 

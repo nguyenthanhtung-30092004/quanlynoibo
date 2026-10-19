@@ -16,8 +16,10 @@ import {
 import { OrdersQueryService } from './orders-query.service.js';
 
 const EXPORT_LIMIT = 5000;
-/** Dấu phẩy cuối định dạng chia hiển thị cho 1.000 (25000 hiện là 25); giá trị thật trong ô vẫn đầy đủ nên tổng không đổi */
-const THOUSANDS_FMT = '#,##0,';
+/** Cột tiền xuất theo đơn vị nghìn đồng: 17000 ghi vào ô là 17 (giá trị thật trong ô, không chỉ hiển thị) */
+const toThousands = (amount: number) => Math.round(amount) / 1000;
+/** Số nguyên nghìn hiện '17', số lẻ như 17,5 vẫn hiện đủ để không làm tròn mất tiền */
+const thousandsFmt = (v: unknown) => (typeof v === 'number' && !Number.isInteger(v) ? '#,##0.###' : '#,##0');
 
 @Injectable()
 export class OrdersExportService {
@@ -102,6 +104,8 @@ export class OrdersExportService {
       width: number;
       align?: 'left' | 'center' | 'right';
       fmt?: string;
+      /** Cột tiền: giá trị ghi ra là nghìn đồng */
+      money?: boolean;
       sum?: boolean;
       value: (o: Order, index: number) => ExcelJS.CellValue;
     };
@@ -131,11 +135,11 @@ export class OrdersExportService {
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
       { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
-      { header: 'GIÁ NHẬP', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.costPrice },
-      { header: 'GIÁ BÁN', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.sellPrice },
-      { header: 'ĐÃ CỌC', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.deposit },
-      { header: 'NHỜ THU', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.collectOnDelivery },
-      { header: 'HOA HỒNG', width: 16, align: 'right', fmt: THOUSANDS_FMT, sum: true, value: (o) => o.commission },
+      { header: 'GIÁ NHẬP', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.costPrice) },
+      { header: 'GIÁ BÁN', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.sellPrice) },
+      { header: 'ĐÃ CỌC', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.deposit) },
+      { header: 'NHỜ THU', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.collectOnDelivery) },
+      { header: 'HOA HỒNG', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.commission) },
       { header: 'ĐỐI TÁC', width: 24, value: (o) => neutralizeFormula(o.partner ?? '') },
       { header: 'GHI CHÚ', width: 34, value: (o) => neutralizeFormula(o.note ?? '') },
     ];
@@ -169,7 +173,7 @@ export class OrdersExportService {
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
       (excludedCount > 0 ? `, ${excludedCount} đơn bị loại vì đối tác không có trong danh sách` : '') +
       (cancelledCount > 0 ? '  (vé đã hủy chữ đỏ và không tính vào dòng TỔNG)' : '') +
-      '  •  Vé đã cọc nền vàng';
+      '  •  Vé đã cọc nền vàng  •  Đơn vị tiền: nghìn đồng';
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
     info.fill = solid('FFE0EAFF');
     info.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
@@ -199,7 +203,8 @@ export class OrdersExportService {
       COLS.forEach((c, i) => {
         const cell = row.getCell(i + 1);
         cell.value = c.value(o, idx);
-        if (c.fmt) cell.numFmt = c.fmt;
+        if (c.money) cell.numFmt = thousandsFmt(cell.value);
+        else if (c.fmt) cell.numFmt = c.fmt;
         cell.border = box;
         cell.alignment = { horizontal: c.align ?? 'left', vertical: 'middle' };
         if (cancelled) {
@@ -235,17 +240,19 @@ export class OrdersExportService {
       cell.font = { bold: true, size: 12, color: { argb: NAVY } };
       if (c.sum && rows.length > 0) {
         const colLetter = sheet.getColumn(i + 1).letter;
-        const result = rows
+        const rawSum = rows
           .filter((r) => !isCancelled(r.view))
           .reduce((acc, r) => {
             const v = c.value(r.view, 0);
             return acc + (typeof v === 'number' ? v : 0);
           }, 0);
+        // Cộng số nghìn bị lệch số lẻ thập phân thì làm tròn về đúng 3 chữ số
+        const result = c.money ? Math.round(rawSum * 1000) / 1000 : rawSum;
         cell.value = {
           formula: `SUMIF($B$${first}:$B$${last},"Hợp lệ",${colLetter}${first}:${colLetter}${last})`,
           result,
         };
-        cell.numFmt = c.fmt ?? '#,##0';
+        cell.numFmt = c.money ? thousandsFmt(result) : (c.fmt ?? '#,##0');
         cell.alignment = { horizontal: c.align ?? 'right', vertical: 'middle' };
       }
     });
@@ -268,8 +275,8 @@ export class OrdersExportService {
       { label: 'Đơn hợp lệ', value: hasRows ? (hasSplitRows ? activeCount : { formula: `COUNTIF(${statusRange},"Hợp lệ")`, result: activeCount }) : 0, color: GREEN },
       { label: 'Đơn đã hủy', value: hasRows ? (hasSplitRows ? cancelledCount : { formula: `COUNTIF(${statusRange},"ĐÃ HỦY")`, result: cancelledCount }) : 0, color: RED },
       { label: 'Tổng vé (số ghế, vé hợp lệ)', value: hasRows ? { formula: totalCell('SỐ GHẾ'), result: sumOf((o) => o.seatCount) } : 0 },
-      { label: 'Tổng giá bán (vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: sumOf((o) => o.sellPrice) } : 0, fmt: '#,##0" đ"' },
-      { label: 'Tổng hoa hồng (vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: sumOf((o) => o.commission) } : 0, fmt: '#,##0" đ"' },
+      { label: 'Tổng giá bán (nghìn đồng, vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: toThousands(sumOf((o) => o.sellPrice)) } : 0, fmt: thousandsFmt(toThousands(sumOf((o) => o.sellPrice))) },
+      { label: 'Tổng hoa hồng (nghìn đồng, vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: toThousands(sumOf((o) => o.commission)) } : 0, fmt: thousandsFmt(toThousands(sumOf((o) => o.commission))) },
     ];
     const panelTop = last + 3;
     sheet.mergeCells(panelTop, 1, panelTop, 6);

@@ -123,10 +123,11 @@ describe('xuất Excel: tiền và tách dòng', () => {
       'Cabin Đôi',
     ]);
     expect(rows.map((r) => r.getCell(col('SỐ GHẾ')).value)).toEqual([2, 3, 1]);
-    expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([1_600_000, 1_500_000, 700_000]);
-    expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([2_000_000, 1_950_000, 900_000]);
-    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500_000, 0, 0]);
-    expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050_000, 0, 0]);
+    // cột tiền ghi theo nghìn đồng: giá trị trong ô là 1.600 chứ không phải 1.600.000
+    expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([1_600, 1_500, 700]);
+    expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([2_000, 1_950, 900]);
+    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500, 0, 0]);
+    expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
     // STT giống nhau vì cùng một đơn
     expect(new Set(rows.map((r) => r.getCell(1).value)).size).toBe(1);
     // cả 3 dòng đều nền vàng vì đơn đã cọc
@@ -137,10 +138,10 @@ describe('xuất Excel: tiền và tách dòng', () => {
     const total = sheet.getRow(8);
     const result = (name: string) => (total.getCell(col(name)).value as { result: number }).result;
     expect(result('SỐ GHẾ')).toBe(cabinOrder.seatCount);
-    expect(result('GIÁ NHẬP')).toBe(cabinOrder.costPrice);
-    expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice);
-    expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit);
-    expect(result('HOA HỒNG')).toBe(cabinOrder.commission);
+    expect(result('GIÁ NHẬP')).toBe(cabinOrder.costPrice / 1000);
+    expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice / 1000);
+    expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit / 1000);
+    expect(result('HOA HỒNG')).toBe(cabinOrder.commission / 1000);
   });
 
   it('dòng TỔNG bỏ vé đã hủy, xe riêng không tính ghế, vé hủy chữ đỏ nền trắng và còn border', async () => {
@@ -154,10 +155,10 @@ describe('xuất Excel: tiền và tách dòng', () => {
     };
     const result = (name: string) => (total.getCell(col(name)).value as { result: number }).result;
     expect(result('SỐ GHẾ')).toBe(6 + 2 + 0);
-    expect(result('GIÁ NHẬP')).toBe(3_800_000 + 300_000 + 800_000);
-    expect(result('GIÁ BÁN')).toBe(4_850_000 + 400_000 + 1_000_000);
-    expect(result('ĐÃ CỌC')).toBe(500_000);
-    expect(result('HOA HỒNG')).toBe(1_050_000 + 20_000 + 50_000);
+    expect(result('GIÁ NHẬP')).toBe((3_800_000 + 300_000 + 800_000) / 1000);
+    expect(result('GIÁ BÁN')).toBe((4_850_000 + 400_000 + 1_000_000) / 1000);
+    expect(result('ĐÃ CỌC')).toBe(500);
+    expect(result('HOA HỒNG')).toBe((1_050_000 + 20_000 + 50_000) / 1000);
 
     const cancelledRow = sheet.getRow(9);
     expect(cancelledRow.getCell(2).value).toBe('ĐÃ HỦY');
@@ -172,5 +173,23 @@ describe('xuất Excel: tiền và tách dòng', () => {
     const privateRow = sheet.getRow(10);
     expect(privateRow.getCell(col('LOẠI HÌNH')).value).toBe('Xe Riêng x2');
     expect(privateRow.getCell(col('SỐ GHẾ')).value).toBe('');
+  });
+
+  it('17.000 đ được ghi là 17 (giá trị thật trong ô), số lẻ nghìn giữ nguyên', async () => {
+    const sheet = await exportRows([
+      { ...normalOrder, costPrice: 17_000, sellPrice: 17_500, deposit: 1_000, commission: 500 },
+    ]);
+    const header = sheet.getRow(4);
+    const col = (name: string) => {
+      for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === name) return c;
+      throw new Error(name);
+    };
+    const row = sheet.getRow(5);
+    expect(row.getCell(col('GIÁ NHẬP')).value).toBe(17);
+    expect(row.getCell(col('GIÁ NHẬP')).numFmt).toBe('#,##0');
+    expect(row.getCell(col('GIÁ BÁN')).value).toBe(17.5);
+    expect(row.getCell(col('GIÁ BÁN')).numFmt).toBe('#,##0.###');
+    expect(row.getCell(col('ĐÃ CỌC')).value).toBe(1);
+    expect(row.getCell(col('HOA HỒNG')).value).toBe(0.5);
   });
 });

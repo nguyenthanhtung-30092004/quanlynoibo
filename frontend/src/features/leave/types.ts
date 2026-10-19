@@ -9,6 +9,8 @@ export interface LeavePerson {
   requestId: number;
   userId: number;
   fullName: string;
+  /** Nghỉ đột xuất: Admin đăng ký hộ cho nhân viên báo nghỉ ngay trong ngày */
+  urgent: boolean;
 }
 
 export interface LeaveDay {
@@ -33,7 +35,7 @@ export interface LeaveMonth {
 
 export interface LeaveHistoryEntry {
   id: number;
-  action: 'REGISTER' | 'CANCEL';
+  action: 'REGISTER' | 'CANCEL' | 'URGENT';
   /** Người được nghỉ */
   userName: string;
   actorId: number | null;

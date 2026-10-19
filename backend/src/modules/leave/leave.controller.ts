@@ -3,7 +3,14 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
-import { LeaveDayQueryDto, LeaveMonthQueryDto, RegisterLeaveDto, SaveLeaveConfigDto, SetDayLimitDto } from './dto/leave.dto.js';
+import {
+  AdminRegisterLeaveDto,
+  LeaveDayQueryDto,
+  LeaveMonthQueryDto,
+  RegisterLeaveDto,
+  SaveLeaveConfigDto,
+  SetDayLimitDto,
+} from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
 @ApiTags('Leave')
@@ -29,6 +36,17 @@ export class LeaveController {
       statusCode: HttpStatus.CREATED,
       message: 'Đã đăng ký nghỉ',
       data: await this.leaveService.register(user, dto.day),
+    };
+  }
+
+  /** Admin đăng ký nghỉ hộ nhân viên; ngày hôm nay được đánh dấu nghỉ đột xuất */
+  @Post('admin')
+  @Roles(UserRole.ADMIN)
+  async registerForStaff(@Body() dto: AdminRegisterLeaveDto, @CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Đã đăng ký nghỉ cho nhân viên',
+      data: await this.leaveService.registerForStaff(user, dto.userId, dto.day),
     };
   }
 

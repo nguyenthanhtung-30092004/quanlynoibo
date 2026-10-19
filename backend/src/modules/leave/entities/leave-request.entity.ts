@@ -20,6 +20,10 @@ export class LeaveRequest {
   @Column({ type: 'varchar', length: 10 })
   day: string;
 
+  /** Nghỉ đột xuất: Admin đăng ký hộ cho nhân viên báo nghỉ ngay trong ngày */
+  @Column({ type: 'boolean', default: false })
+  urgent: boolean;
+
   @CreateDateColumn({ name: 'createdAt', type: 'timestamptz' })
   createdAt: Date;
 }

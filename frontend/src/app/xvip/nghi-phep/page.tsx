@@ -6,10 +6,12 @@ import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { useCurrentUser } from '@/features/auth/hooks';
+import { useActiveStaff } from '@/features/users/hooks';
 import {
   useLeaveHistory,
   useLeaveMonth,
   useRegisterLeave,
+  useRegisterLeaveForStaff,
   useRemoveLeave,
   useSaveLeaveConfig,
   useSetDayLimit,
@@ -64,6 +66,8 @@ export default function LeavePage() {
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useLeaveMonth(month);
   const registerLeave = useRegisterLeave();
+  const registerForStaff = useRegisterLeaveForStaff();
+  const { data: activeStaff = [] } = useActiveStaff(isAdmin);
   const removeLeave = useRemoveLeave();
   const saveConfig = useSaveLeaveConfig();
   const setDayLimit = useSetDayLimit();
@@ -123,6 +127,17 @@ export default function LeavePage() {
   }, [data]);
   const quota = data?.quota ?? 4;
   const myDaysThisMonth = data?.days.filter((d) => d.mine).length ?? 0;
+
+  /** Admin đăng ký hộ nhân viên; giữ nguyên cửa sổ để thấy ngay người vừa thêm */
+  const registerStaff = async (day: string, userId: number) => {
+    try {
+      const res = await registerForStaff.mutateAsync({ day, userId });
+      const name = activeStaff.find((u) => u.id === userId)?.fullName ?? 'nhân viên';
+      showToast(res.urgent ? `Đã ghi nhận ${name} nghỉ đột xuất.` : `Đã đăng ký nghỉ cho ${name}.`);
+    } catch (err) {
+      showToast(`Lỗi: ${errText(err, 'Không đăng ký được.')}`);
+    }
+  };
 
   const cancel = async (requestId: number) => {
     try {
@@ -313,7 +328,10 @@ export default function LeavePage() {
             {isAdmin ? (
               <AdminDayPanel
                 day={selected}
-                busy={removeLeave.isPending || setDayLimit.isPending}
+                today={today}
+                staff={activeStaff}
+                onRegisterStaff={(userId) => registerStaff(selected.day, userId)}
+                busy={removeLeave.isPending || setDayLimit.isPending || registerForStaff.isPending}
                 defaultLimit={isLateWeekDay(selected.day) ? data!.config.lateMax : data!.config.earlyMax}
                 onCancel={cancel}
                 onChangeLimit={changeLimit}
@@ -416,7 +434,7 @@ function StaffDayPanel({
   let note: string | null = null;
   if (day.mine) note = canCancel ? 'Bạn đã đăng ký nghỉ ngày này.' : 'Bạn đã đăng ký nghỉ ngày này (ngày đã tới nên không hủy được).';
   else if (day.day < today) note = 'Ngày này đã qua, không đăng ký được.';
-  else if (day.day === today) note = 'Chỉ đăng ký nghỉ được từ ngày mai trở đi, hôm nay không đăng ký nữa.';
+  else if (day.day === today) note = 'Bạn chỉ tự đăng ký nghỉ được từ ngày mai trở đi. Nếu báo nghỉ đột xuất hôm nay, hãy báo quản lý để được ghi nhận.';
   else if (day.limit === 0) note = 'Quản lý đã khóa ngày này.';
   else if (full) note = 'Ngày này đã đủ người nghỉ, bạn chọn ngày khác nhé.';
 
@@ -436,6 +454,7 @@ function StaffDayPanel({
                 <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
                   {p.fullName}
                 </span>
+                {p.urgent && <UrgentBadge />}
               </li>
             ))}
           </ul>
@@ -483,14 +502,30 @@ function StaffDayPanel({
   );
 }
 
+/** Nhãn nghỉ đột xuất, ghi bằng chữ để ai nhìn vào cũng hiểu */
+function UrgentBadge() {
+  return (
+    <span className="shrink-0 rounded-md bg-rose-600 px-2 py-0.5 text-[11px] font-extrabold uppercase tracking-wide text-white">
+      Nghỉ đột xuất
+    </span>
+  );
+}
+
 function AdminDayPanel({
   day,
+  today,
+  staff,
+  onRegisterStaff,
   busy,
   defaultLimit,
   onCancel,
   onChangeLimit,
 }: {
   day: LeaveDay;
+  today: string;
+  /** Nhân viên đang hoạt động để Admin chọn đăng ký hộ */
+  staff: Array<{ id: number; fullName: string }>;
+  onRegisterStaff: (userId: number) => void;
   busy: boolean;
   /** Giới hạn mặc định của nhóm ngày này (đầu tuần / cuối tuần) */
   defaultLimit: number;
@@ -500,7 +535,11 @@ function AdminDayPanel({
   const [limitText, setLimitText] = useState(String(day.limit));
   useEffect(() => setLimitText(String(day.limit)), [day.limit]);
   const [confirmId, setConfirmId] = useState<number | null>(null);
+  const [pickId, setPickId] = useState('');
   const people = day.people;
+  const registeredIds = new Set(people.map((p) => p.userId));
+  const available = staff.filter((u) => !registeredIds.has(u.id));
+  const isToday = day.day === today;
   const parsed = Number(limitText);
   const validLimit = limitText.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100;
 
@@ -520,6 +559,7 @@ function AdminDayPanel({
                 <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
                   {p.fullName}
                 </span>
+                {p.urgent && <UrgentBadge />}
                 <button
                   type="button"
                   disabled={busy}
@@ -541,6 +581,39 @@ function AdminDayPanel({
           </ul>
         )}
       </div>
+
+      {day.day >= today && (
+        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
+          <Field label={isToday ? 'Đăng ký nghỉ đột xuất cho nhân viên' : 'Đăng ký nghỉ cho nhân viên'}>
+            <select className="input-3d !h-10" value={pickId} onChange={(e) => setPickId(e.target.value)}>
+              <option value="">Chọn nhân viên…</option>
+              {available.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName}
+                </option>
+              ))}
+            </select>
+          </Field>
+          {isToday && (
+            <p className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+              Nhân viên báo nghỉ ngay hôm nay sẽ được ghi nhận là NGHỈ ĐỘT XUẤT, kể cả khi ngày đã đủ người.
+            </p>
+          )}
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              disabled={busy || !pickId}
+              onClick={() => {
+                onRegisterStaff(Number(pickId));
+                setPickId('');
+              }}
+              className="btn-3d btn-3d-blue px-4 py-2 text-sm disabled:opacity-50"
+            >
+              {isToday ? 'Ghi nhận nghỉ đột xuất' : 'Đăng ký nghỉ'}
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
         <Field label="Số người được nghỉ tối đa riêng cho ngày này">
@@ -627,6 +700,7 @@ function HistoryPanel({ day }: { day: string }) {
             <ul className="space-y-2">
               {data.map((h: LeaveHistoryEntry) => {
                 const isCancel = h.action === 'CANCEL';
+                const isUrgent = h.action === 'URGENT';
                 const byOther = h.actorName && h.actorName !== h.userName;
                 return (
                   <li
@@ -636,8 +710,14 @@ function HistoryPanel({ day }: { day: string }) {
                     <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5">
                       <span className="text-sm font-extrabold text-slate-900 dark:text-white">
                         {h.userName || 'Không rõ'}{' '}
-                        <span className={isCancel ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
-                          {isCancel ? 'hủy nghỉ' : 'đăng ký nghỉ'}
+                        <span
+                          className={
+                            isCancel || isUrgent
+                              ? 'text-rose-600 dark:text-rose-400'
+                              : 'text-emerald-600 dark:text-emerald-400'
+                          }
+                        >
+                          {isCancel ? 'hủy nghỉ' : isUrgent ? 'nghỉ đột xuất' : 'đăng ký nghỉ'}
                         </span>
                       </span>
                       <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{formatFull(h.createdAt)}</span>
