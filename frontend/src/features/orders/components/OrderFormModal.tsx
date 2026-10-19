@@ -15,7 +15,7 @@ import { RouteCombobox } from '@/features/xvip/RouteCombobox';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import { handleArrowNav } from '@/features/xvip/arrow-nav';
-import { formatDateVN, formatOrderCode, formatVND } from '@/lib/format';
+import { formatDateVN, formatOrderCode } from '@/lib/format';
 import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '../parse-order-text';
 import { partnersApi } from '@/features/partners/api';
@@ -996,20 +996,7 @@ export function OrderFormModal({
 
             <Section step={4} title="Giá tiền (VNĐ)">
               <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-                {isCabin ? (
-                  <>
-                    <Field label="Tổng giá nhập (từ bảng cabin)">
-                      <div className="input-3d flex items-center justify-end font-bold tnum">
-                        {formatVND(formState.costPrice)}
-                      </div>
-                    </Field>
-                    <Field label="Tổng giá bán (từ bảng cabin)">
-                      <div className="input-3d flex items-center justify-end font-bold tnum text-blue-900 dark:text-blue-400">
-                        {formatVND(formState.sellPrice)}
-                      </div>
-                    </Field>
-                  </>
-                ) : (
+                {!isCabin && (
                   <>
                     <Field label="Giá nhập">
                       <MoneyInput
