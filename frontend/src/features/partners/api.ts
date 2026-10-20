@@ -12,10 +12,16 @@ export const partnersApi = {
    * Hoa hồng gợi ý: ưu tiên % của đối tác x tổng giá vé đầy đủ (`fare`),
    * không có thì mức cố định mỗi vé x số vé; null nếu đối tác chưa đặt mức nào
    */
-  commissionQuote: (name: string, seats: number, fare: number, signal?: AbortSignal) =>
+  commissionQuote: (
+    name: string,
+    seats: number,
+    fare: number,
+    signal?: AbortSignal,
+    kind: 'ticket' | 'delivery' = 'ticket',
+  ) =>
     api<ApiResponse<{ commission: number | null }>>('partners/commission-quote', {
       signal,
-      query: { name, seats, fare },
+      query: { name, seats, fare, kind },
     }).then((res) => res.data.commission),
 
   create: (input: PartnerInput) =>

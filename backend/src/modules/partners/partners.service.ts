@@ -46,6 +46,8 @@ export class PartnersService {
         note: dto.note || null,
         commissionPerSeat: actor.role === UserRole.ADMIN ? (dto.commissionPerSeat ?? 0) : 0,
         commissionPercent: actor.role === UserRole.ADMIN ? (dto.commissionPercent ?? 0) : 0,
+        deliveryCommissionPerOrder: actor.role === UserRole.ADMIN ? (dto.deliveryCommissionPerOrder ?? 0) : 0,
+        deliveryCommissionPercent: actor.role === UserRole.ADMIN ? (dto.deliveryCommissionPercent ?? 0) : 0,
         createdById: actor.sub,
       }),
     );
@@ -74,9 +76,9 @@ export class PartnersService {
    * không có % (hoặc chưa nhập giá vé) thì dùng mức cố định mỗi vé x số vé.
    * Trả null nếu đối tác chưa đặt mức nào; không lộ % hay mức mỗi vé cho nhân viên.
    */
-  async commissionQuote(name: string, seats: number, fare = 0) {
+  async commissionQuote(name: string, seats: number, fare = 0, kind: 'ticket' | 'delivery' = 'ticket') {
     const key = name.trim();
-    if (!key || seats < 1) return { commission: null };
+    if (!key || (kind === 'ticket' && seats < 1)) return { commission: null };
     const lowerKey = key.toLowerCase();
     const now = Date.now();
     const cached = this.partnerByNameCache.get(lowerKey);
@@ -91,6 +93,13 @@ export class PartnersService {
       this.partnerByNameCache.set(lowerKey, { partner, expiresAt: now + this.CACHE_TTL_MS });
     }
     if (!partner) return { commission: null };
+    if (kind === 'delivery') {
+      // Giao hàng: ưu tiên % cước phí, không có thì mức cố định mỗi đơn
+      if (partner.deliveryCommissionPercent > 0 && fare > 0) {
+        return { commission: Math.round((fare * partner.deliveryCommissionPercent) / 100) };
+      }
+      return { commission: partner.deliveryCommissionPerOrder > 0 ? partner.deliveryCommissionPerOrder : null };
+    }
     if (partner.commissionPercent > 0 && fare > 0) {
       return { commission: Math.round((fare * partner.commissionPercent) / 100) };
     }
@@ -117,6 +126,12 @@ export class PartnersService {
     }
     if (dto.commissionPercent !== undefined && actor.role === UserRole.ADMIN) {
       partner.commissionPercent = dto.commissionPercent;
+    }
+    if (dto.deliveryCommissionPercent !== undefined && actor.role === UserRole.ADMIN) {
+      partner.deliveryCommissionPercent = dto.deliveryCommissionPercent;
+    }
+    if (dto.deliveryCommissionPerOrder !== undefined && actor.role === UserRole.ADMIN) {
+      partner.deliveryCommissionPerOrder = dto.deliveryCommissionPerOrder;
     }
     const saved = await this.repo.save(partner);
     this.clearCache();

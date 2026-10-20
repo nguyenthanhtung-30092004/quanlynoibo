@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { AuthGuard } from './modules/auth/guards/auth.guard.js';
 import { RolesGuard } from './modules/auth/guards/roles.guard.js';
 import { CarriersModule } from './modules/carriers/carriers.module.js';
+import { DeliveriesModule } from './modules/deliveries/deliveries.module.js';
 import { LeaveModule } from './modules/leave/leave.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
 import { PartnersModule } from './modules/partners/partners.module.js';
@@ -33,6 +34,7 @@ import { OrderCabinLines1710000000012 } from './migrations/1710000000012-OrderCa
 import { OrderVehicleCount1710000000013 } from './migrations/1710000000013-OrderVehicleCount.js';
 import { OrderCabinUnitPrices1710000000014 } from './migrations/1710000000014-OrderCabinUnitPrices.js';
 import { LeaveUrgent1710000000015 } from './migrations/1710000000015-LeaveUrgent.js';
+import { Deliveries1710000000016 } from './migrations/1710000000016-Deliveries.js';
 
 @Module({
   imports: [
@@ -68,6 +70,7 @@ import { LeaveUrgent1710000000015 } from './migrations/1710000000015-LeaveUrgent
           OrderVehicleCount1710000000013,
           OrderCabinUnitPrices1710000000014,
           LeaveUrgent1710000000015,
+          Deliveries1710000000016,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),
@@ -83,6 +86,7 @@ import { LeaveUrgent1710000000015 } from './migrations/1710000000015-LeaveUrgent
     OrdersModule,
     CarriersModule,
     PartnersModule,
+    DeliveriesModule,
     RoutesModule,
     SettingsModule,
     PayrollModule,

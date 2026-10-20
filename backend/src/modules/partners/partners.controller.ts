@@ -55,11 +55,12 @@ export class PartnersController {
     @Query('name') name = '',
     @Query('seats', new DefaultValuePipe(0), ParseIntPipe) seats: number,
     @Query('fare', new DefaultValuePipe(0), ParseIntPipe) fare: number,
+    @Query('kind') kind?: string,
   ) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Tính hoa hồng thành công',
-      data: await this.partnersService.commissionQuote(name, seats, Math.max(0, fare)),
+      data: await this.partnersService.commissionQuote(name, seats, Math.max(0, fare), kind === 'delivery' ? 'delivery' : 'ticket'),
     };
   }
 

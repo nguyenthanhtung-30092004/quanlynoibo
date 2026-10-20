@@ -26,6 +26,14 @@ export class Partner {
   @Column({ name: 'commissionPercent', type: 'float', default: 0 })
   commissionPercent: number;
 
+  /** Hoa hồng giao hàng theo % cước phí (0-100). 0 = chưa đặt */
+  @Column({ name: 'deliveryCommissionPercent', type: 'float', default: 0 })
+  deliveryCommissionPercent: number;
+
+  /** Hoa hồng giao hàng cố định mỗi đơn (VNĐ). 0 = chưa đặt */
+  @Column({ name: 'deliveryCommissionPerOrder', type: 'int', default: 0 })
+  deliveryCommissionPerOrder: number;
+
   /** Người tạo; nhân viên chỉ được sửa/xóa bản ghi của mình trong ngày tạo */
   @Column({ name: 'createdById', type: 'int', nullable: true })
   createdById: number | null;

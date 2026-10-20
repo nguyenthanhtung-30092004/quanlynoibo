@@ -8,7 +8,8 @@ import {
   type FormEvent,
   type ReactNode,
 } from 'react';
-import { Copy } from '@phosphor-icons/react';
+import { Copy, Package, Ticket } from '@phosphor-icons/react';
+import { DeliveryForm } from '@/features/deliveries/components/DeliveryForm';
 import { Modal } from '@/features/xvip/Modal';
 import { AutoGrowInput } from '@/features/xvip/AutoGrowInput';
 import { RouteCombobox } from '@/features/xvip/RouteCombobox';
@@ -308,6 +309,49 @@ function buildPreviewLines(f: OrderFormState): string[] {
   ].filter((line): line is string => !!line);
 }
 
+/** Nút chuyển Vé xe / Giao hàng: viên thuốc nền xanh trượt sang bên được chọn */
+function KindToggle({
+  mode,
+  onChange,
+}: {
+  mode: 'TICKET' | 'DELIVERY';
+  onChange: (m: 'TICKET' | 'DELIVERY') => void;
+}) {
+  const options = [
+    { value: 'TICKET', label: 'Vé xe', icon: Ticket },
+    { value: 'DELIVERY', label: 'Giao hàng', icon: Package },
+  ] as const;
+  return (
+    <div
+      role="tablist"
+      aria-label="Loại đơn"
+      className="relative mb-4 grid grid-cols-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800"
+    >
+      <span
+        aria-hidden
+        className={`absolute inset-y-1 left-1 w-[calc(50%-0.25rem)] rounded-lg bg-blue-600 shadow-[0_2px_0_#1e3a8a] transition-transform duration-300 ease-out ${
+          mode === 'DELIVERY' ? 'translate-x-full' : 'translate-x-0'
+        }`}
+      />
+      {options.map(({ value, label, icon: Icon }) => (
+        <button
+          key={value}
+          type="button"
+          role="tab"
+          aria-selected={mode === value}
+          onClick={() => onChange(value)}
+          className={`relative z-10 flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-extrabold transition-colors duration-300 ${
+            mode === value ? 'text-white' : 'text-slate-600 hover:text-slate-900 dark:text-slate-300'
+          }`}
+        >
+          <Icon size={18} weight="bold" />
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 interface OrderFormModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -338,6 +382,12 @@ export function OrderFormModal({
   showToast,
 }: OrderFormModalProps) {
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  // Thêm mới: chọn nhập vé xe hay đơn giao hàng. Cả hai form cùng được giữ trong modal
+  // (chỉ ẩn/hiện) nên chuyển qua lại không mất dữ liệu đã gõ.
+  const [mode, setMode] = useState<'TICKET' | 'DELIVERY'>('TICKET');
+  useEffect(() => {
+    if (!isOpen) setMode('TICKET');
+  }, [isOpen]);
 
   const defaultFormState: OrderFormState = useMemo(
     () => ({
@@ -738,6 +788,9 @@ export function OrderFormModal({
     });
   };
 
+  const canChooseKind = !editingId && !rebookFromId;
+  const showDelivery = canChooseKind && mode === 'DELIVERY';
+
   if (!isOpen) return null;
 
   return (
@@ -747,11 +800,27 @@ export function OrderFormModal({
           ? `Cập nhật đơn vé ${formatOrderCode(editingId)}`
           : rebookFromId
             ? `Đặt lại đơn ${formatOrderCode(rebookFromId)} (tạo đơn mới)`
-            : 'Thêm vé / Đơn đặt xe mới'
+            : showDelivery
+              ? 'Thêm đơn giao hàng'
+              : 'Thêm vé / Đơn đặt xe mới'
       }
       onClose={onClose}
       size="xl"
     >
+      {canChooseKind && <KindToggle mode={mode} onChange={setMode} />}
+
+      {canChooseKind && (
+        <div className={showDelivery ? 'xv-form-swap' : 'hidden'}>
+          <DeliveryForm
+            partnerSuggestions={partnerSuggestions}
+            onDone={onClose}
+            onCancel={onClose}
+            showToast={showToast}
+          />
+        </div>
+      )}
+
+      <div className={showDelivery ? 'hidden' : 'xv-form-swap'}>
       <form
         onSubmit={handleSubmit}
         onKeyDown={(e) => handleArrowNav(e, e.currentTarget)}
@@ -1252,6 +1321,7 @@ export function OrderFormModal({
           </div>
         </div>
       </form>
+      </div>
     </Modal>
   );
 }

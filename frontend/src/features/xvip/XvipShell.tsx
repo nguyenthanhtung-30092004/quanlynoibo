@@ -12,6 +12,7 @@ import {
   Handshake,
   List,
   MapPin,
+  Package,
   QrCode,
   Money,
   SignOut,
@@ -42,6 +43,7 @@ interface NavItem {
 const NAV: NavItem[] = [
   { href: '/xvip', label: 'Tổng quan', icon: SquaresFour, adminOnly: true },
   { href: '/xvip/quan-ly-ve', label: 'Quản lý vé / Đơn', icon: Ticket },
+  { href: '/xvip/giao-hang', label: 'Giao hàng', icon: Package },
   { href: '/xvip/tao-qr', label: 'Tạo QR', icon: QrCode },
   { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake },
   { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },

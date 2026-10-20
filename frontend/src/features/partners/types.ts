@@ -8,6 +8,10 @@ export interface Partner {
   commissionPerSeat?: number;
   /** Hoa hồng theo % giá vé (0-100); chỉ Admin nhận được */
   commissionPercent?: number;
+  /** Hoa hồng giao hàng theo % cước phí (0-100) */
+  deliveryCommissionPercent?: number;
+  /** Hoa hồng giao hàng cố định mỗi đơn (VNĐ) */
+  deliveryCommissionPerOrder?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -18,4 +22,6 @@ export interface PartnerInput {
   /** Chỉ Admin gửi; server bỏ qua nếu là nhân viên */
   commissionPerSeat?: number;
   commissionPercent?: number;
+  deliveryCommissionPercent?: number;
+  deliveryCommissionPerOrder?: number;
 }

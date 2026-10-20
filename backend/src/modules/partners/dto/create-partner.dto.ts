@@ -35,4 +35,20 @@ export class CreatePartnerDto {
   @Min(0, { message: '% hoa hồng không được âm' })
   @Max(100, { message: '% hoa hồng tối đa 100' })
   commissionPercent?: number;
+
+  @ApiPropertyOptional({ example: 5, description: 'Hoa hồng giao hàng theo % cước (0-100); chỉ Admin được đặt' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: '% hoa hồng tối đa 2 chữ số thập phân' })
+  @Min(0, { message: '% hoa hồng không được âm' })
+  @Max(100, { message: '% hoa hồng tối đa 100' })
+  deliveryCommissionPercent?: number;
+
+  @ApiPropertyOptional({ example: 10000, description: 'Hoa hồng giao hàng mỗi đơn (VNĐ); chỉ Admin được đặt' })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Hoa hồng mỗi đơn phải là số nguyên' })
+  @Min(0, { message: 'Hoa hồng mỗi đơn không được âm' })
+  @Max(100000000)
+  deliveryCommissionPerOrder?: number;
 }

@@ -15,9 +15,18 @@ interface Draft {
   note: string;
   commissionPerSeat: number;
   commissionPercent: number;
+  deliveryCommissionPerOrder: number;
+  deliveryCommissionPercent: number;
 }
 
-const EMPTY: Draft = { name: '', note: '', commissionPerSeat: 0, commissionPercent: 0 };
+const EMPTY: Draft = {
+  name: '',
+  note: '',
+  commissionPerSeat: 0,
+  commissionPercent: 0,
+  deliveryCommissionPerOrder: 0,
+  deliveryCommissionPercent: 0,
+};
 
 function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
   return (
@@ -34,7 +43,7 @@ export default function PartnersPage() {
   const { data: me } = useCurrentUser();
   // Hoa hồng mỗi vé chỉ Admin được xem và sửa
   const isAdmin = me?.role === 'ADMIN';
-  const columnCount = 6;
+  const columnCount = 8;
 
   const { data: partners = [], isLoading, isError, error } = usePartners();
   const createMutation = useCreatePartner();
@@ -69,6 +78,8 @@ export default function PartnersPage() {
       note: p.note ?? '',
       commissionPerSeat: p.commissionPerSeat ?? 0,
       commissionPercent: p.commissionPercent ?? 0,
+      deliveryCommissionPerOrder: p.deliveryCommissionPerOrder ?? 0,
+      deliveryCommissionPercent: p.deliveryCommissionPercent ?? 0,
     });
     setIsOpenModal(true);
   };
@@ -84,7 +95,12 @@ export default function PartnersPage() {
       name,
       note: draft.note.trim(),
       ...(isAdmin
-        ? { commissionPerSeat: draft.commissionPerSeat, commissionPercent: draft.commissionPercent }
+        ? {
+            commissionPerSeat: draft.commissionPerSeat,
+            commissionPercent: draft.commissionPercent,
+            deliveryCommissionPerOrder: draft.deliveryCommissionPerOrder,
+            deliveryCommissionPercent: draft.deliveryCommissionPercent,
+          }
         : {}),
     };
 
@@ -154,14 +170,16 @@ export default function PartnersPage() {
 
       <Card className="mt-5 !p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[900px] table-fixed">
+          <table className="w-full min-w-[1180px] table-fixed">
             <thead>
               <tr>
-                <th className={`${TH} w-[6%]`}>STT</th>
-                <th className={`${TH} w-[26%]`}>Tên đối tác</th>
-                <th className={`${TH} w-[14%] text-center`}>Hoa hồng %</th>
-                <th className={`${TH} w-[16%] text-center`}>Hoa hồng / vé</th>
-                <th className={`${TH} w-[12%] text-center`}>Thao tác</th>
+                <th className={`${TH} w-[5%]`}>STT</th>
+                <th className={`${TH} w-[18%]`}>Tên đối tác</th>
+                <th className={`${TH} w-[10%] text-center`}>Vé: HH %</th>
+                <th className={`${TH} w-[11%] text-center`}>Vé: HH / vé</th>
+                <th className={`${TH} w-[11%] text-center`}>Hàng: HH %</th>
+                <th className={`${TH} w-[12%] text-center`}>Hàng: HH / đơn</th>
+                <th className={`${TH} w-[10%] text-center`}>Thao tác</th>
                 <th className={TH}>Ghi chú</th>
               </tr>
             </thead>
@@ -209,6 +227,24 @@ export default function PartnersPage() {
                       {p.commissionPerSeat ? (
                         <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-sm font-extrabold tnum text-blue-700 ring-1 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/30">
                           {money(p.commissionPerSeat)}đ
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
+                      )}
+                    </td>
+                    <td className={`${TD} text-center`}>
+                      {p.deliveryCommissionPercent ? (
+                        <span className="inline-block rounded-full bg-amber-50 px-3 py-1 text-sm font-extrabold tnum text-amber-700 ring-1 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:ring-amber-500/30">
+                          {p.deliveryCommissionPercent}%
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
+                      )}
+                    </td>
+                    <td className={`${TD} text-center`}>
+                      {p.deliveryCommissionPerOrder ? (
+                        <span className="inline-block rounded-full bg-orange-50 px-3 py-1 text-sm font-extrabold tnum text-orange-700 ring-1 ring-orange-200 dark:bg-orange-500/10 dark:text-orange-400 dark:ring-orange-500/30">
+                          {money(p.deliveryCommissionPerOrder)}đ
                         </span>
                       ) : (
                         <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
@@ -296,9 +332,54 @@ export default function PartnersPage() {
                   placeholder="VD: 20000 (để trống nếu chưa có)"
                 />
                 <span className="mt-1 block text-xs text-slate-500 dark:text-slate-400">
-                  Khi nhập vé của nhà xe này, hoa hồng tự tính = mức này x số ghế (dùng khi không đặt %). Nhân viên không thấy mục này.
+                  Khi nhập vé của nhà xe này, hoa hồng tự tính = mức này x số ghế (dùng khi không đặt %). Nhân viên chỉ xem, không sửa được.
                 </span>
               </Field>
+            )}
+            {isAdmin && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/30 dark:bg-amber-500/5">
+                <p className="mb-3 text-xs font-extrabold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                  Hoa hồng giao hàng (riêng, tách khỏi vé)
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <Field label="Theo % cước phí">
+                    <input
+                      className="input-3d font-bold"
+                      type="number"
+                      min={0}
+                      max={100}
+                      step={0.5}
+                      value={draft.deliveryCommissionPercent || ''}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          deliveryCommissionPercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
+                        }))
+                      }
+                      placeholder="VD: 10"
+                    />
+                  </Field>
+                  <Field label="Mỗi đơn (VNĐ)">
+                    <input
+                      className="input-3d font-bold"
+                      type="number"
+                      min={0}
+                      step={1000}
+                      value={draft.deliveryCommissionPerOrder || ''}
+                      onChange={(e) =>
+                        setDraft((d) => ({
+                          ...d,
+                          deliveryCommissionPerOrder: Math.max(0, Number(e.target.value) || 0),
+                        }))
+                      }
+                      placeholder="VD: 10000"
+                    />
+                  </Field>
+                </div>
+                <span className="mt-2 block text-xs text-slate-600 dark:text-slate-400">
+                  Khi nhập đơn giao hàng, hoa hồng tự tính = cước phí x %. Có % thì ưu tiên hơn mức cố định mỗi đơn.
+                </span>
+              </div>
             )}
             <Field label="Ghi chú">
               <textarea

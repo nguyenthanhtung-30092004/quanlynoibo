@@ -609,6 +609,16 @@ div.input-3d {
   white-space: nowrap;
 }
 
+/* Chuyển qua lại giữa form Vé xe / Giao hàng: nội dung mới trượt nhẹ vào */
+@keyframes xv-form-swap {
+  from { opacity: 0; transform: translate3d(0, 8px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+.xv-form-swap { animation: xv-form-swap 0.22s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .xv-form-swap { animation: none; }
+}
+
 /* Thông báo nổi (toast) 3D */
 @keyframes xv-toast-in {
   0% { opacity: 0; transform: translate3d(40px, -8px, 0) scale(0.92); }
