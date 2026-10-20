@@ -574,7 +574,7 @@ function UsersPageContent() {
                 value={draft.deviceEmployeeNo}
                 onChange={(e) => setDraft({ ...draft, deviceEmployeeNo: e.target.value.replace(/[^A-Za-z0-9]/g, '') })}
                 maxLength={32}
-                placeholder="VD: 1 (để trống nếu không dùng máy chấm công)"
+                placeholder="Mặc định = ID tài khoản, nhập số này vào máy làm Employee ID"
               />
             </Field>
 

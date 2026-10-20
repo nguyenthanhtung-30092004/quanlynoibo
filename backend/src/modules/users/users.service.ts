@@ -44,6 +44,10 @@ export class UsersService {
       role: dto.role ?? UserRole.STAFF,
     });
     const saved = await this.userRepository.save(user);
+    // Nhân viên không nhập mã chấm công thì mã mặc định là ID tài khoản (nhập thẳng vào máy làm Employee ID)
+    if (!deviceEmployeeNo && saved.role === UserRole.STAFF) {
+      await this.userRepository.update(saved.id, { deviceEmployeeNo: String(saved.id) });
+    }
     return this.findOne(saved.id);
   }
 
