@@ -6,6 +6,7 @@ import {
   IsEnum,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   Length,
@@ -46,6 +47,45 @@ export class CabinLineDto {
   @Min(0, { message: 'Giá bán không được âm' })
   @Max(MONEY_MAX, { message: 'Giá bán quá lớn' })
   sellPrice: number;
+}
+
+/** Chi tiết hàng hóa của đơn "Gửi Hàng" */
+export class GoodsDto {
+  @ApiPropertyOptional({ description: 'Loại hàng hóa', example: 'Mỹ phẩm' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(0, 255, { message: 'Loại hàng hóa không được dài quá 255 ký tự' })
+  goodsType?: string;
+
+  @ApiProperty({ description: 'Số lượng (kiện / thùng / túi)', example: 3 })
+  @Type(() => Number)
+  @IsInt({ message: 'Số lượng hàng phải là số nguyên' })
+  @Min(1, { message: 'Số lượng hàng ít nhất là 1' })
+  @Max(10000, { message: 'Số lượng hàng quá lớn' })
+  quantity: number;
+
+  @ApiPropertyOptional({ description: 'Cân nặng (kg)', example: 12.5 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({}, { message: 'Cân nặng không hợp lệ' })
+  @Min(0, { message: 'Cân nặng không được âm' })
+  @Max(100000, { message: 'Cân nặng quá lớn' })
+  weightKg?: number;
+
+  @ApiPropertyOptional({ description: 'Tên người nhận' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(0, 100, { message: 'Tên người nhận không được dài quá 100 ký tự' })
+  receiverName?: string;
+
+  @ApiPropertyOptional({ description: 'Số điện thoại người nhận' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  @Length(0, 30, { message: 'Số điện thoại người nhận không được dài quá 30 ký tự' })
+  receiverPhone?: string;
 }
 
 /**
@@ -140,6 +180,15 @@ export class CreateOrderDto {
   @ValidateNested({ each: true })
   @Type(() => CabinLineDto)
   cabinLines?: CabinLineDto[];
+
+  @ApiPropertyOptional({
+    type: GoodsDto,
+    description: 'Chi tiết hàng hóa (chỉ cho loại hình "Gửi Hàng"); cước phí là giá bán',
+  })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => GoodsDto)
+  goods?: GoodsDto;
 
   @ApiPropertyOptional({ description: 'Số xe (chỉ cho loại hình "Xe Riêng")', example: 2 })
   @IsOptional()

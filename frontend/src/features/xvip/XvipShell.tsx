@@ -49,7 +49,7 @@ const NAV: NavItem[] = [
   { href: '/xvip/tuyen-duong', label: 'Tuyến đường', icon: MapPin },
   { href: '/xvip/nhan-vien', label: 'Nhân viên', icon: UserCircle, adminOnly: true },
   { href: '/xvip/cong-no', label: 'Công nợ', icon: Wallet, adminOnly: true },
-  { href: '/xvip/cham-cong', label: 'Chấm công', icon: CalendarCheck, adminOnly: true },
+  { href: '/xvip/cham-cong', label: 'Chấm công', icon: CalendarCheck },
   { href: '/xvip/nghi-phep', label: 'Đăng ký nghỉ', icon: CalendarX },
   { href: '/xvip/bang-luong', label: 'Bảng lương', icon: Money, adminOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },

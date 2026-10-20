@@ -76,24 +76,23 @@ export class AttendanceController {
     };
   }
 
-  /** Admin: ai đã quẹt vào, ai chưa, ca nào, các lượt quẹt trong ngày */
+  /** Ai đã quẹt vào, ai chưa, ca nào, các lượt quẹt trong ngày. Admin thấy mọi nhân viên, nhân viên chỉ thấy chính mình */
   @Get('day-log')
-  @Roles(UserRole.ADMIN)
-  async dayLog(@Query() query: AttendanceDayQueryDto) {
+  async dayLog(@Query() query: AttendanceDayQueryDto, @CurrentUser() user: JwtPayload) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Lấy các lượt quẹt trong ngày thành công',
-      data: await this.attendanceService.dayLog(query.day),
+      data: await this.attendanceService.dayLog(query.day, user),
     };
   }
 
+  /** Bảng chấm công cả tháng. Admin thấy mọi nhân viên, nhân viên chỉ thấy chính mình */
   @Get()
-  @Roles(UserRole.ADMIN)
-  async month(@Query() query: AttendanceMonthQueryDto) {
+  async month(@Query() query: AttendanceMonthQueryDto, @CurrentUser() user: JwtPayload) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Lấy bảng chấm công thành công',
-      data: await this.attendanceService.month(query.month),
+      data: await this.attendanceService.month(query.month, user),
     };
   }
 

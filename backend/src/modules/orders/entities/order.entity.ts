@@ -25,6 +25,23 @@ export const CABIN_VEHICLE_TYPE = 'Xe Cabin';
 /** Loại hình "Xe Riêng": chỉ ghi số xe, không có ghế và không tính vào số vé */
 export const PRIVATE_VEHICLE_TYPE = 'Xe Riêng';
 
+/**
+ * Loại hình "Gửi Hàng": đơn chở hàng hóa, không có ghế và không tính vào số vé.
+ * Cước phí là giá bán; hoa hồng theo mức "giao hàng" của đối tác.
+ */
+export const GOODS_VEHICLE_TYPE = 'Gửi Hàng';
+
+/** Chi tiết hàng hóa của đơn "Gửi Hàng" (người gửi là khách của đơn, điểm đón / điểm trả là địa chỉ gửi / nhận) */
+export interface GoodsDetail {
+  /** Loại hàng hóa (vd mỹ phẩm, thùng túi ni lông) */
+  goodsType: string;
+  /** Số lượng (kiện / thùng / túi) */
+  quantity: number;
+  weightKg: number;
+  receiverName: string;
+  receiverPhone: string;
+}
+
 export enum CabinKind {
   SINGLE = 'SINGLE',
   SINGLE_FLOOR1 = 'SINGLE_FLOOR1',
@@ -133,6 +150,10 @@ export class Order {
    */
   @Column({ name: 'cabinLines', type: 'jsonb', nullable: true })
   cabinLines: CabinLine[] | null;
+
+  /** Chi tiết hàng hóa (chỉ có khi loại hình là "Gửi Hàng") */
+  @Column({ name: 'goods', type: 'jsonb', nullable: true })
+  goods: GoodsDetail | null;
 
   /** Số xe của đơn "Xe Riêng"; các loại hình khác luôn là 0 */
   @Column({ name: 'vehicleCount', type: 'int', default: 0 })

@@ -48,6 +48,9 @@ export interface AttendanceDayCell {
   earlyLeaveMinutes: number;
 }
 
+/** Admin xem được mọi nhân viên; người khác chỉ xem được chính mình (không lộ công của đồng nghiệp) */
+const onlyOwn = (viewer: JwtPayload) => (viewer.role === UserRole.ADMIN ? {} : { id: viewer.sub });
+
 interface PunchSummaryRow {
   userId: number;
   day: string;
@@ -138,13 +141,13 @@ export class AttendanceService {
    * Tình hình từng nhân viên trong một ngày (mặc định hôm nay): đã quẹt vào lúc nào, đã quẹt ra chưa,
    * ca nào, đi muộn / về sớm bao nhiêu phút và công tạm tính. Người chưa quẹt vẫn có mặt trong danh sách.
    */
-  async dayLog(day?: string) {
+  async dayLog(day: string | undefined, viewer: JwtPayload) {
     const config = await this.loadConfig();
     const today = vietnamClock().day;
     const target = day ?? today;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true },
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true, ...onlyOwn(viewer) },
       select: { id: true, fullName: true },
       order: { fullName: 'ASC' },
     });
@@ -222,7 +225,7 @@ export class AttendanceService {
   }
 
   /** Bảng chấm công cả tháng cho Admin: từng nhân viên, từng ngày, tổng công */
-  async month(month: string) {
+  async month(month: string, viewer: JwtPayload) {
     const config = await this.loadConfig();
     const today = vietnamClock().day;
     const [yearStr, monthStr] = month.split('-');
@@ -231,7 +234,7 @@ export class AttendanceService {
     const to = `${month}-${String(daysInMonth).padStart(2, '0')}`;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull() },
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), ...onlyOwn(viewer) },
       select: { id: true, fullName: true, isActive: true },
       order: { fullName: 'ASC' },
     });

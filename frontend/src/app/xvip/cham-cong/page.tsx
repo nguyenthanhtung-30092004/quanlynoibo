@@ -5,6 +5,7 @@ import { CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
+import { useCurrentUser } from '@/features/auth/hooks';
 import { useAttendanceMonth, useDayLog, useSetAttendanceOverride } from '@/features/attendance/hooks';
 import { durationText } from '@/features/attendance/format';
 import type { AttendanceDayCell, AttendanceStaff } from '@/features/attendance/types';
@@ -72,6 +73,9 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 export default function AttendancePage() {
   const showToast = useToast();
   const live = useRealtimeConnected();
+  // Nhân viên chỉ xem (và chỉ thấy công của chính mình, server đã lọc); chỉ Admin được chỉnh công
+  const { data: me } = useCurrentUser();
+  const isAdmin = me?.role === 'ADMIN';
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useAttendanceMonth(month);
   const { data: dayLog } = useDayLog();
@@ -322,7 +326,9 @@ export default function AttendancePage() {
         title={`Bảng chấm công ${monthLabel(month).toLowerCase()}`}
         action={
           <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra
+            {isAdmin
+              ? 'Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra'
+              : 'Rê chuột vào một ô để xem giờ vào ra · ô viền xanh là công Admin đã chỉnh · dấu ? là quên quẹt ra'}
           </span>
         }
       >
@@ -397,8 +403,10 @@ export default function AttendancePage() {
                           <button
                             type="button"
                             title={title}
-                            onClick={() => openEdit(s, d.key)}
-                            className={`tnum flex h-8 w-full min-w-8 items-center justify-center rounded-md text-xs font-black transition-colors hover:ring-2 hover:ring-blue-400 ${tone} ${
+                            onClick={isAdmin ? () => openEdit(s, d.key) : undefined}
+                            className={`tnum flex h-8 w-full min-w-8 items-center justify-center rounded-md text-xs font-black transition-colors ${
+                              isAdmin ? 'hover:ring-2 hover:ring-blue-400' : 'cursor-default'
+                            } ${tone} ${
                               cell?.overridden ? 'ring-2 ring-blue-500' : ''
                             }`}
                           >
@@ -416,12 +424,14 @@ export default function AttendancePage() {
             </tbody>
           </table>
         </div>
-        <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-          Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương (hoặc có thể bấm nút &ldquo;Điền công từ chấm công&rdquo; để điền lại thủ công).
-        </p>
+        {isAdmin && (
+          <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương (hoặc có thể bấm nút &ldquo;Điền công từ chấm công&rdquo; để điền lại thủ công).
+          </p>
+        )}
       </Card>
 
-      {editing && data && (
+      {isAdmin && editing && data && (
         <Modal
           title={`Công ${String(Number(editing.day.slice(8)))}/${editing.day.slice(5, 7)} · ${editing.staff.fullName}`}
           onClose={() => setEditing(null)}

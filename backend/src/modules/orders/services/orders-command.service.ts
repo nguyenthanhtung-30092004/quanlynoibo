@@ -10,9 +10,16 @@ import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js
 import { Partner } from '../../partners/entities/partner.entity.js';
 import { Route } from '../../routes/entities/route.entity.js';
 import { User, UserRole } from '../../users/entities/user.entity.js';
-import { CabinLineDto, CreateOrderDto } from '../dto/create-order.dto.js';
+import { CabinLineDto, CreateOrderDto, GoodsDto } from '../dto/create-order.dto.js';
 import { UpdateOrderDto } from '../dto/update-order.dto.js';
-import { CABIN_VEHICLE_TYPE, CabinLine, Order, PRIVATE_VEHICLE_TYPE } from '../entities/order.entity.js';
+import {
+  CABIN_VEHICLE_TYPE,
+  CabinLine,
+  GOODS_VEHICLE_TYPE,
+  GoodsDetail,
+  Order,
+  PRIVATE_VEHICLE_TYPE,
+} from '../entities/order.entity.js';
 import {
   OrderChange,
   OrderHistory,
@@ -27,6 +34,8 @@ import { applyImportPartnerAlias, matchCanonicalPartner } from '../order-partner
 import {
   cabinTotals,
   describeCabinLines,
+  describeGoods,
+  normalizeGoods,
   resolveSeats,
   seatsOf,
   sortCabinLines,
@@ -127,6 +136,25 @@ export class OrdersCommandService {
   }
 
   /**
+   * Kiểm tra và chuẩn hóa chi tiết hàng hóa. Trả null nếu đơn không phải "Gửi Hàng";
+   * ngược lại bắt buộc có số lượng hàng ít nhất 1.
+   */
+  private resolveGoods(
+    vehicleType: string | null | undefined,
+    goods: GoodsDto | GoodsDetail | null | undefined,
+  ): GoodsDetail | null {
+    const isGoods = (vehicleType ?? '').trim() === GOODS_VEHICLE_TYPE;
+    if (!isGoods) {
+      if (goods) throw new BadRequestException(`Chi tiết hàng hóa chỉ dùng cho loại hình "${GOODS_VEHICLE_TYPE}".`);
+      return null;
+    }
+    if (!goods || !(goods.quantity >= 1)) {
+      throw new BadRequestException('Nhập số lượng hàng (ít nhất 1).');
+    }
+    return normalizeGoods(goods);
+  }
+
+  /**
    * Tạo đơn. Nhân viên chỉ tạo được từ 04h30 đến 22h30 (giờ VN), Admin không bị khóa.
    * Ngày vào sổ và nhân viên được điền tự động.
    */
@@ -191,12 +219,15 @@ export class OrdersCommandService {
       throw new BadRequestException('Nhập số xe (ít nhất 1).');
     }
 
+    // Gửi hàng: chở hàng, không có ghế và không tính vào số vé; cước phí là giá bán
+    const goods = this.resolveGoods(dto.vehicleType, dto.goods);
+
     const seats = cabin
       ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
-      : isPrivate
+      : isPrivate || goods
         ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: 0 }
         : resolveSeats(dto);
-    if (!isPrivate && seats.seatCount + seats.seatFront + seats.seatMiddle + seats.seatBack < 1) {
+    if (!isPrivate && !goods && seats.seatCount + seats.seatFront + seats.seatMiddle + seats.seatBack < 1) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
     }
 
@@ -212,6 +243,7 @@ export class OrdersCommandService {
         vehicleType: dto.vehicleType || null,
         vehicleCount,
         cabinLines,
+        goods,
         seatZone: null,
         ...seats,
         costPrice,
@@ -286,13 +318,23 @@ export class OrdersCommandService {
       throw new BadRequestException('Nhập số xe (ít nhất 1).');
     }
 
+    const nextGoods = this.resolveGoods(
+      nextVehicleType,
+      dto.goods !== undefined
+        ? dto.goods
+        : (nextVehicleType ?? '').trim() === GOODS_VEHICLE_TYPE
+          ? order.goods
+          : null,
+    );
+
     const nextSeats = cabin
       ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: cabin.seatCount }
-      : nextIsPrivate
+      : nextIsPrivate || nextGoods
         ? { seatFront: 0, seatMiddle: 0, seatBack: 0, seatCount: 0 }
         : resolveSeats(dto, order);
     if (
       !nextIsPrivate &&
+      !nextGoods &&
       nextSeats.seatCount + nextSeats.seatFront + nextSeats.seatMiddle + nextSeats.seatBack < 1
     ) {
       throw new BadRequestException('Nhập số ghế hoặc ghế đầu/giữa/cuối (ít nhất 1).');
@@ -331,6 +373,8 @@ export class OrdersCommandService {
       ...next,
       // null xóa chi tiết cabin khi đổi sang loại hình khác
       cabinLines: nextCabinLines,
+      // null xóa chi tiết hàng hóa khi đổi sang loại hình khác
+      goods: nextGoods,
       commission: nextCommission,
     });
 
@@ -349,6 +393,7 @@ export class OrdersCommandService {
       partner: order.partner,
       vehicleType: order.vehicleType,
       cabinLines: describeCabinLines(order.cabinLines),
+      goods: describeGoods(order.goods),
       vehicleCount: order.vehicleCount,
       seatCount: order.seatCount,
       pickupPoint: order.pickupPoint,
@@ -364,6 +409,7 @@ export class OrdersCommandService {
       ...before,
       ...next,
       cabinLines: describeCabinLines(nextCabinLines),
+      goods: describeGoods(nextGoods),
       commission: nextCommission,
       routeName: newRoute ? newRoute.name : before.routeName,
     };

@@ -120,6 +120,84 @@ describe('tạo đơn xe cabin', () => {
   });
 });
 
+describe('tạo đơn gửi hàng', () => {
+  const goods = { goodsType: '  Mỹ phẩm ', quantity: 3, weightKg: 12.5, receiverName: 'nguyễn an', receiverPhone: ' 0900000000 ' };
+
+  it('lưu chi tiết hàng hóa đã chuẩn hóa, không có ghế, cước phí là giá bán và hoa hồng giữ nguyên', async () => {
+    const { service, saved } = build();
+    await service.create(
+      {
+        ...baseDto,
+        vehicleType: 'Gửi Hàng',
+        goods,
+        seatCount: 9,
+        seatFront: 2,
+        sellPrice: 150_000,
+        commission: 15_000,
+      } as never,
+      admin,
+    );
+    expect(saved[0]).toMatchObject({
+      seatCount: 0,
+      seatFront: 0,
+      seatMiddle: 0,
+      seatBack: 0,
+      sellPrice: 150_000,
+      commission: 15_000,
+      cabinLines: null,
+      vehicleCount: 0,
+      goods: { goodsType: 'Mỹ phẩm', quantity: 3, weightKg: 12.5, receiverName: 'Nguyễn An', receiverPhone: '0900000000' },
+    });
+  });
+
+  it('từ chối: thiếu hoặc số lượng hàng bằng 0, hoặc gắn chi tiết hàng vào loại hình khác', async () => {
+    const { service } = build();
+    await expect(
+      service.create({ ...baseDto, vehicleType: 'Gửi Hàng' } as never, admin),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create({ ...baseDto, vehicleType: 'Gửi Hàng', goods: { ...goods, quantity: 0 } } as never, admin),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create({ ...baseDto, vehicleType: 'Xe Limousine', seatCount: 1, goods } as never, admin),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('đổi đơn gửi hàng sang loại hình khác thì xóa chi tiết hàng hóa', async () => {
+    const existing = {
+      id: 1,
+      cancelledAt: null,
+      departureDate: FUTURE,
+      departureTime: '08:00',
+      routeId: 1,
+      vehicleType: 'Gửi Hàng',
+      goods: { goodsType: 'Mỹ phẩm', quantity: 3, weightKg: 0, receiverName: '', receiverPhone: '' },
+      cabinLines: null,
+      vehicleCount: 0,
+      seatFront: 0,
+      seatMiddle: 0,
+      seatBack: 0,
+      seatCount: 0,
+      seatZone: null,
+      costPrice: 0,
+      sellPrice: 150_000,
+      deposit: 0,
+      collectOnDelivery: 0,
+      commission: 0,
+      customerName: 'Khách',
+      phone: '0912345678',
+      partner: null,
+      pickupPoint: null,
+      dropoffPoint: null,
+      note: null,
+      route: { name: 'Tuyến' },
+    };
+    const { service, updates } = build(existing);
+    await service.update(1, { vehicleType: 'Xe Limousine', seatCount: 2 } as never, admin);
+    expect(updates[0]).toMatchObject({ vehicleType: 'Xe Limousine', goods: null, seatCount: 2 });
+  });
+});
+
 describe('tạo đơn xe riêng và đơn thường', () => {
   it('xe riêng: lưu số xe, số ghế bằng 0, giữ nguyên giá nhập giá bán nhập tay', async () => {
     const { service, saved } = build();

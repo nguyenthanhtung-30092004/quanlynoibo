@@ -1,4 +1,4 @@
-import { CABIN_LABELS, CabinKind, CabinLine, Order, SeatZone } from '../entities/order.entity.js';
+import { CABIN_LABELS, CabinKind, CabinLine, GoodsDetail, Order, SeatZone } from '../entities/order.entity.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 
 /** Viết hoa chữ cái đầu mỗi từ của tên khách (nguyễn văn a -> Nguyễn Văn A) */
@@ -116,6 +116,35 @@ export function describeCabinLines(lines: readonly CabinLine[] | null | undefine
   return sorted.map((l) => `${CABIN_LABELS[l.kind]} x${l.quantity}`).join('; ');
 }
 
+/** Chuẩn hóa chi tiết hàng hóa do client gửi lên: cắt khoảng trắng, thiếu trường thì lấy giá trị rỗng / 0 */
+export function normalizeGoods(input: {
+  goodsType?: string;
+  quantity: number;
+  weightKg?: number;
+  receiverName?: string;
+  receiverPhone?: string;
+}): GoodsDetail {
+  return {
+    goodsType: (input.goodsType ?? '').trim(),
+    quantity: input.quantity,
+    weightKg: input.weightKg ?? 0,
+    receiverName: titleCaseName(input.receiverName),
+    receiverPhone: (input.receiverPhone ?? '').trim(),
+  };
+}
+
+/** Mô tả ngắn để ghi lịch sử và Excel, ví dụ "Mỹ phẩm x3 (12,5kg), nhận: An 0912345678" */
+export function describeGoods(goods: GoodsDetail | null | undefined): string | null {
+  if (!goods) return null;
+  const receiver = [goods.receiverName, goods.receiverPhone].filter(Boolean).join(' ');
+  return [
+    `${goods.goodsType || 'Hàng hóa'} x${goods.quantity}${goods.weightKg > 0 ? ` (${goods.weightKg}kg)` : ''}`,
+    receiver && `nhận: ${receiver}`,
+  ]
+    .filter(Boolean)
+    .join(', ');
+}
+
 /** Các trường được so sánh để ghi lịch sử khi sửa đơn */
 export const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'customerName', label: 'Tên khách' },
@@ -126,6 +155,7 @@ export const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'partner', label: 'Đối tác' },
   { key: 'vehicleType', label: 'Loại hình' },
   { key: 'cabinLines', label: 'Chi tiết cabin' },
+  { key: 'goods', label: 'Hàng hóa' },
   { key: 'vehicleCount', label: 'Số xe' },
   { key: 'seatCount', label: 'Số ghế' },
   { key: 'seatFront', label: 'Ghế đầu' },
@@ -157,6 +187,7 @@ export function toOrderView(order: Order) {
     departureDate: order.departureDate,
     vehicleType: order.vehicleType,
     cabinLines: sortCabinLines(order.cabinLines),
+    goods: order.goods ?? null,
     vehicleCount: order.vehicleCount,
     seatZone: order.seatZone,
     ...seatsOf(order),

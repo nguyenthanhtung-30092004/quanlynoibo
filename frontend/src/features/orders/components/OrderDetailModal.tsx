@@ -78,6 +78,20 @@ export function OrderDetailModal({
               value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ / cabin`}
             />
           ))}
+          {order.goods && (
+            <>
+              <DetailRow
+                label="Hàng hóa"
+                value={`${order.goods.goodsType || 'Hàng hóa'} x${order.goods.quantity}${
+                  order.goods.weightKg > 0 ? ` (${order.goods.weightKg}kg)` : ''
+                }`}
+              />
+              <DetailRow
+                label="Người nhận"
+                value={[order.goods.receiverName, order.goods.receiverPhone].filter(Boolean).join(' · ')}
+              />
+            </>
+          )}
           <DetailRow label="Điểm đón" value={order.pickupPoint} />
           <DetailRow label="Điểm trả" value={order.dropoffPoint} />
           <DetailRow
@@ -95,7 +109,7 @@ export function OrderDetailModal({
         </DetailGroup>
         <DetailGroup title="Giá tiền">
           <DetailRow label="Giá nhập" value={`${money(order.costPrice)}đ`} />
-          <DetailRow label="Giá bán" value={`${money(order.sellPrice)}đ`} />
+          <DetailRow label={order.goods ? 'Cước phí' : 'Giá bán'} value={`${money(order.sellPrice)}đ`} />
           <DetailRow label="Đã cọc" value={`${money(order.deposit)}đ`} />
           <DetailRow label="Nhờ thu" value={`${money(order.collectOnDelivery)}đ`} />
           <DetailRow label="Hoa hồng" value={`${money(order.commission)}đ`} />

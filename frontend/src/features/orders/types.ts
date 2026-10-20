@@ -37,6 +37,8 @@ export interface Order {
   vehicleType: string | null;
   /** Chi tiết cabin đơn / cabin đôi; chỉ có khi loại hình là "Xe Cabin" */
   cabinLines: CabinLine[] | null;
+  /** Chi tiết hàng hóa; chỉ có khi loại hình là "Gửi Hàng" (không có ghế, không tính vào số vé) */
+  goods: GoodsDetail | null;
   /** Số xe của đơn "Xe Riêng" (không tính vào số vé); loại hình khác là 0 */
   vehicleCount: number;
   seatZone: SeatZone | null;
@@ -174,6 +176,17 @@ export interface CabinLine {
   sellPrice: number;
 }
 
+/** Chi tiết hàng hóa của đơn "Gửi Hàng"; cước phí là giá bán của đơn */
+export interface GoodsDetail {
+  /** Loại hàng hóa (vd mỹ phẩm, thùng túi ni lông) */
+  goodsType: string;
+  /** Số lượng (kiện / thùng / túi) */
+  quantity: number;
+  weightKg: number;
+  receiverName: string;
+  receiverPhone: string;
+}
+
 export interface CreateOrderInput {
   customerName?: string;
   phone: string;
@@ -182,6 +195,7 @@ export interface CreateOrderInput {
   departureDate: string;
   vehicleType?: string;
   cabinLines?: CabinLine[];
+  goods?: GoodsDetail;
   vehicleCount?: number;
   seatZone?: SeatZone;
   seatFront?: number;

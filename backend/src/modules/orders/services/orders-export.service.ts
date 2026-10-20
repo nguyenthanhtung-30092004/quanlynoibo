@@ -4,10 +4,11 @@ import { Repository } from 'typeorm';
 import ExcelJS from 'exceljs';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { User } from '../../users/entities/user.entity.js';
-import { CABIN_LABELS, Order, PRIVATE_VEHICLE_TYPE } from '../entities/order.entity.js';
+import { CABIN_LABELS, GOODS_VEHICLE_TYPE, Order, PRIVATE_VEHICLE_TYPE } from '../entities/order.entity.js';
 import type { OrderFilterDto } from '../dto/query-orders.dto.js';
 import { filterOrdersByPartner } from '../order-partner.util.js';
 import {
+  describeGoods,
   neutralizeFormula,
   seatsOf,
   sortCabinLines,
@@ -20,6 +21,27 @@ const EXPORT_LIMIT = 5000;
 const toThousands = (amount: number) => Math.round(amount) / 1000;
 /** Số nguyên nghìn hiện '17', số lẻ như 17,5 vẫn hiện đủ để không làm tròn mất tiền */
 const thousandsFmt = (v: unknown) => (typeof v === 'number' && !Number.isInteger(v) ? '#,##0.###' : '#,##0');
+
+/**
+ * Gom vé theo nhân viên tạo vé (cột NV): nhân viên xếp theo tên, vé của cùng một người nằm liền nhau.
+ * Sắp xếp ổn định nên trong cụm vẫn giữ thứ tự đầu vào (mới nhất trước).
+ */
+export function groupOrdersByStaff(orders: readonly Order[]): Order[] {
+  const name = (o: Order) => o.createdBy?.fullName ?? '';
+  return [...orders].sort(
+    (a, b) => name(a).localeCompare(name(b), 'vi') || (a.createdById ?? 0) - (b.createdById ?? 0),
+  );
+}
+
+/** Số thứ tự cụm nhân viên của từng đơn đã gom: 0 cho nhân viên đầu, tăng khi đổi người */
+export function staffGroupIndexes(orders: readonly Order[]): number[] {
+  const key = (o: Order) => `${o.createdBy?.fullName ?? ''}|${o.createdById ?? 0}`;
+  let group = -1;
+  return orders.map((o, i) => {
+    if (i === 0 || key(o) !== key(orders[i - 1])) group += 1;
+    return group;
+  });
+}
 
 @Injectable()
 export class OrdersExportService {
@@ -38,7 +60,10 @@ export class OrdersExportService {
       .getMany();
 
     const partners = await this.queryService.getCachedPartners();
-    const { valid: orders, excluded } = filterOrdersByPartner(rawOrders, partners);
+    const { valid, excluded } = filterOrdersByPartner(rawOrders, partners);
+    // Vé của cùng một nhân viên nằm liền nhau thành một cụm để tra cứu; trong cụm vẫn mới nhất trước
+    const orders = groupOrdersByStaff(valid);
+    const staffGroup = staffGroupIndexes(orders);
     const excludedCount = excluded.length;
 
     const exporter = await this.userRepository.findOne({
@@ -52,13 +77,26 @@ export class OrdersExportService {
     // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
     // Tiền cọc, nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi.
     // unit: đơn giá 1 cabin của dòng cabin; hai cột GIÁ NHẬP / GIÁ BÁN ghi đơn giá này (giống form nhập)
-    type Row = { order: Order; view: Order; orderIndex: number; unit?: { cost: number; sell: number } };
+    type Row = {
+      order: Order;
+      view: Order;
+      orderIndex: number;
+      /** Cụm nhân viên của dòng (0, 1, 2...), dùng để đổi màu nền theo cụm */
+      group: number;
+      /** Dòng đầu tiên của một cụm nhân viên (không phải cụm đầu): kẻ đậm phân cách */
+      groupStart: boolean;
+      unit?: { cost: number; sell: number };
+    };
     const rows: Row[] = orders.flatMap((o, orderIndex) => {
+      const group = staffGroup[orderIndex];
+      const groupStart = orderIndex > 0 && group !== staffGroup[orderIndex - 1];
       const lines = sortCabinLines(o.cabinLines);
-      if (!lines) return [{ order: o, view: o, orderIndex }];
+      if (!lines) return [{ order: o, view: o, orderIndex, group, groupStart }];
       return lines.map((line, i): Row => ({
         order: o,
         orderIndex,
+        group,
+        groupStart: groupStart && i === 0,
         unit: { cost: line.costPrice, sell: line.sellPrice },
         view: Object.assign(Object.create(Object.getPrototypeOf(o)) as Order, o, {
           vehicleType: CABIN_LABELS[line.kind],
@@ -129,12 +167,14 @@ export class OrdersExportService {
       {
         header: 'LOẠI HÌNH',
         width: 22,
-        // Xe riêng ghi kèm số xe (không tính vào cột SỐ GHẾ)
+        // Xe riêng ghi kèm số xe, gửi hàng ghi kèm loại hàng và số lượng (không tính vào cột SỐ GHẾ)
         value: (o) =>
           neutralizeFormula(
             o.vehicleType === PRIVATE_VEHICLE_TYPE && o.vehicleCount > 0
               ? `${o.vehicleType} x${o.vehicleCount}`
-              : (o.vehicleType ?? ''),
+              : o.vehicleType === GOODS_VEHICLE_TYPE && o.goods
+                ? `${o.vehicleType} · ${o.goods.goodsType || 'Hàng hóa'} x${o.goods.quantity}`
+                : (o.vehicleType ?? ''),
           ),
       },
       { header: 'ĐẦU', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatFront || '' },
@@ -147,7 +187,12 @@ export class OrdersExportService {
       { header: 'NHỜ THU', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.collectOnDelivery) },
       { header: 'HOA HỒNG', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.commission) },
       { header: 'ĐỐI TÁC', width: 24, value: (o) => neutralizeFormula(o.partner ?? '') },
-      { header: 'GHI CHÚ', width: 34, value: (o) => neutralizeFormula(o.note ?? '') },
+      {
+        header: 'GHI CHÚ',
+        width: 34,
+        // Đơn gửi hàng ghi thêm cân nặng và người nhận để không mất thông tin khi xuất ra Excel
+        value: (o) => neutralizeFormula([describeGoods(o.goods), o.note].filter(Boolean).join(' | ')),
+      },
     ];
     const N = COLS.length;
     COLS.forEach((c, i) => {
@@ -179,6 +224,7 @@ export class OrdersExportService {
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
       (excludedCount > 0 ? `, ${excludedCount} đơn bị loại vì đối tác không có trong danh sách` : '') +
       (cancelledCount > 0 ? '  (vé đã hủy chữ đỏ và không tính vào dòng TỔNG)' : '') +
+      '  •  Vé gom theo nhân viên (cột NV), mỗi nhân viên một cụm' +
       '  •  Vé đã cọc nền vàng  •  Đơn vị tiền: nghìn đồng' +
       (hasSplitRows ? '  •  Dòng cabin: giá nhập/bán là đơn giá 1 cabin' : '');
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
@@ -201,7 +247,7 @@ export class OrdersExportService {
     });
 
     // ---- dữ liệu
-    rows.forEach(({ order, view: o, orderIndex }, idx) => {
+    rows.forEach(({ order, view: o, group, groupStart }, idx) => {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
       row.height = 21;
       const cancelled = isCancelled(o);
@@ -212,7 +258,8 @@ export class OrdersExportService {
         cell.value = c.value(o, idx);
         if (c.money) cell.numFmt = thousandsFmt(cell.value);
         else if (c.fmt) cell.numFmt = c.fmt;
-        cell.border = box;
+        // Đầu cụm nhân viên mới: kẻ đậm phía trên để thấy rõ chỗ đổi người
+        cell.border = groupStart ? { ...box, top: { style: 'medium', color: { argb: NAVY } } } : box;
         cell.alignment = { horizontal: c.align ?? 'left', vertical: 'middle' };
         if (cancelled) {
           // Vé hủy: nền trắng, chữ đỏ
@@ -222,7 +269,8 @@ export class OrdersExportService {
           // Vé đã cọc: nền vàng, chữ đen
           cell.fill = solid(YELLOW);
           cell.font = { color: { argb: 'FF000000' } };
-        } else if (orderIndex % 2 === 1) {
+        } else if (group % 2 === 1) {
+          // Nền xen kẽ theo cụm nhân viên (không theo từng đơn) để thấy rõ ranh giới các cụm
           cell.fill = solid(BAND);
         }
       });

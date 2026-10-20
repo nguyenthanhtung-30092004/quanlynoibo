@@ -15,6 +15,7 @@ const base = {
   departureDate: '2026-10-20',
   vehicleType: 'Xe Limousine',
   cabinLines: null,
+  goods: null,
   vehicleCount: 0,
   seatFront: 0,
   seatMiddle: 0,
@@ -182,6 +183,60 @@ describe('xuất Excel: tiền và tách dòng', () => {
     const privateRow = sheet.getRow(10);
     expect(privateRow.getCell(col('LOẠI HÌNH')).value).toBe('Xe Riêng x2');
     expect(privateRow.getCell(col('SỐ GHẾ')).value).toBe('');
+  });
+
+  it('gom vé theo nhân viên: vé cùng người nằm liền nhau, STT chạy liên tục, đầu cụm kẻ đậm', async () => {
+    const as = (id: number, staffId: number, fullName: string) => ({
+      ...normalOrder,
+      id,
+      createdById: staffId,
+      createdBy: { fullName },
+      customerName: `Khách ${id}`,
+    });
+    // thứ tự gốc (mới nhất trước) xen kẽ hai nhân viên: B, A, B, A
+    const sheet = await exportRows([as(1, 2, 'Bình'), as(2, 1, 'An'), as(3, 2, 'Bình'), as(4, 1, 'An')]);
+    const header = sheet.getRow(4);
+    const col = (name: string) => {
+      for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === name) return c;
+      throw new Error(name);
+    };
+    const rows = [5, 6, 7, 8].map((r) => sheet.getRow(r));
+    // An (xếp trước theo tên) rồi tới Bình; trong cụm vẫn giữ thứ tự cũ: An có 2 rồi 4, Bình có 1 rồi 3
+    expect(rows.map((r) => r.getCell(col('NV')).value)).toEqual(['An', 'An', 'Bình', 'Bình']);
+    expect(rows.map((r) => r.getCell(col('TÊN KHÁCH')).value)).toEqual(['Khách 2', 'Khách 4', 'Khách 1', 'Khách 3']);
+    expect(rows.map((r) => r.getCell(1).value)).toEqual([1, 2, 3, 4]);
+    // chỉ dòng đầu của cụm thứ hai có kẻ đậm phía trên
+    expect(rows[2].getCell(5).border?.top?.style).toBe('medium');
+    expect(rows[1].getCell(5).border?.top?.style).toBe('thin');
+    // nền xen kẽ theo cụm: cụm 2 có nền nhạt, cả hai dòng của cụm
+    expect(rows[2].getCell(5).fill).toMatchObject({ fgColor: { argb: 'FFF1F5FF' } });
+    expect(rows[3].getCell(5).fill).toMatchObject({ fgColor: { argb: 'FFF1F5FF' } });
+    expect(rows[0].getCell(5).fill).not.toMatchObject({ fgColor: { argb: 'FFF1F5FF' } });
+  });
+
+  it('đơn gửi hàng: ghi loại hàng + số lượng ở LOẠI HÌNH, người nhận ở GHI CHÚ, không tính ghế', async () => {
+    const goodsOrder = {
+      ...base,
+      id: 5,
+      vehicleType: 'Gửi Hàng',
+      goods: { goodsType: 'Mỹ phẩm', quantity: 3, weightKg: 12.5, receiverName: 'An', receiverPhone: '0900000000' },
+      seatCount: 0,
+      sellPrice: 150_000,
+      commission: 15_000,
+      note: 'Hàng dễ vỡ',
+    };
+    const sheet = await exportRows([goodsOrder]);
+    const header = sheet.getRow(4);
+    const col = (name: string) => {
+      for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === name) return c;
+      throw new Error(name);
+    };
+    const row = sheet.getRow(5);
+    expect(row.getCell(col('LOẠI HÌNH')).value).toBe('Gửi Hàng · Mỹ phẩm x3');
+    expect(row.getCell(col('SỐ GHẾ')).value).toBe('');
+    expect(row.getCell(col('GHI CHÚ')).value).toBe('Mỹ phẩm x3 (12.5kg), nhận: An 0900000000 | Hàng dễ vỡ');
+    expect(row.getCell(col('GIÁ BÁN')).value).toBe(150);
+    expect(row.getCell(col('HOA HỒNG')).value).toBe(15);
   });
 
   it('17.000 đ được ghi là 17 (giá trị thật trong ô), số lẻ nghìn giữ nguyên', async () => {
