@@ -58,6 +58,8 @@ export interface OverrideInput {
 export interface DayLogEvent {
   kind: 'login' | 'logout';
   at: string;
+  /** web = đăng nhập / đăng xuất trên trang; device = quẹt máy chấm công Hikvision */
+  source: 'web' | 'device';
 }
 
 export interface DayLogStaff {

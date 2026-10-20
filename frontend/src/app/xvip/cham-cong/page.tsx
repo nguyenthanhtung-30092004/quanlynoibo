@@ -14,6 +14,7 @@ import {
   useSetAttendanceOverride,
 } from '@/features/attendance/hooks';
 import type { AttendanceConfig, AttendanceStaff } from '@/features/attendance/types';
+import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
@@ -62,6 +63,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 
 export default function AttendancePage() {
   const showToast = useToast();
+  const live = useRealtimeConnected();
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useAttendanceMonth(month);
   const { data: onlineUsers } = useOnlineUsers();
@@ -186,9 +188,13 @@ export default function AttendancePage() {
         className="mb-5"
         title={`Hôm nay · đang online ${onlineStaffCount}/${dayLog?.staff.length ?? 0} nhân viên`}
         action={
-          <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
-            <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Trực tiếp</span>
+          <div
+            className={`flex items-center gap-1.5 text-xs font-bold ${
+              live ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            <span className={`size-2 rounded-full ${live ? 'animate-pulse bg-emerald-500' : 'bg-amber-500'}`} />
+            <span>{live ? 'Trực tiếp' : 'Mất kết nối, đang tải lại mỗi phút'}</span>
           </div>
         }
       >
@@ -245,7 +251,8 @@ export default function AttendancePage() {
                               : 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                           }`}
                         >
-                          {formatTime(e.at)} {e.kind === 'login' ? 'vào' : 'ra'}
+                          {formatTime(e.at)} {e.kind === 'login' ? 'vào' : 'ra'} ·{' '}
+                          {e.source === 'device' ? 'máy chấm công' : 'web'}
                         </span>
                       ))}
                     </div>

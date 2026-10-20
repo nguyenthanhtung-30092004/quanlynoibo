@@ -167,20 +167,21 @@ export class AttendanceService {
            FROM "attendance_days" WHERE "day" = $1`,
         [target],
       );
-    // Lượt đăng nhập web và lượt quẹt máy chấm công gộp chung một dòng thời gian (quẹt vào = vào, quẹt ra = ra)
-    const events: Array<{ userId: number; kind: string; at: Date }> = await this.dataSource.query(
-      `SELECT "userId", "kind", "at" FROM "attendance_logins" WHERE "day" = $1
+    // Lượt đăng nhập web và lượt quẹt máy chấm công gộp chung một dòng thời gian (quẹt vào = vào, quẹt ra = ra);
+    // `source` cho biết lượt đó đến từ đâu để màn hình ghi rõ "web" hay "máy chấm công"
+    const events: Array<{ userId: number; kind: string; at: Date; source: 'web' | 'device' }> = await this.dataSource.query(
+      `SELECT "userId", "kind", "at", 'web' AS "source" FROM "attendance_logins" WHERE "day" = $1
        UNION ALL
-       SELECT "userId", CASE "kind" WHEN 'in' THEN 'login' ELSE 'logout' END, "at" FROM "attendance_punches" WHERE "day" = $1
+       SELECT "userId", CASE "kind" WHEN 'in' THEN 'login' ELSE 'logout' END, "at", 'device' AS "source" FROM "attendance_punches" WHERE "day" = $1
        ORDER BY "at" ASC`,
       [target],
     );
 
     const dayBy = new Map(days.map((d) => [d.userId, d]));
-    const eventsBy = new Map<number, Array<{ kind: string; at: string }>>();
+    const eventsBy = new Map<number, Array<{ kind: string; at: string; source: 'web' | 'device' }>>();
     for (const e of events) {
       const list = eventsBy.get(e.userId) ?? [];
-      list.push({ kind: e.kind, at: new Date(e.at).toISOString() });
+      list.push({ kind: e.kind, at: new Date(e.at).toISOString(), source: e.source });
       eventsBy.set(e.userId, list);
     }
 

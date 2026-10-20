@@ -11,8 +11,11 @@ const TOPIC_KEYS: Record<string, QueryKey[]> = {
   routes: [['routes']],
   carriers: [['carriers']],
   users: [['users']],
-  presence: [['online-users']],
+  // Có người vào / ra trang thì danh sách online và nhật ký vào ra trong ngày đều đổi
+  presence: [['online-users'], ['attendance', 'day-log']],
   leave: [['leave']],
+  // Máy chấm công đẩy lượt quẹt, admin chỉnh công hoặc đổi quy tắc: tải lại cả nhóm chấm công
+  attendance: [['attendance']],
 };
 
 /** Gom các sự kiện dồn dập (vd. nhập nhiều vé liền) thành một lần tải lại */
