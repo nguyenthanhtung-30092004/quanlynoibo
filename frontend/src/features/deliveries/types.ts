@@ -1,10 +1,3 @@
-export type DeliveryPayer = 'SENDER' | 'RECEIVER';
-
-export const PAYER_LABELS: Record<DeliveryPayer, string> = {
-  SENDER: 'Người gửi trả cước',
-  RECEIVER: 'Người nhận trả cước',
-};
-
 export interface Delivery {
   id: number;
   entryDate: string;
@@ -21,7 +14,6 @@ export interface Delivery {
   quantity: number;
   goodsType: string | null;
   weightKg: number;
-  payer: DeliveryPayer;
   fee: number;
   commission: number;
   partner: string | null;
@@ -44,7 +36,6 @@ export interface DeliveryInput {
   quantity?: number;
   goodsType?: string;
   weightKg?: number;
-  payer?: DeliveryPayer;
   fee?: number;
   commission?: number;
   partner?: string;

@@ -10,9 +10,6 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity.js';
 
-/** Ai trả cước: người gửi hay người nhận */
-export type DeliveryPayer = 'SENDER' | 'RECEIVER';
-
 /** Đơn giao hàng (gửi hàng theo xe) */
 @Index(['createdAt', 'id'])
 @Entity('deliveries')
@@ -68,9 +65,6 @@ export class Delivery {
   /** Cân nặng (kg) */
   @Column({ name: 'weightKg', type: 'float', default: 0 })
   weightKg: number;
-
-  @Column({ type: 'varchar', length: 10, default: 'SENDER' })
-  payer: DeliveryPayer;
 
   /** Cước phí (VNĐ) */
   @Column({ type: 'int', default: 0 })

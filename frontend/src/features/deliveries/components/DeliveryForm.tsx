@@ -8,7 +8,7 @@ import { AutoGrowInput } from '@/features/xvip/AutoGrowInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { useCreateDelivery, useUpdateDelivery } from '../hooks';
-import type { Delivery, DeliveryInput, DeliveryPayer } from '../types';
+import type { Delivery, DeliveryInput } from '../types';
 
 interface FormState {
   shipDate: string;
@@ -23,7 +23,6 @@ interface FormState {
   quantity: number;
   goodsType: string;
   weightKg: number;
-  payer: DeliveryPayer;
   fee: number;
   commission: number;
   note: string;
@@ -44,7 +43,6 @@ const emptyState = (): FormState => ({
   quantity: 1,
   goodsType: '',
   weightKg: 0,
-  payer: 'SENDER',
   fee: 0,
   commission: 0,
   note: '',
@@ -63,7 +61,6 @@ const fromDelivery = (d: Delivery): FormState => ({
   quantity: d.quantity,
   goodsType: d.goodsType ?? '',
   weightKg: d.weightKg,
-  payer: d.payer,
   fee: d.fee,
   commission: d.commission,
   note: d.note ?? '',
@@ -221,7 +218,6 @@ export function DeliveryForm({
       quantity: form.quantity,
       goodsType: form.goodsType.trim(),
       weightKg: form.weightKg,
-      payer: form.payer,
       fee: form.fee,
       commission: form.commission,
       partner: form.partner.trim(),
@@ -332,28 +328,6 @@ export function DeliveryForm({
 
           <Section step={5} title="Cước phí & hoa hồng">
             <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-slate-700 dark:text-slate-300">
-                  Ai trả cước
-                </span>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['SENDER', 'RECEIVER'] as const).map((p) => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => set('payer', p)}
-                      aria-pressed={form.payer === p}
-                      className={`rounded-xl border px-3 py-2 text-sm font-bold transition-all duration-200 ${
-                        form.payer === p
-                          ? 'border-blue-600 bg-blue-600 text-white shadow-[0_2px_0_#1e3a8a]'
-                          : 'border-slate-300 bg-white text-slate-700 hover:border-blue-400 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200'
-                      }`}
-                    >
-                      {p === 'SENDER' ? 'Người gửi' : 'Người nhận'}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <Field label="Cước phí (VNĐ)">
                 <NumBox value={form.fee} onChange={(n) => set('fee', n)} className="input-3d font-bold" />
               </Field>

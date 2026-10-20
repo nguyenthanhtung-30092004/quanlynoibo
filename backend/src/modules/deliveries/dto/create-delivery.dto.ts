@@ -1,7 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
-  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -86,11 +85,6 @@ export class CreateDeliveryDto {
   @Min(0, { message: 'Cân nặng không được âm' })
   @Max(100000)
   weightKg?: number;
-
-  @ApiPropertyOptional({ enum: ['SENDER', 'RECEIVER'] })
-  @IsOptional()
-  @IsIn(['SENDER', 'RECEIVER'], { message: 'Người trả cước không hợp lệ' })
-  payer?: 'SENDER' | 'RECEIVER';
 
   @ApiPropertyOptional({ example: 210000 })
   @IsOptional()

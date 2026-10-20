@@ -40,7 +40,6 @@ export class DeliveriesService {
         quantity: dto.quantity ?? 1,
         goodsType: blankToNull(dto.goodsType),
         weightKg: dto.weightKg ?? 0,
-        payer: dto.payer ?? 'SENDER',
         fee: dto.fee ?? 0,
         commission: dto.commission ?? 0,
         partner: blankToNull(dto.partner),
@@ -93,7 +92,6 @@ export class DeliveriesService {
     if (dto.quantity !== undefined) delivery.quantity = dto.quantity;
     if (dto.goodsType !== undefined) delivery.goodsType = blankToNull(dto.goodsType);
     if (dto.weightKg !== undefined) delivery.weightKg = dto.weightKg;
-    if (dto.payer !== undefined) delivery.payer = dto.payer;
     if (dto.fee !== undefined) delivery.fee = dto.fee;
     if (dto.commission !== undefined) delivery.commission = dto.commission;
     if (dto.partner !== undefined) delivery.partner = blankToNull(dto.partner);

@@ -156,9 +156,6 @@ export default function DeliveriesPage() {
                     </td>
                     <td className={`${TD} text-right`}>
                       <div className="tnum font-bold">{d.fee ? `${money(d.fee)}đ` : '—'}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {d.payer === 'SENDER' ? 'Gửi trả' : 'Nhận trả'}
-                      </div>
                     </td>
                     <td className={`${TD} text-right tnum font-bold text-emerald-700 dark:text-emerald-400`}>
                       {d.commission ? `${money(d.commission)}đ` : <span className="font-normal text-slate-400">—</span>}
