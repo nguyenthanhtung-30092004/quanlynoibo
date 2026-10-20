@@ -154,14 +154,14 @@ export default function PartnersPage() {
 
       <Card className="mt-5 !p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] table-fixed">
+          <table className="w-full min-w-[900px] table-fixed">
             <thead>
               <tr>
-                <th className={`${TH} w-16`}>STT</th>
-                <th className={`${TH} w-64`}>Tên đối tác</th>
-                <th className={`${TH} w-36 text-right`}>Hoa hồng %</th>
-                <th className={`${TH} w-40 text-right`}>Hoa hồng / vé</th>
-                <th className={`${TH} w-28 text-center`}>Thao tác</th>
+                <th className={`${TH} w-[6%]`}>STT</th>
+                <th className={`${TH} w-[26%]`}>Tên đối tác</th>
+                <th className={`${TH} w-[14%] text-center`}>Hoa hồng %</th>
+                <th className={`${TH} w-[16%] text-center`}>Hoa hồng / vé</th>
+                <th className={`${TH} w-[12%] text-center`}>Thao tác</th>
                 <th className={TH}>Ghi chú</th>
               </tr>
             </thead>
@@ -196,11 +196,23 @@ export default function PartnersPage() {
                         <span className="font-extrabold text-slate-900 dark:text-white">{p.name}</span>
                       </div>
                     </td>
-                    <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
-                      {p.commissionPercent ? `${p.commissionPercent}%` : <span className="font-normal text-slate-400">Chưa đặt</span>}
+                    <td className={`${TD} text-center`}>
+                      {p.commissionPercent ? (
+                        <span className="inline-block rounded-full bg-emerald-50 px-3 py-1 text-sm font-extrabold tnum text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-400 dark:ring-emerald-500/30">
+                          {p.commissionPercent}%
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
+                      )}
                     </td>
-                    <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
-                      {p.commissionPerSeat ? `${money(p.commissionPerSeat)}đ` : <span className="font-normal text-slate-400">Chưa đặt</span>}
+                    <td className={`${TD} text-center`}>
+                      {p.commissionPerSeat ? (
+                        <span className="inline-block rounded-full bg-blue-50 px-3 py-1 text-sm font-extrabold tnum text-blue-700 ring-1 ring-blue-200 dark:bg-blue-500/10 dark:text-blue-400 dark:ring-blue-500/30">
+                          {money(p.commissionPerSeat)}đ
+                        </span>
+                      ) : (
+                        <span className="text-sm text-slate-300 dark:text-slate-600">—</span>
+                      )}
                     </td>
                     <td className={`${TD} text-center`}>
                       {p.canEdit ? (
