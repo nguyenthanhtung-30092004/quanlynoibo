@@ -43,6 +43,8 @@ export function toInternationalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   // Số quốc tế đã có dấu + (mã nước khác 84): giữ nguyên
   if (phone.trim().startsWith('+')) return digits;
+  // 00 + mã nước (kiểu quay số quốc tế): bỏ 00
+  if (digits.startsWith('00')) return digits.slice(2);
   if (digits.startsWith('84')) return digits;
   return `84${digits.replace(/^0/, '')}`;
 }
@@ -52,6 +54,8 @@ export function toLocalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
   // Số quốc tế (+mã nước khác 84) không có dạng nội địa: giữ nguyên chữ số
   if (phone.trim().startsWith('+') && !digits.startsWith('84')) return digits;
+  if (digits.startsWith('00') && !digits.startsWith('0084')) return digits.slice(2);
+  if (digits.startsWith('0084')) return `0${digits.slice(4)}`;
   if (digits.startsWith('84')) return `0${digits.slice(2)}`;
   return digits.startsWith('0') ? digits : `0${digits}`;
 }

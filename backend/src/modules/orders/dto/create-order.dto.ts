@@ -62,9 +62,9 @@ export class CreateOrderDto {
 
   @ApiProperty({ example: '0912345678' })
   @IsNotEmpty({ message: 'Số điện thoại không được để trống' })
-  @Matches(/^\S+$/, { message: 'Số điện thoại không được chứa dấu cách' })
-  // SĐT Việt Nam (0xxxxxxxxx) hoặc quốc tế dạng +mã nước (E.164, 8-15 chữ số)
-  @Matches(/^(0\d{9,10}|\+[1-9]\d{7,14})$/, { message: 'Số điện thoại không hợp lệ' })
+  // Nhập tự do (số trong nước, +mã nước, 00 mã nước...): chỉ giới hạn độ dài
+  @Transform(trim)
+  @Length(1, 30, { message: 'Số điện thoại không được dài quá 30 ký tự' })
   phone: string;
 
   @ApiProperty({ description: 'Id tuyến đường (chọn từ /routes)', example: 1 })

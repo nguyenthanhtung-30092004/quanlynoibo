@@ -628,8 +628,6 @@ export function OrderFormModal({
     }
     if (!formState.phone.trim()) {
       errors.phone = 'Vui lòng nhập số điện thoại.';
-    } else if (/\s/.test(formState.phone)) {
-      errors.phone = 'Số điện thoại không được chứa dấu cách.';
     }
     if (!formState.routeId) {
       errors.routeId = 'Vui lòng chọn tuyến đường.';
@@ -794,14 +792,7 @@ export function OrderFormModal({
                     onChange={(e) => {
                       const val = e.target.value;
                       setFormState((p) => ({ ...p, phone: val }));
-                      if (/\s/.test(val)) {
-                        setFormErrors((er) => ({
-                          ...er,
-                          phone: 'Số điện thoại không được chứa dấu cách.',
-                        }));
-                      } else {
-                        setFormErrors((er) => ({ ...er, phone: undefined }));
-                      }
+                      setFormErrors((er) => ({ ...er, phone: undefined }));
                     }}
                     aria-invalid={!!formErrors.phone}
                   />
