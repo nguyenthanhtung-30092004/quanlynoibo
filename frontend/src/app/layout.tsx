@@ -15,6 +15,8 @@ const sans = Be_Vietnam_Pro({
 export const metadata: Metadata = {
   title: 'Điều hành nội bộ',
   description: 'Quản lý đơn đặt xe, nhân viên và báo cáo theo ngày',
+  // Hệ thống nội bộ: không cho công cụ tìm kiếm lập chỉ mục
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
