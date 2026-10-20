@@ -44,6 +44,15 @@ export function parseOrderText(raw: string, currentYear: number): ParsedOrderTex
     }
   }
 
+  // Số quốc tế: +mã nước (khác +84) rồi 7-14 chữ số, giữ nguyên dấu +
+  if (!out.phone) {
+    const intl = text.match(/(?<![\d/])\+(?!84)[1-9](?:[ .-]?\d){7,13}(?!\d)/);
+    if (intl) {
+      out.phone = intl[0].replace(/[^\d+]/g, '');
+      text = text.replace(intl[0], ' \u0000 ');
+    }
+  }
+
   // Ngày: 11/10, 11-10-2026, 11.10 ...
   const dateMatch = text.match(/(?:ngày\s*)?(\d{1,2})\s*[/\-.]\s*(\d{1,2})(?:\s*[/\-.]\s*(\d{4}|\d{2}))?/i);
   if (dateMatch) {

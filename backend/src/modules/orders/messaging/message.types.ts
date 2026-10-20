@@ -41,6 +41,8 @@ export interface MessageProvider {
 /** 0912345678 / +84912345678 -> 84912345678 */
 export function toInternationalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
+  // Số quốc tế đã có dấu + (mã nước khác 84): giữ nguyên
+  if (phone.trim().startsWith('+')) return digits;
   if (digits.startsWith('84')) return digits;
   return `84${digits.replace(/^0/, '')}`;
 }
@@ -48,6 +50,8 @@ export function toInternationalPhone(phone: string): string {
 /** +84912345678 / 84912345678 / 0912345678 -> 0912345678 (dạng nội địa, eSMS dùng cho SMS) */
 export function toLocalPhone(phone: string): string {
   const digits = phone.replace(/\D/g, '');
+  // Số quốc tế (+mã nước khác 84) không có dạng nội địa: giữ nguyên chữ số
+  if (phone.trim().startsWith('+') && !digits.startsWith('84')) return digits;
   if (digits.startsWith('84')) return `0${digits.slice(2)}`;
   return digits.startsWith('0') ? digits : `0${digits}`;
 }

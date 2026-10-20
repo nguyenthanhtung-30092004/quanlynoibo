@@ -283,7 +283,7 @@ export async function parseOrderWorkbook(buffer: Buffer): Promise<ImportRow[]> {
 
     const errors: string[] = [];
     if (!phone) errors.push('thiếu số điện thoại');
-    else if (!/^(0|\+84)\d{9,10}$/.test(phone))
+    else if (!/^(0\d{9,10}|\+[1-9]\d{7,14})$/.test(phone))
       errors.push('số điện thoại không hợp lệ');
     if (!routeName) errors.push('thiếu tuyến đi');
     if (!dateCell.value)
