@@ -12,6 +12,9 @@ import {
   vietnamClock,
   type AttendanceConfig,
 } from './attendance.logic.js';
+import { directionByOrder, directionFromStatus, type HikvisionPunch } from './hikvision-event.js';
+
+export type PunchResult = 'recorded' | 'duplicate' | 'unknown_employee' | 'not_counted';
 
 const CONFIG_KEY = 'attendance_config';
 
@@ -94,6 +97,48 @@ export class AttendanceService {
     if (role === UserRole.STAFF) await this.markMinute(userId, day, minuteOfDay);
   }
 
+  /**
+   * Ghi một lượt quẹt từ máy chấm công Hikvision. Giờ lấy theo giờ của máy (máy gửi lại khi mất mạng vẫn đúng giờ).
+   * Chiều vào / ra: theo nút Check In / Check Out trên máy; máy không gửi thì đoán theo thứ tự trong ngày.
+   * Số phút công tính như online: từ lượt quẹt đầu đến lượt quẹt cuối trong ngày.
+   */
+  async recordPunch(punch: HikvisionPunch): Promise<PunchResult> {
+    const user = await this.users.findOne({
+      where: { deviceEmployeeNo: punch.employeeNo, deletedAt: IsNull() },
+      select: { id: true, role: true, isActive: true },
+    });
+    if (!user) return 'unknown_employee';
+    if (!user.isActive || user.role !== UserRole.STAFF) return 'not_counted';
+
+    const { day, minuteOfDay } = vietnamClock(punch.at);
+
+    // Quẹt trùng (máy gửi lại, hoặc nhân viên quẹt 2 lần liền) trong vòng 1 phút thì bỏ qua
+    const near: Array<{ n: string }> = await this.dataSource.query(
+      `SELECT count(*) AS "n" FROM "attendance_punches"
+        WHERE "userId" = $1 AND "at" BETWEEN $2::timestamptz - interval '60 seconds' AND $2::timestamptz + interval '60 seconds'`,
+      [user.id, punch.at],
+    );
+    if (Number(near[0].n) > 0) return 'duplicate';
+
+    let kind = directionFromStatus(punch.status);
+    if (!kind) {
+      const before: Array<{ n: string }> = await this.dataSource.query(
+        `SELECT count(*) AS "n" FROM "attendance_punches" WHERE "userId" = $1 AND "day" = $2 AND "at" < $3`,
+        [user.id, day, punch.at],
+      );
+      kind = directionByOrder(Number(before[0].n));
+    }
+
+    await this.dataSource.query(`INSERT INTO "attendance_punches" ("userId", "day", "at", "kind") VALUES ($1, $2, $3, $4)`, [
+      user.id,
+      day,
+      punch.at,
+      kind,
+    ]);
+    await this.markMinute(user.id, day, minuteOfDay, punch.at);
+    return 'recorded';
+  }
+
   async recordLogout(userId: number): Promise<void> {
     const { day } = vietnamClock();
     await this.dataSource.query(`INSERT INTO "attendance_logins" ("userId", "day", "kind") VALUES ($1, $2, 'logout')`, [
@@ -122,8 +167,12 @@ export class AttendanceService {
            FROM "attendance_days" WHERE "day" = $1`,
         [target],
       );
+    // Lượt đăng nhập web và lượt quẹt máy chấm công gộp chung một dòng thời gian (quẹt vào = vào, quẹt ra = ra)
     const events: Array<{ userId: number; kind: string; at: Date }> = await this.dataSource.query(
-      `SELECT "userId", "kind", "at" FROM "attendance_logins" WHERE "day" = $1 ORDER BY "at" ASC`,
+      `SELECT "userId", "kind", "at" FROM "attendance_logins" WHERE "day" = $1
+       UNION ALL
+       SELECT "userId", CASE "kind" WHEN 'in' THEN 'login' ELSE 'logout' END, "at" FROM "attendance_punches" WHERE "day" = $1
+       ORDER BY "at" ASC`,
       [target],
     );
 
@@ -277,16 +326,18 @@ export class AttendanceService {
   }
 
   /** Đánh dấu phút `minuteOfDay` của ngày đó là có công, trả về tổng số phút trong ngày */
-  private async markMinute(userId: number, day: string, minuteOfDay: number): Promise<number> {
+  private async markMinute(userId: number, day: string, minuteOfDay: number, at: Date = new Date()): Promise<number> {
     const position = minuteOfDay + 1; // overlay đánh số vị trí từ 1
+    // firstAt / lastAt lấy mốc sớm nhất / muộn nhất, để lượt quẹt máy gửi chậm không làm lệch giờ vào ra
     const rows: Array<{ minutes: string }> = await this.dataSource.query(
       `INSERT INTO "attendance_days" ("userId", "day", "bits", "firstAt", "lastAt")
-       VALUES ($1, $2, overlay(repeat('0', 1440) placing '1' from $3::int for 1), now(), now())
+       VALUES ($1, $2, overlay(repeat('0', 1440) placing '1' from $3::int for 1), $4::timestamptz, $4::timestamptz)
        ON CONFLICT ("userId", "day")
        DO UPDATE SET "bits" = overlay("attendance_days"."bits" placing '1' from $3::int for 1),
-                     "lastAt" = now()
+                     "firstAt" = LEAST(COALESCE("attendance_days"."firstAt", $4::timestamptz), $4::timestamptz),
+                     "lastAt" = GREATEST(COALESCE("attendance_days"."lastAt", $4::timestamptz), $4::timestamptz)
        RETURNING ${MINUTES_SQL} AS "minutes"`,
-      [userId, day, position],
+      [userId, day, position, at],
     );
     return Number(rows[0].minutes);
   }

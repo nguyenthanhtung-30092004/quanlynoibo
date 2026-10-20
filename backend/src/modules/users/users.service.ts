@@ -29,6 +29,8 @@ export class UsersService {
       throw new BadRequestException('Cần nhập số điện thoại để làm tên đăng nhập.');
     }
     await this.assertUsernameAvailable(username);
+    const deviceEmployeeNo = dto.deviceEmployeeNo || null;
+    if (deviceEmployeeNo) await this.assertDeviceEmployeeNoAvailable(deviceEmployeeNo);
 
     const password = dto.password ?? DEFAULT_STAFF_PASSWORD;
     const user = this.userRepository.create({
@@ -38,6 +40,7 @@ export class UsersService {
       fullName: dto.fullName,
       phone: dto.phone ?? null,
       address: dto.address ?? null,
+      deviceEmployeeNo,
       role: dto.role ?? UserRole.STAFF,
     });
     const saved = await this.userRepository.save(user);
@@ -157,6 +160,10 @@ export class UsersService {
       }
     }
     if (dto.address !== undefined) patch.address = dto.address;
+    if (dto.deviceEmployeeNo !== undefined) {
+      patch.deviceEmployeeNo = dto.deviceEmployeeNo || null;
+      if (patch.deviceEmployeeNo) await this.assertDeviceEmployeeNoAvailable(patch.deviceEmployeeNo, user.id);
+    }
     if (dto.role !== undefined) patch.role = dto.role;
     if (dto.isActive !== undefined) patch.isActive = dto.isActive;
     if (dto.password) {
@@ -171,6 +178,14 @@ export class UsersService {
     await this.userRepository.update(user.id, patch);
     this.invalidateAuthState(user.id);
     return this.findOne(id);
+  }
+
+  /** Mỗi mã trên máy chỉ gắn với một tài khoản (tài khoản xóa mềm đã nhả mã) */
+  private async assertDeviceEmployeeNoAvailable(deviceEmployeeNo: string, exceptId?: number): Promise<void> {
+    const existing = await this.userRepository.findOne({ where: { deviceEmployeeNo } });
+    if (existing && existing.id !== exceptId) {
+      throw new BadRequestException(`Mã chấm công "${deviceEmployeeNo}" đã gắn với nhân viên khác.`);
+    }
   }
 
   private async assertUsernameAvailable(username: string): Promise<void> {
@@ -227,6 +242,7 @@ export class UsersService {
       refreshTokenHash: null,
       username: user.username.slice(0, 35) + `#xoa${user.id}`,
       citizenId: null,
+      deviceEmployeeNo: null,
     });
     this.invalidateAuthState(user.id);
   }

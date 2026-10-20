@@ -35,6 +35,7 @@ import { OrderVehicleCount1710000000013 } from './migrations/1710000000013-Order
 import { OrderCabinUnitPrices1710000000014 } from './migrations/1710000000014-OrderCabinUnitPrices.js';
 import { LeaveUrgent1710000000015 } from './migrations/1710000000015-LeaveUrgent.js';
 import { Deliveries1710000000016 } from './migrations/1710000000016-Deliveries.js';
+import { HikvisionPunches1710000000017 } from './migrations/1710000000017-HikvisionPunches.js';
 
 @Module({
   imports: [
@@ -71,6 +72,7 @@ import { Deliveries1710000000016 } from './migrations/1710000000016-Deliveries.j
           OrderCabinUnitPrices1710000000014,
           LeaveUrgent1710000000015,
           Deliveries1710000000016,
+          HikvisionPunches1710000000017,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

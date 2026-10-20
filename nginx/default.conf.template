@@ -17,6 +17,19 @@ server {
         root /var/www/certbot;
     }
 
+    # Máy chấm công Hikvision chỉ đẩy được HTTP thường (không theo chuyển hướng https), nên đi thẳng vào backend.
+    # Mã bí mật nằm trong đường dẫn (HIKVISION_SECRET). Nên khóa thêm theo IP công cộng của văn phòng:
+    #   allow <IP_VAN_PHONG>;
+    #   deny all;
+    location /hik-event/ {
+        client_max_body_size 5m;
+        limit_req zone=general burst=20 nodelay;
+        proxy_pass http://backend:3009/attendance/hik-event/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $remote_addr;
+    }
+
     location / {
         return 301 https://$host$request_uri;
     }

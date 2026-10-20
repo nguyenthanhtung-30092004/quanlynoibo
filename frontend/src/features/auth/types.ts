@@ -6,6 +6,8 @@ export interface User {
   fullName: string;
   phone: string | null;
   address: string | null;
+  /** Mã nhân viên trên máy chấm công Hikvision */
+  deviceEmployeeNo?: string | null;
   role: UserRole;
   isActive: boolean;
   lastLoginAt: string | null;

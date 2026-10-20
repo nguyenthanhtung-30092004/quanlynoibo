@@ -50,6 +50,15 @@ export class CreateUserDto {
   address?: string;
 
   @ApiPropertyOptional({
+    description: 'Mã nhân viên trên máy chấm công Hikvision (Employee ID); chuỗi rỗng = bỏ liên kết',
+    example: '12',
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Za-z0-9]{0,32}$/, { message: 'Mã chấm công chỉ gồm chữ và số, tối đa 32 ký tự' })
+  deviceEmployeeNo?: string;
+
+  @ApiPropertyOptional({
     description: 'Vai trò',
     enum: UserRole,
     default: UserRole.STAFF,

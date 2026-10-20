@@ -47,6 +47,10 @@ export class User {
   })
   citizenId: string | null;
 
+  /** Mã nhân viên đã đăng ký trên máy chấm công Hikvision (Employee ID); dùng để ghép lượt quẹt với tài khoản */
+  @Column({ name: 'deviceEmployeeNo', type: 'varchar', length: 32, nullable: true, unique: true })
+  deviceEmployeeNo: string | null;
+
   @Column({ type: 'enum', enum: UserRole, default: UserRole.STAFF })
   role: UserRole;
 

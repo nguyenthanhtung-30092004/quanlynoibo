@@ -13,6 +13,7 @@ interface FormValues {
   fullName: string;
   phone?: string;
   address?: string;
+  deviceEmployeeNo?: string;
   role: UserRole;
 }
 
@@ -47,6 +48,7 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
         fullName: user.fullName,
         phone: user.phone ?? undefined,
         address: user.address ?? undefined,
+        deviceEmployeeNo: user.deviceEmployeeNo ?? undefined,
         role: user.role,
       });
     } else {
@@ -66,6 +68,8 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
             fullName: values.fullName.trim(),
             phone: blank(values.phone),
             address: blank(values.address),
+            // rỗng = gỡ liên kết với máy chấm công
+            deviceEmployeeNo: values.deviceEmployeeNo?.trim() ?? '',
             role: values.role,
             password: blank(values.password),
           },
@@ -88,6 +92,7 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
         fullName: values.fullName.trim(),
         phone: blank(values.phone),
         address: blank(values.address),
+        deviceEmployeeNo: blank(values.deviceEmployeeNo),
         role: values.role,
       },
       {
@@ -176,6 +181,16 @@ export function UserFormModal({ open, user, isSelf, onClose }: UserFormModalProp
                 { value: 'ADMIN', label: 'Quản trị viên (toàn quyền)' },
               ]}
             />
+          </Form.Item>
+
+          <Form.Item
+            name="deviceEmployeeNo"
+            label="Mã chấm công (máy Hikvision)"
+            tooltip="Employee ID của nhân viên này trên máy chấm công. Quẹt vân tay / khuôn mặt trên máy sẽ tự ghi công cho tài khoản này."
+            rules={[{ pattern: /^[A-Za-z0-9]{0,32}$/, message: 'Chỉ gồm chữ và số' }]}
+            className="sm:col-span-2"
+          >
+            <Input maxLength={32} placeholder="VD: 12 (để trống nếu không dùng máy chấm công)" className="shadow-3d-sm" />
           </Form.Item>
 
           <Form.Item name="address" label="Ghi chú" className="sm:col-span-2">

@@ -8,6 +8,8 @@ export interface CreateUserInput {
   fullName: string;
   phone?: string;
   address?: string;
+  /** Mã nhân viên trên máy chấm công; chuỗi rỗng = bỏ liên kết */
+  deviceEmployeeNo?: string;
   role: UserRole;
 }
 
