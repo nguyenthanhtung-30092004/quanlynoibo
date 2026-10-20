@@ -108,16 +108,47 @@ export default function TaoQrPage() {
 
   const copyQr = async () => {
     if (!qrUrl) return;
+    // Clipboard chỉ nhận ảnh PNG (VietQR trả JPG) nên phải vẽ qua canvas để đổi sang PNG.
+    // Đưa Promise vào ClipboardItem ngay trong cú bấm để Safari/iOS không chặn.
+    const makePng = () =>
+      new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext('2d')?.drawImage(img, 0, 0);
+          canvas.toBlob(
+            (b) => (b ? resolve(b) : reject(new Error('toBlob'))),
+            'image/png',
+          );
+        };
+        img.onerror = () => reject(new Error('load'));
+        img.src = qrUrl;
+      });
+
     try {
-      const blob = await (await fetch(qrUrl)).blob();
-      await navigator.clipboard.write([
-        new ClipboardItem({ [blob.type]: blob }),
-      ]);
+      if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+        throw new Error('unsupported');
+      }
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': makePng() })]);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
+      // Dự phòng: mở bảng chia sẻ (điện thoại) để gửi/lưu ảnh
+      try {
+        const png = await makePng();
+        const file = new File([png], 'qr-thanh-toan.png', { type: 'image/png' });
+        if (navigator.canShare?.({ files: [file] })) {
+          await navigator.share({ files: [file] });
+          return;
+        }
+      } catch {
+        /* bỏ qua, báo lỗi bên dưới */
+      }
       showToast(
-        'Lỗi: không copy được QR (trình duyệt chặn). Bạn có thể bấm chuột phải vào ảnh để lưu.',
+        'Lỗi: không copy được QR (trình duyệt chặn). Bạn có thể bấm giữ/chuột phải vào ảnh để lưu.',
       );
     }
   };

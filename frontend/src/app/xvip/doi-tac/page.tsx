@@ -34,7 +34,7 @@ export default function PartnersPage() {
   const { data: me } = useCurrentUser();
   // Hoa hồng mỗi vé chỉ Admin được xem và sửa
   const isAdmin = me?.role === 'ADMIN';
-  const columnCount = isAdmin ? 6 : 4;
+  const columnCount = 6;
 
   const { data: partners = [], isLoading, isError, error } = usePartners();
   const createMutation = useCreatePartner();
@@ -159,10 +159,10 @@ export default function PartnersPage() {
               <tr>
                 <th className={TH}>STT</th>
                 <th className={TH}>Tên đối tác</th>
-                <th className={TH}>Ghi chú</th>
-                {isAdmin && <th className={`${TH} text-right`}>Hoa hồng %</th>}
-                {isAdmin && <th className={`${TH} text-right`}>Hoa hồng / vé</th>}
+                <th className={`${TH} text-right`}>Hoa hồng %</th>
+                <th className={`${TH} text-right`}>Hoa hồng / vé</th>
                 <th className={`${TH} text-center`}>Thao tác</th>
+                <th className={TH}>Ghi chú</th>
               </tr>
             </thead>
             <tbody>
@@ -196,19 +196,12 @@ export default function PartnersPage() {
                         <span className="font-extrabold text-slate-900 dark:text-white">{p.name}</span>
                       </div>
                     </td>
-                    <td className={`${TD} max-w-[420px] whitespace-normal text-slate-600 dark:text-slate-300`}>
-                      {p.note || <span className="text-slate-400">—</span>}
+                    <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
+                      {p.commissionPercent ? `${p.commissionPercent}%` : <span className="font-normal text-slate-400">Chưa đặt</span>}
                     </td>
-                    {isAdmin && (
-                      <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
-                        {p.commissionPercent ? `${p.commissionPercent}%` : <span className="font-normal text-slate-400">Chưa đặt</span>}
-                      </td>
-                    )}
-                    {isAdmin && (
-                      <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
-                        {p.commissionPerSeat ? `${money(p.commissionPerSeat)}đ` : <span className="font-normal text-slate-400">Chưa đặt</span>}
-                      </td>
-                    )}
+                    <td className={`${TD} text-right font-bold tnum text-emerald-700 dark:text-emerald-400`}>
+                      {p.commissionPerSeat ? `${money(p.commissionPerSeat)}đ` : <span className="font-normal text-slate-400">Chưa đặt</span>}
+                    </td>
                     <td className={`${TD} text-center`}>
                       {p.canEdit ? (
                         <div className="flex items-center justify-center gap-2">
@@ -232,6 +225,9 @@ export default function PartnersPage() {
                       ) : (
                         <span className="text-slate-400" title="Chỉ sửa được trong ngày tạo, hoặc nhờ Admin">—</span>
                       )}
+                    </td>
+                    <td className={`${TD} max-w-[420px] whitespace-normal text-slate-600 dark:text-slate-300`}>
+                      {p.note || <span className="text-slate-400">—</span>}
                     </td>
                   </tr>
                 ))

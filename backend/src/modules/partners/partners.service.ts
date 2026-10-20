@@ -24,11 +24,9 @@ export class PartnersService {
 
   /** Gắn cờ canEdit theo người đang xem để giao diện biết có hiện nút sửa/xóa không */
   withPermission<T extends Partner>(partner: T, actor: JwtPayload) {
-    // Hoa hồng mỗi vé chỉ Admin được xem: nhân viên không nhận trường này
-    const { commissionPerSeat, commissionPercent, ...rest } = partner;
+    // Nhân viên được xem hoa hồng, nhưng chỉ Admin được sửa (xem create/update)
     return {
-      ...rest,
-      ...(actor.role === UserRole.ADMIN ? { commissionPerSeat, commissionPercent } : {}),
+      ...partner,
       canEdit: canModifyOwnToday(partner, actor),
     };
   }
