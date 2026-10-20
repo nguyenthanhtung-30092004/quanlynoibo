@@ -154,14 +154,14 @@ export default function PartnersPage() {
 
       <Card className="mt-5 !p-0 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[820px] table-fixed">
             <thead>
               <tr>
-                <th className={TH}>STT</th>
-                <th className={TH}>Tên đối tác</th>
-                <th className={`${TH} text-right`}>Hoa hồng %</th>
-                <th className={`${TH} text-right`}>Hoa hồng / vé</th>
-                <th className={`${TH} text-center`}>Thao tác</th>
+                <th className={`${TH} w-16`}>STT</th>
+                <th className={`${TH} w-64`}>Tên đối tác</th>
+                <th className={`${TH} w-36 text-right`}>Hoa hồng %</th>
+                <th className={`${TH} w-40 text-right`}>Hoa hồng / vé</th>
+                <th className={`${TH} w-28 text-center`}>Thao tác</th>
                 <th className={TH}>Ghi chú</th>
               </tr>
             </thead>
