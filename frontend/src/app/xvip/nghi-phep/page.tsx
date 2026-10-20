@@ -115,16 +115,23 @@ export default function LeavePage() {
 
   // Tổng hợp số ngày nghỉ của từng người trong tháng đang xem
   const summary = useMemo(() => {
-    const byUser = new Map<number, { userId: number; fullName: string; days: number }>();
+    const byUser = new Map<
+      number,
+      { userId: number; fullName: string; days: number; urgent: number; dates: { day: string; urgent: boolean }[] }
+    >();
     for (const d of data?.days ?? []) {
       for (const p of d.people) {
-        const cur = byUser.get(p.userId) ?? { userId: p.userId, fullName: p.fullName, days: 0 };
+        const cur = byUser.get(p.userId) ?? { userId: p.userId, fullName: p.fullName, days: 0, urgent: 0, dates: [] };
         cur.days += 1;
+        if (p.urgent) cur.urgent += 1;
+        cur.dates.push({ day: d.day, urgent: p.urgent });
         byUser.set(p.userId, cur);
       }
     }
     return [...byUser.values()].sort((a, b) => b.days - a.days || a.fullName.localeCompare(b.fullName, 'vi'));
   }, [data]);
+  const totalLeave = summary.reduce((n, s) => n + s.days, 0);
+  const totalUrgent = summary.reduce((n, s) => n + s.urgent, 0);
   const quota = data?.quota ?? 4;
   const myDaysThisMonth = data?.days.filter((d) => d.mine).length ?? 0;
 
@@ -226,41 +233,93 @@ export default function LeavePage() {
         </Card>
       )}
 
-      <Card title={`Số ngày nghỉ trong ${monthLabel(month).toLowerCase()}`} className="mb-5">
+      <Card title={`Bảng tổng hợp nghỉ ${monthLabel(month).toLowerCase()}`} className="mb-5">
         {summary.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Tháng này chưa có ai đăng ký nghỉ.</p>
         ) : (
-          <ul className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {summary.map((s) => {
-              const over = s.days > quota;
-              return (
-                <li
-                  key={s.userId}
-                  className={`flex items-center gap-3 rounded-lg border px-3 py-2 ${
-                    over
-                      ? 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40'
-                      : 'border-slate-200 dark:border-slate-700'
-                  }`}
-                >
-                  <Avatar name={s.fullName} />
-                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
-                    {s.fullName}
-                  </span>
-                  <span
-                    className={`tnum shrink-0 text-sm font-black ${
-                      over ? 'text-rose-600 dark:text-rose-400' : 'text-slate-700 dark:text-slate-200'
-                    }`}
-                  >
-                    {s.days}/{quota} ngày
-                    {over && <Warning size={14} weight="fill" className="ml-1 inline" />}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
+          <>
+            <div className="mb-3 flex flex-wrap gap-2 text-sm">
+              <span className="rounded-full bg-slate-100 px-3 py-1 font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                <b className="tnum">{summary.length}</b> người nghỉ
+              </span>
+              <span className="rounded-full bg-violet-50 px-3 py-1 font-bold text-violet-700 ring-1 ring-violet-200 dark:bg-violet-500/10 dark:text-violet-300 dark:ring-violet-500/30">
+                Tổng <b className="tnum">{totalLeave}</b> buổi nghỉ
+              </span>
+              <span className="rounded-full bg-rose-50 px-3 py-1 font-bold text-rose-700 ring-1 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30">
+                Trong đó <b className="tnum">{totalUrgent}</b> buổi đột xuất
+              </span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] table-fixed text-sm">
+                <thead>
+                  <tr className="border-b border-slate-200 text-xs font-extrabold uppercase text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <th className="w-[28%] py-2 text-left">Nhân viên</th>
+                    <th className="w-[14%] py-2 text-center">Số buổi nghỉ</th>
+                    <th className="w-[14%] py-2 text-center">Đột xuất</th>
+                    <th className="py-2 text-left">Các ngày nghỉ</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {summary.map((s) => {
+                    const over = s.days > quota;
+                    return (
+                      <tr
+                        key={s.userId}
+                        className={`border-b border-slate-100 last:border-0 dark:border-slate-800 ${
+                          over ? 'bg-rose-50/60 dark:bg-rose-950/30' : ''
+                        }`}
+                      >
+                        <td className="py-2 pr-2">
+                          <div className="flex items-center gap-2.5">
+                            <Avatar name={s.fullName} />
+                            <span className="min-w-0 break-words font-bold text-slate-900 dark:text-white">{s.fullName}</span>
+                          </div>
+                        </td>
+                        <td
+                          className={`py-2 text-center font-black tnum ${
+                            over ? 'text-rose-600 dark:text-rose-400' : 'text-slate-800 dark:text-slate-100'
+                          }`}
+                        >
+                          {s.days}/{quota}
+                          {over && <Warning size={14} weight="fill" className="ml-1 inline" />}
+                        </td>
+                        <td className="py-2 text-center">
+                          {s.urgent > 0 ? (
+                            <span className="inline-block rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-black tnum text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">
+                              {s.urgent}
+                            </span>
+                          ) : (
+                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                          )}
+                        </td>
+                        <td className="py-2">
+                          <div className="flex flex-wrap gap-1.5">
+                            {s.dates.map((x) => (
+                              <span
+                                key={x.day}
+                                className={`rounded-md px-2 py-0.5 text-xs font-bold tnum ${
+                                  x.urgent
+                                    ? 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
+                                    : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200'
+                                }`}
+                                title={x.urgent ? 'Nghỉ đột xuất' : undefined}
+                              >
+                                {x.day.slice(8)}/{x.day.slice(5, 7)}
+                                {x.urgent && ' · đột xuất'}
+                              </span>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-          Mỗi người được nghỉ tối đa {quota} ngày/tháng. Ai vượt số ngày sẽ được đánh dấu đỏ.
+          Mỗi người được nghỉ tối đa {quota} buổi/tháng. Ai vượt sẽ được đánh dấu đỏ. Ngày nghỉ đột xuất hiện màu đỏ.
         </p>
       </Card>
 
