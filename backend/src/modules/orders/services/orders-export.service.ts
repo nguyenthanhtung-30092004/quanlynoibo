@@ -51,13 +51,15 @@ export class OrdersExportService {
 
     // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
     // Tiền cọc, nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi.
-    type Row = { order: Order; view: Order; orderIndex: number };
+    // unit: đơn giá 1 cabin của dòng cabin; hai cột GIÁ NHẬP / GIÁ BÁN ghi đơn giá này (giống form nhập)
+    type Row = { order: Order; view: Order; orderIndex: number; unit?: { cost: number; sell: number } };
     const rows: Row[] = orders.flatMap((o, orderIndex) => {
       const lines = sortCabinLines(o.cabinLines);
       if (!lines) return [{ order: o, view: o, orderIndex }];
       return lines.map((line, i): Row => ({
         order: o,
         orderIndex,
+        unit: { cost: line.costPrice, sell: line.sellPrice },
         view: Object.assign(Object.create(Object.getPrototypeOf(o)) as Order, o, {
           vehicleType: CABIN_LABELS[line.kind],
           seatFront: 0,
@@ -65,7 +67,7 @@ export class OrdersExportService {
           seatBack: 0,
           seatZone: null,
           seatCount: line.quantity,
-          // Cột giá nhập / giá bán là tổng tiền của dòng = đơn giá x số lượng
+          // view giữ tổng tiền của dòng (đơn giá x số lượng) để cộng tổng; ô hiển thị lấy từ unit
           costPrice: line.costPrice * line.quantity,
           sellPrice: line.sellPrice * line.quantity,
           deposit: i === 0 ? o.deposit : 0,
@@ -107,6 +109,10 @@ export class OrdersExportService {
       /** Cột tiền: giá trị ghi ra là nghìn đồng */
       money?: boolean;
       sum?: boolean;
+      /** Cột ghi đơn giá ở dòng cabin: tổng cột không thể là công thức cộng các ô hiển thị */
+      unitCol?: boolean;
+      /** Giá trị dùng để cộng dòng TỔNG (mặc định là giá trị hiển thị) */
+      sumValue?: (o: Order) => number;
       value: (o: Order, index: number) => ExcelJS.CellValue;
     };
     const seats = (o: Order) => seatsOf(o);
@@ -135,8 +141,8 @@ export class OrdersExportService {
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
       { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
-      { header: 'GIÁ NHẬP', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.costPrice) },
-      { header: 'GIÁ BÁN', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.sellPrice) },
+      { header: 'GIÁ NHẬP', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.costPrice), value: (o, i) => toThousands(rows[i].unit?.cost ?? o.costPrice) },
+      { header: 'GIÁ BÁN', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.sellPrice), value: (o, i) => toThousands(rows[i].unit?.sell ?? o.sellPrice) },
       { header: 'ĐÃ CỌC', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.deposit) },
       { header: 'NHỜ THU', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.collectOnDelivery) },
       { header: 'HOA HỒNG', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.commission) },
@@ -173,7 +179,8 @@ export class OrdersExportService {
       `Tổng ${orders.length} đơn: ${activeCount} hợp lệ, ${cancelledCount} đã hủy` +
       (excludedCount > 0 ? `, ${excludedCount} đơn bị loại vì đối tác không có trong danh sách` : '') +
       (cancelledCount > 0 ? '  (vé đã hủy chữ đỏ và không tính vào dòng TỔNG)' : '') +
-      '  •  Vé đã cọc nền vàng  •  Đơn vị tiền: nghìn đồng';
+      '  •  Vé đã cọc nền vàng  •  Đơn vị tiền: nghìn đồng' +
+      (hasSplitRows ? '  •  Dòng cabin: giá nhập/bán là đơn giá 1 cabin' : '');
     info.font = { name: 'Calibri', size: 11, color: { argb: 'FF1E3A8A' } };
     info.fill = solid('FFE0EAFF');
     info.alignment = { horizontal: 'left', vertical: 'middle', indent: 1 };
@@ -243,15 +250,19 @@ export class OrdersExportService {
         const rawSum = rows
           .filter((r) => !isCancelled(r.view))
           .reduce((acc, r) => {
-            const v = c.value(r.view, 0);
+            const v = c.sumValue ? c.sumValue(r.view) : c.value(r.view, 0);
             return acc + (typeof v === 'number' ? v : 0);
           }, 0);
         // Cộng số nghìn bị lệch số lẻ thập phân thì làm tròn về đúng 3 chữ số
         const result = c.money ? Math.round(rawSum * 1000) / 1000 : rawSum;
-        cell.value = {
-          formula: `SUMIF($B$${first}:$B$${last},"Hợp lệ",${colLetter}${first}:${colLetter}${last})`,
-          result,
-        };
+        // Dòng cabin ghi đơn giá nên cộng cột sẽ sai tổng: ghi thẳng tổng thật (số cố định)
+        cell.value =
+          c.unitCol && hasSplitRows
+            ? result
+            : {
+                formula: `SUMIF($B$${first}:$B$${last},"Hợp lệ",${colLetter}${first}:${colLetter}${last})`,
+                result,
+              };
         cell.numFmt = c.money ? thousandsFmt(result) : (c.fmt ?? '#,##0');
         cell.alignment = { horizontal: c.align ?? 'right', vertical: 'middle' };
       }

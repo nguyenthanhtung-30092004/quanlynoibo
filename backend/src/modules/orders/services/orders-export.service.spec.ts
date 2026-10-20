@@ -124,8 +124,9 @@ describe('xuất Excel: tiền và tách dòng', () => {
     ]);
     expect(rows.map((r) => r.getCell(col('SỐ GHẾ')).value)).toEqual([2, 3, 1]);
     // cột tiền ghi theo nghìn đồng: giá trị trong ô là 1.600 chứ không phải 1.600.000
-    expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([1_600, 1_500, 700]);
-    expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([2_000, 1_950, 900]);
+    // dòng cabin ghi đơn giá 1 cabin (không nhân số lượng)
+    expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([800, 500, 700]);
+    expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([1_000, 650, 900]);
     expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500, 0, 0]);
     expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
     // STT giống nhau vì cùng một đơn
@@ -136,7 +137,11 @@ describe('xuất Excel: tiền và tách dòng', () => {
     }
     // tổng cột khớp tổng của đơn
     const total = sheet.getRow(8);
-    const result = (name: string) => (total.getCell(col(name)).value as { result: number }).result;
+    const result = (name: string) => {
+      const v = total.getCell(col(name)).value;
+      // cột giá ở đơn cabin là số cố định, các cột khác là công thức có result
+      return typeof v === 'number' ? v : (v as { result: number }).result;
+    };
     expect(result('SỐ GHẾ')).toBe(cabinOrder.seatCount);
     expect(result('GIÁ NHẬP')).toBe(cabinOrder.costPrice / 1000);
     expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice / 1000);
@@ -153,7 +158,11 @@ describe('xuất Excel: tiền và tách dòng', () => {
       for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === name) return c;
       throw new Error(`Không thấy cột ${name}`);
     };
-    const result = (name: string) => (total.getCell(col(name)).value as { result: number }).result;
+    const result = (name: string) => {
+      const v = total.getCell(col(name)).value;
+      // cột giá ở đơn cabin là số cố định, các cột khác là công thức có result
+      return typeof v === 'number' ? v : (v as { result: number }).result;
+    };
     expect(result('SỐ GHẾ')).toBe(6 + 2 + 0);
     expect(result('GIÁ NHẬP')).toBe((3_800_000 + 300_000 + 800_000) / 1000);
     expect(result('GIÁ BÁN')).toBe((4_850_000 + 400_000 + 1_000_000) / 1000);
