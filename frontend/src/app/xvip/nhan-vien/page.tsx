@@ -137,6 +137,7 @@ interface UserDraft {
   fullName: string;
   phone: string;
   address: string;
+  deviceEmployeeNo: string;
   role: UserRole;
   isActive: boolean;
 }
@@ -145,6 +146,7 @@ const EMPTY_DRAFT: UserDraft = {
   fullName: '',
   phone: '',
   address: '',
+  deviceEmployeeNo: '',
   role: 'STAFF',
   isActive: true,
 };
@@ -217,6 +219,7 @@ function UsersPageContent() {
       fullName: u.fullName,
       phone: u.phone || '',
       address: u.address || '',
+      deviceEmployeeNo: u.deviceEmployeeNo || '',
       role: u.role,
       isActive: u.isActive,
     });
@@ -233,6 +236,8 @@ function UsersPageContent() {
           fullName: draft.fullName,
           phone: draft.phone.replace(/\s+/g, '') || undefined,
           address: draft.address.trim() || undefined,
+          // rỗng = gỡ liên kết với máy chấm công
+          deviceEmployeeNo: draft.deviceEmployeeNo.trim(),
           role: draft.role,
           isActive: draft.isActive,
         };
@@ -244,6 +249,7 @@ function UsersPageContent() {
           fullName: draft.fullName.trim(),
           phone: draft.phone.replace(/\s+/g, ''),
           address: draft.address.trim() || undefined,
+          deviceEmployeeNo: draft.deviceEmployeeNo.trim() || undefined,
           role: draft.role,
         });
         showToast(`Đã tạo tài khoản nhân viên "${draft.fullName}" vào cơ sở dữ liệu!`);
@@ -421,6 +427,7 @@ function UsersPageContent() {
                 <th className={TH}>Tên đăng nhập</th>
                 <th className={TH}>Mật khẩu</th>
                 <th className={TH}>Số điện thoại</th>
+                <th className={TH}>Mã chấm công</th>
                 <th className={TH}>Vai trò</th>
                 <th className={TH}>Trạng thái</th>
                 <th className={`${TH} text-center`}>Thao tác</th>
@@ -429,13 +436,13 @@ function UsersPageContent() {
             <tbody>
               {isLoading ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={9} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải danh sách tài khoản từ cơ sở dữ liệu...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có tài khoản nào hoặc không tìm thấy kết quả phù hợp.
                   </td>
                 </tr>
@@ -465,6 +472,9 @@ function UsersPageContent() {
                         <Phone size={14} className="text-blue-600 dark:text-blue-400" />
                         {u.phone || 'Chưa cập nhật'}
                       </span>
+                    </td>
+                    <td className={`${TD} font-mono text-xs font-bold text-slate-700 dark:text-slate-300`}>
+                      {u.deviceEmployeeNo || <span className="font-sans font-medium text-slate-400">Chưa gắn</span>}
                     </td>
                     <td className={TD}>
                       {u.role === 'ADMIN' ? (
@@ -557,6 +567,16 @@ function UsersPageContent() {
                 Mật khẩu đăng nhập mặc định: <span className="font-mono">123456</span>
               </p>
             )}
+
+            <Field label="Mã chấm công (ID nhân viên trên máy Hikvision)">
+              <input
+                className="input-3d"
+                value={draft.deviceEmployeeNo}
+                onChange={(e) => setDraft({ ...draft, deviceEmployeeNo: e.target.value.replace(/[^A-Za-z0-9]/g, '') })}
+                maxLength={32}
+                placeholder="VD: 1 (để trống nếu không dùng máy chấm công)"
+              />
+            </Field>
 
             <Field label="Ghi chú">
               <input
