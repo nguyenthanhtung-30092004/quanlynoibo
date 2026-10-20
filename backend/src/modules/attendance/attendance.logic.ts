@@ -71,13 +71,22 @@ export function resolveShift(inMinute: number, outMinute: number): Shift {
   return best;
 }
 
+/** Hết ngày lúc 23:59 (giờ VN): ai còn mở (chưa quẹt ra) thì hệ thống tự chấm ra và không tính công */
+export const AUTO_CLOSE_MINUTE = 23 * 60 + 59;
+
+/** Ngày `day` đã đến hạn tự chấm ra chưa: ngày đã qua, hoặc hôm nay mà đã tới 23:59 */
+export function isAutoCloseDue(day: string, now: { day: string; minuteOfDay: number }): boolean {
+  return day < now.day || (day === now.day && now.minuteOfDay >= AUTO_CLOSE_MINUTE);
+}
+
 /**
  * - not_in: chưa quẹt lượt nào
  * - working: mới quẹt vào (hôm nay), chưa quẹt ra
- * - missing_out: ngày đã qua mà chỉ có một lượt quẹt (quên quẹt ra), chưa tính công, chờ Admin chỉnh tay
+ * - auto_out: quên quẹt ra, 23:59 hệ thống đã tự chấm ra nên không tính công (Admin vẫn chỉnh tay được)
+ * - missing_out: ngày đã qua mà chỉ có một lượt quẹt nhưng chưa được tự chấm ra (dữ liệu cũ), không tính công
  * - done: đã có lượt vào và lượt ra
  */
-export type DayStatus = 'not_in' | 'working' | 'missing_out' | 'done';
+export type DayStatus = 'not_in' | 'working' | 'auto_out' | 'missing_out' | 'done';
 
 export interface DayResult {
   status: DayStatus;
@@ -136,14 +145,27 @@ export function congForShift(minutes: number, shift: Shift): number {
  * Tính một ngày công từ lượt quẹt đầu (vào) và lượt quẹt cuối (ra) trong ngày.
  * Chỉ tính phần giờ nằm trong ca: vào sớm hơn đầu ca thì tính từ đầu ca, ở lại quá cuối ca vẫn chỉ tính hết ca.
  * Nên một ngày tối đa 1 công dù ở lại 9 tiếng. Có mặt đủ cả khung giờ của ca là 1 công, không trừ nghỉ trưa.
+ *
+ * `punchCount` chỉ đếm lượt quẹt thật (máy chấm công hoặc request chấm ra), không đếm lượt hệ thống tự chấm ra.
+ * Mới có một lượt thật mà hệ thống đã tự chấm ra thì không tính công; nếu sau đó có lượt ra thật
+ * (vd Admin gửi request chấm ra bù) thì ngày đó tính bình thường.
  */
 export function evaluateDay(
-  input: { firstAt: Date | null; lastAt: Date | null; punchCount: number; isToday: boolean },
+  input: {
+    firstAt: Date | null;
+    lastAt: Date | null;
+    punchCount: number;
+    isToday: boolean;
+    autoClosed?: boolean;
+  },
   config: AttendanceConfig,
 ): DayResult {
   const none = { shift: null, minutes: 0, cong: 0, lateMinutes: 0, earlyLeaveMinutes: 0 };
   if (input.punchCount === 0 || !input.firstAt || !input.lastAt) return { status: 'not_in', ...none };
-  if (input.punchCount === 1) return { status: input.isToday ? 'working' : 'missing_out', ...none };
+  if (input.punchCount === 1) {
+    if (input.autoClosed) return { status: 'auto_out', ...none };
+    return { status: input.isToday ? 'working' : 'missing_out', ...none };
+  }
 
   const inMinute = vietnamClock(input.firstAt).minuteOfDay;
   const outMinute = vietnamClock(input.lastAt).minuteOfDay;

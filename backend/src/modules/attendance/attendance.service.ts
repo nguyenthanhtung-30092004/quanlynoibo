@@ -1,10 +1,12 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { AppSetting } from '../settings/entities/app-setting.entity.js';
+import { RealtimeService } from '../realtime/realtime.service.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import {
+  AUTO_CLOSE_MINUTE,
   DEFAULT_ATTENDANCE_CONFIG,
   PUNCH_COOLDOWN_SECONDS,
   congFromMinutes,
@@ -56,7 +58,9 @@ interface PunchSummaryRow {
   day: string;
   firstAt: Date;
   lastAt: Date;
+  /** Số lượt quẹt thật (không tính lượt hệ thống tự chấm ra) */
   n: string;
+  autoClosed: boolean;
 }
 
 @Injectable()
@@ -65,6 +69,7 @@ export class AttendanceService {
     private readonly dataSource: DataSource,
     @InjectRepository(AppSetting) private readonly settings: Repository<AppSetting>,
     @InjectRepository(User) private readonly users: Repository<User>,
+    @Optional() private readonly realtime?: RealtimeService,
   ) {}
 
   private cachedConfig: { data: AttendanceConfig; expiresAt: number } | null = null;
@@ -112,7 +117,7 @@ export class AttendanceService {
 
     const near: Array<{ n: string }> = await this.dataSource.query(
       `SELECT count(*) AS "n" FROM "attendance_punches"
-        WHERE "userId" = $1
+        WHERE "userId" = $1 AND NOT "auto"
           AND "at" BETWEEN $2::timestamptz - make_interval(secs => $3::int) AND $2::timestamptz + make_interval(secs => $3::int)`,
       [user.id, punch.at, PUNCH_COOLDOWN_SECONDS],
     );
@@ -138,6 +143,31 @@ export class AttendanceService {
   }
 
   /**
+   * Hết ngày lúc 23:59 (giờ VN): ai mới có một lượt quẹt (quên quẹt ra) thì hệ thống tự ghi một lượt "ra" lúc 23:59
+   * và đánh dấu `auto`; ngày đó không tính công. Cũng dọn luôn các ngày đã qua còn sót (vd máy chủ tắt lúc 23:59).
+   * Chạy lại nhiều lần vẫn an toàn: mỗi người mỗi ngày chỉ bị tự chấm ra một lần. Trả về số người vừa bị tự chấm ra.
+   */
+  async autoCloseOpenDays(now: { day: string; minuteOfDay: number } = vietnamClock()): Promise<number> {
+    const rows: Array<{ userId: number }> = await this.dataSource.query(
+      `INSERT INTO "attendance_punches" ("userId", "day", "at", "kind", "auto")
+       SELECT p."userId", p."day", (p."day"::text || ' 23:59:00+07')::timestamptz, 'out', true
+         FROM "attendance_punches" p
+        WHERE NOT p."auto"
+          AND (p."day" < $1::date OR ($2::boolean AND p."day" = $1::date))
+          AND NOT EXISTS (
+            SELECT 1 FROM "attendance_punches" a WHERE a."userId" = p."userId" AND a."day" = p."day" AND a."auto"
+          )
+        GROUP BY p."userId", p."day"
+       HAVING count(*) = 1
+       ON CONFLICT ("userId", "at") DO NOTHING
+       RETURNING "userId"`,
+      [now.day, now.minuteOfDay >= AUTO_CLOSE_MINUTE],
+    );
+    if (rows.length > 0) this.realtime?.emit({ topic: 'attendance', actorId: null });
+    return rows.length;
+  }
+
+  /**
    * Tình hình từng nhân viên trong một ngày (mặc định hôm nay): đã quẹt vào lúc nào, đã quẹt ra chưa,
    * ca nào, đi muộn / về sớm bao nhiêu phút và công tạm tính. Người chưa quẹt vẫn có mặt trong danh sách.
    */
@@ -152,10 +182,13 @@ export class AttendanceService {
       order: { fullName: 'ASC' },
     });
 
-    const punches: Array<{ userId: number; at: Date }> = await this.dataSource.query(
-      `SELECT "userId", "at" FROM "attendance_punches" WHERE "day" = $1 ORDER BY "at" ASC`,
+    const punchRows: Array<{ userId: number; at: Date; auto: boolean }> = await this.dataSource.query(
+      `SELECT "userId", "at", "auto" FROM "attendance_punches" WHERE "day" = $1 ORDER BY "at" ASC`,
       [target],
     );
+    // Lượt hệ thống tự chấm ra lúc 23:59 không phải lượt quẹt thật: chỉ dùng để biết người đó đã bị tự chấm ra
+    const autoClosedBy = new Set(punchRows.filter((p) => p.auto).map((p) => p.userId));
+    const punches = punchRows.filter((p) => !p.auto);
     const overrides: Array<{ userId: number; overrideCong: string | null }> = await this.dataSource.query(
       `SELECT "userId", "overrideCong" FROM "attendance_days" WHERE "day" = $1`,
       [target],
@@ -174,7 +207,13 @@ export class AttendanceService {
       staff: staff.map((u) => {
         const list = punchesBy.get(u.id) ?? [];
         const result = evaluateDay(
-          { firstAt: list[0] ?? null, lastAt: list[list.length - 1] ?? null, punchCount: list.length, isToday: target === today },
+          {
+            firstAt: list[0] ?? null,
+            lastAt: list[list.length - 1] ?? null,
+            punchCount: list.length,
+            isToday: target === today,
+            autoClosed: autoClosedBy.has(u.id),
+          },
           config,
         );
         const override = overrideBy.get(u.id);
@@ -199,13 +238,19 @@ export class AttendanceService {
   async today(actor: JwtPayload) {
     const config = await this.loadConfig();
     const { day } = vietnamClock();
-    const rows: Array<{ at: Date }> = await this.dataSource.query(
-      `SELECT "at" FROM "attendance_punches" WHERE "userId" = $1 AND "day" = $2 ORDER BY "at" ASC`,
+    const rows: Array<{ at: Date; auto: boolean }> = await this.dataSource.query(
+      `SELECT "at", "auto" FROM "attendance_punches" WHERE "userId" = $1 AND "day" = $2 ORDER BY "at" ASC`,
       [actor.sub, day],
     );
-    const list = rows.map((r) => new Date(r.at));
+    const list = rows.filter((r) => !r.auto).map((r) => new Date(r.at));
     const result = evaluateDay(
-      { firstAt: list[0] ?? null, lastAt: list[list.length - 1] ?? null, punchCount: list.length, isToday: true },
+      {
+        firstAt: list[0] ?? null,
+        lastAt: list[list.length - 1] ?? null,
+        punchCount: list.length,
+        isToday: true,
+        autoClosed: rows.some((r) => r.auto),
+      },
       config,
     );
     return {
@@ -240,7 +285,11 @@ export class AttendanceService {
     });
 
     const punchRows: PunchSummaryRow[] = await this.dataSource.query(
-      `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day", min("at") AS "firstAt", max("at") AS "lastAt", count(*) AS "n"
+      `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day",
+              min("at") FILTER (WHERE NOT "auto") AS "firstAt",
+              max("at") FILTER (WHERE NOT "auto") AS "lastAt",
+              count(*) FILTER (WHERE NOT "auto") AS "n",
+              bool_or("auto") AS "autoClosed"
          FROM "attendance_punches"
         WHERE "day" >= $1 AND "day" <= $2
         GROUP BY "userId", "day"`,
@@ -274,9 +323,15 @@ export class AttendanceService {
       const d = dayBy.get(k);
 
       let result: DayResult;
-      if (p) {
+      if (p && Number(p.n) > 0) {
         result = evaluateDay(
-          { firstAt: new Date(p.firstAt), lastAt: new Date(p.lastAt), punchCount: Number(p.n), isToday: day === today },
+          {
+            firstAt: new Date(p.firstAt),
+            lastAt: new Date(p.lastAt),
+            punchCount: Number(p.n),
+            isToday: day === today,
+            autoClosed: p.autoClosed,
+          },
           config,
         );
       } else if (d && day < PUNCH_ONLY_FROM && Number(d.legacyMinutes) > 0) {

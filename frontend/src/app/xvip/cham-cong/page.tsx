@@ -24,6 +24,9 @@ const congText = (n: number) => (n === 0.5 ? '½' : String(n));
 
 /** Mô tả một ô công: vào / ra lúc nào, ca nào, số phút được tính, muộn hay sớm */
 function cellSummary(cell: AttendanceDayCell): string {
+  if (cell.status === 'auto_out') {
+    return `Vào lúc ${formatTime(cell.firstAt!)}, quên quẹt ra nên hệ thống tự chấm ra lúc 23:59 và không tính công. Admin chỉnh tay nếu cần.`;
+  }
   if (cell.status === 'missing_out') {
     return `Chỉ quẹt một lần lúc ${formatTime(cell.firstAt!)}, thiếu lượt ra nên chưa tính công. Admin chỉnh tay nếu cần.`;
   }
@@ -192,13 +195,23 @@ export default function AttendancePage() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {dayLog.staff.map((u) => {
               const dot =
-                u.status === 'working' ? 'bg-emerald-500' : u.status === 'done' ? 'bg-slate-400' : 'bg-rose-400';
+                u.status === 'working'
+                  ? 'bg-emerald-500'
+                  : u.status === 'done'
+                    ? 'bg-slate-400'
+                    : u.status === 'auto_out' || u.status === 'missing_out'
+                      ? 'bg-amber-500'
+                      : 'bg-rose-400';
               const label =
                 u.status === 'working'
                   ? `Đang làm · vào lúc ${formatTime(u.firstAt!)}`
                   : u.status === 'done'
                     ? `Vào ${formatTime(u.firstAt!)} · ra ${formatTime(u.lastAt!)}`
-                    : 'Chưa quẹt máy chấm công hôm nay';
+                    : u.status === 'auto_out'
+                      ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra, tự chấm ra 23:59`
+                      : u.status === 'missing_out'
+                        ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra`
+                        : 'Chưa quẹt máy chấm công hôm nay';
               const late = lateText(u.lateMinutes, u.earlyLeaveMinutes);
               return (
                 <div
@@ -232,7 +245,11 @@ export default function AttendancePage() {
                         </>
                       ) : (
                         <div className="text-[10px] font-medium text-slate-400">
-                          {u.status === 'working' ? 'chưa chốt công' : '0 công'}
+                          {u.status === 'working'
+                            ? 'chưa chốt công'
+                            : u.status === 'auto_out' || u.status === 'missing_out'
+                              ? '0 công (quên quẹt ra)'
+                              : '0 công'}
                         </div>
                       )}
                     </div>
@@ -275,7 +292,8 @@ export default function AttendancePage() {
             <div className="space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               <p>
                 Công tính theo lượt quẹt trên máy chấm công, không dựa vào đăng nhập. Lượt quẹt đầu trong ngày là giờ
-                vào, lượt cuối là giờ ra; quẹt lại trong vòng 2 phút chỉ tính một lượt.
+                vào, lượt cuối là giờ ra; quẹt lại trong vòng 2 phút chỉ tính một lượt. Hết ngày lúc 23:59, ai quên
+                quẹt ra sẽ được hệ thống tự chấm ra và <b>không tính công</b> ngày đó (Admin vẫn chỉnh tay được).
               </p>
               <p>
                 Ca được đoán từ giờ ra: chọn ca có giờ kết thúc gần giờ ra nhất. Chỉ tính phần giờ nằm trong ca, vào
@@ -384,7 +402,8 @@ export default function AttendancePage() {
                     {days.map((d) => {
                       const cell = s.days[d.key];
                       // Quên quẹt ra: hiện "?" để Admin thấy và chỉnh tay
-                      const noOut = !!cell && cell.status === 'missing_out' && !cell.overridden;
+                      const noOut =
+                        !!cell && (cell.status === 'missing_out' || cell.status === 'auto_out') && !cell.overridden;
                       const has = !!cell && (cell.cong > 0 || cell.minutes > 0 || cell.overridden);
                       const tone = !cell
                         ? 'text-slate-300 dark:text-slate-600'

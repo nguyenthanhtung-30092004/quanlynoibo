@@ -4,6 +4,7 @@ import {
   congForShift,
   congFromMinutes,
   evaluateDay,
+  isAutoCloseDue,
   resolveShift,
   sanitizeAttendanceConfig,
   vietnamClock,
@@ -121,6 +122,22 @@ describe('evaluateDay', () => {
     expect(r.shift?.label).toBe('5h - 13h30');
   });
 
+  it('quên quẹt ra, hệ thống đã tự chấm ra 23:59: không tính công', () => {
+    const r = evaluateDay(
+      { firstAt: vn('05:30'), lastAt: vn('05:30'), punchCount: 1, isToday: false, autoClosed: true },
+      DEFAULT_ATTENDANCE_CONFIG,
+    );
+    expect(r).toMatchObject({ status: 'auto_out', cong: 0, minutes: 0, shift: null });
+  });
+
+  it('đã bị tự chấm ra nhưng sau đó có lượt ra thật (chấm bù): tính công bình thường', () => {
+    const r = evaluateDay(
+      { firstAt: vn('06:00'), lastAt: vn('15:30'), punchCount: 2, isToday: false, autoClosed: true },
+      DEFAULT_ATTENDANCE_CONFIG,
+    );
+    expect(r).toMatchObject({ status: 'done', cong: 1 });
+  });
+
   it('đủ cả khung giờ của ca là 1 công, không trừ nghỉ trưa (ca dài 8,5 hay 9,5 tiếng đều vậy)', () => {
     expect(day('05:00', '13:30', 2)).toMatchObject({ minutes: 510, cong: 1, lateMinutes: 0, earlyLeaveMinutes: 0 });
     expect(day('06:00', '15:30', 2)).toMatchObject({ minutes: 570, cong: 1 });
@@ -165,6 +182,16 @@ describe('evaluateDay', () => {
     // ca 6h - 15h30, vào 9h, ra 15h30 = 390 phút
     const r = day('09:00', '15:30', 2);
     expect(r).toMatchObject({ minutes: 390, cong: 0.5, lateMinutes: 180 });
+  });
+});
+
+describe('isAutoCloseDue', () => {
+  it('tới 23:59 mới tự chấm ra hôm nay; ngày đã qua thì luôn đến hạn; ngày mai chưa', () => {
+    const at = (minuteOfDay: number) => ({ day: '2026-10-20', minuteOfDay });
+    expect(isAutoCloseDue('2026-10-20', at(23 * 60 + 58))).toBe(false);
+    expect(isAutoCloseDue('2026-10-20', at(23 * 60 + 59))).toBe(true);
+    expect(isAutoCloseDue('2026-10-19', at(8 * 60))).toBe(true);
+    expect(isAutoCloseDue('2026-10-21', at(23 * 60 + 59))).toBe(false);
   });
 });
 

@@ -54,6 +54,10 @@ export function AttendanceChip() {
     tone = 'good';
     statusText = `Đã chấm vào lúc ${timeOf(data.punchedInAt)}`;
     detail = clock(tick + skew - Date.parse(data.punchedInAt));
+  } else if ((data.status === 'auto_out' || data.status === 'missing_out') && data.punchedInAt) {
+    tone = 'warn';
+    statusText = `Vào ${timeOf(data.punchedInAt)} · quên quẹt ra`;
+    detail = '0 công';
   } else if (data.status === 'done' && data.punchedInAt && data.punchedOutAt) {
     tone = data.lateMinutes > 0 || data.earlyLeaveMinutes > 0 ? 'warn' : 'good';
     statusText = `Vào ${timeOf(data.punchedInAt)} · Ra ${timeOf(data.punchedOutAt)}`;

@@ -8,10 +8,11 @@ export interface AttendanceConfig {
 /**
  * - not_in: chưa quẹt lượt nào
  * - working: mới quẹt vào, chưa quẹt ra
- * - missing_out: ngày đã qua mà quên quẹt ra, chưa tính công
+ * - auto_out: quên quẹt ra, 23:59 hệ thống đã tự chấm ra nên không tính công
+ * - missing_out: ngày đã qua mà quên quẹt ra (dữ liệu cũ), chưa tính công
  * - done: đã có lượt vào và lượt ra
  */
-export type DayStatus = 'not_in' | 'working' | 'missing_out' | 'done';
+export type DayStatus = 'not_in' | 'working' | 'auto_out' | 'missing_out' | 'done';
 
 /** Chấm công hôm nay của chính người đăng nhập (chip ở header) */
 export interface MyTodayStatus {
