@@ -6,14 +6,10 @@ import { REALTIME_TOPICS, RealtimeService, type RealtimeTopic } from './realtime
 
 const WRITE_METHODS = new Set(['POST', 'PATCH', 'PUT', 'DELETE']);
 
-/** Đường dẫn ghi nhưng không đổi dữ liệu mà ai đó đang xem (heartbeat gọi mỗi phút từ mọi nhân viên, phát sự kiện sẽ làm admin tải lại liên tục) */
-const SILENT_PATHS = new Set(['attendance/heartbeat']);
-
 /** '/orders/12/cancel?x=1' -> 'orders' nếu là nhóm được theo dõi */
 export function topicOfPath(url: string): RealtimeTopic | null {
-  const segments = url.split('?')[0].split('/').filter(Boolean);
-  if (SILENT_PATHS.has(segments.slice(0, 2).join('/'))) return null;
-  return (REALTIME_TOPICS as readonly string[]).includes(segments[0]) ? (segments[0] as RealtimeTopic) : null;
+  const first = url.split('?')[0].split('/').filter(Boolean)[0];
+  return (REALTIME_TOPICS as readonly string[]).includes(first) ? (first as RealtimeTopic) : null;
 }
 
 /**

@@ -7,7 +7,7 @@ export function useMyAttendanceToday(enabled: boolean) {
     queryKey: ['attendance', 'me'],
     queryFn: ({ signal }) => attendanceApi.me(signal),
     enabled,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -39,7 +39,8 @@ export function useDayLog() {
   return useQuery({
     queryKey: ['attendance', 'day-log'],
     queryFn: ({ signal }) => attendanceApi.dayLog(signal),
-    refetchInterval: 60_000,
+    // Có lượt quẹt mới thì realtime tự tải lại; 5 phút một lần chỉ để dự phòng khi mất kết nối
+    refetchInterval: 5 * 60_000,
     refetchOnWindowFocus: true,
   });
 }

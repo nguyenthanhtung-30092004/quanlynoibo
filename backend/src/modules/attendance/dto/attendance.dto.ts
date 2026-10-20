@@ -1,14 +1,7 @@
-import { IsBoolean, IsInt, IsNumber, IsObject, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import { IsInt, IsNumber, IsObject, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
-
-/** Mỗi lượt báo "tôi đang online"; trường `active` của client cũ bị bỏ qua */
-export class HeartbeatDto {
-  @IsOptional()
-  @IsBoolean({ message: 'Trạng thái hoạt động không hợp lệ' })
-  active?: boolean;
-}
 
 export class AttendanceDayQueryDto {
   @IsOptional()

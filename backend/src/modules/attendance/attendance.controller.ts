@@ -26,7 +26,6 @@ import {
   AttendanceDayQueryDto,
   AttendanceMonthQueryDto,
   AttendanceOverrideDto,
-  HeartbeatDto,
   SaveAttendanceConfigDto,
 } from './dto/attendance.dto.js';
 
@@ -67,19 +66,7 @@ export class AttendanceController {
     return { statusCode: HttpStatus.OK, message: result };
   }
 
-  /** Nhân viên báo "đang online / thao tác"; mọi người dùng đăng nhập gọi được, server tự quyết có tính công không */
-  @Post('heartbeat')
-  async heartbeat(
-    @Body() _dto: HeartbeatDto, // giữ để client cũ còn gửi `active` không bị từ chối; server bỏ qua
-    @CurrentUser() user: JwtPayload,
-  ) {
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Đã ghi nhận',
-      data: await this.attendanceService.heartbeat(user),
-    };
-  }
-
+  /** Chấm công hôm nay của chính người đăng nhập: đã quẹt vào lúc nào, ca nào, công tạm tính */
   @Get('me')
   async me(@CurrentUser() user: JwtPayload) {
     return {
@@ -89,13 +76,13 @@ export class AttendanceController {
     };
   }
 
-  /** Admin: ai đã vào, ai chưa, lịch sử đăng nhập trong ngày */
+  /** Admin: ai đã quẹt vào, ai chưa, ca nào, các lượt quẹt trong ngày */
   @Get('day-log')
   @Roles(UserRole.ADMIN)
   async dayLog(@Query() query: AttendanceDayQueryDto) {
     return {
       statusCode: HttpStatus.OK,
-      message: 'Lấy lịch sử đăng nhập trong ngày thành công',
+      message: 'Lấy các lượt quẹt trong ngày thành công',
       data: await this.attendanceService.dayLog(query.day),
     };
   }

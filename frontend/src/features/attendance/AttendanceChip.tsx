@@ -1,18 +1,19 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Circle } from '@phosphor-icons/react';
-import { attendanceApi } from './api';
 import { useMyAttendanceToday } from './hooks';
-import type { HeartbeatResult } from './types';
 
-/** Gửi một lượt báo online mỗi 60 giây (server gộp theo phút) */
-const HEARTBEAT_MS = 60_000;
+const timeOf = (iso: string) =>
+  new Intl.DateTimeFormat('vi-VN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Ho_Chi_Minh' }).format(new Date(iso));
 
-const hm = (minutes: number) => {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h}g` : `${h}g${String(m).padStart(2, '0')}`;
+/** 11_565_000 ms -> "3:12:45" */
+const clock = (ms: number) => {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 };
 
 const congText = (c: number) => (c === 0.5 ? '0,5' : String(c));
@@ -23,49 +24,48 @@ const TONE_CLASS = {
   off: 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300',
 } as const;
 
+/**
+ * Chip chấm công ở header của nhân viên. Công tính theo lượt quẹt trên máy chấm công, không theo đăng nhập:
+ * quẹt vào thì hiện giờ vào và chạy bộ đếm, quẹt ra thì chốt ca và số công.
+ * Lượt quẹt mới đến qua realtime nên không cần tự hỏi server định kỳ.
+ */
 export function AttendanceChip() {
-  const [result, setResult] = useState<HeartbeatResult | null>(null);
+  const { data, dataUpdatedAt } = useMyAttendanceToday(true);
+  const [tick, setTick] = useState(() => Date.now());
 
-  const { data: today } = useMyAttendanceToday(true);
-
-  const beat = useCallback(async () => {
-    try {
-      setResult(await attendanceApi.heartbeat());
-    } catch {
-      // Mất mạng hoặc lỗi server: bỏ qua, không báo lỗi lớn cho người dùng
-    }
-  }, []);
-
+  const working = data?.status === 'working';
   useEffect(() => {
-    const first = setTimeout(beat, 2_000);
-    const timer = setInterval(beat, HEARTBEAT_MS);
-    return () => {
-      clearTimeout(first);
-      clearInterval(timer);
-    };
-  }, [beat]);
+    if (!working) return;
+    const timer = setInterval(() => setTick(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, [working]);
 
-  const status = result ?? today ?? null;
-  const minutes = status?.minutesToday ?? 0;
-  const full = status?.fullMinutes ?? 480;
-  const half = status?.halfMinutes ?? 240;
-  const cong = status?.congToday ?? 0;
+  if (!data) return null;
 
-  const targetMoc = minutes < half && half > 0 ? half : full;
-  const mocProgress = `${hm(minutes)} / ${hm(targetMoc)} · ${congText(cong)} công`;
+  // Đo độ lệch giữa đồng hồ máy chủ và máy nhân viên tại lúc nhận dữ liệu để bộ đếm đúng giờ
+  const skew = Date.parse(data.serverNow) - dataUpdatedAt;
 
-  let tone: keyof typeof TONE_CLASS = 'good';
-  let statusText = 'Đang online';
+  let tone: keyof typeof TONE_CLASS = 'off';
+  let statusText = 'Chưa chấm công';
+  let detail: string | null = null;
 
-  if (result && !result.counted) {
-    tone = 'off';
-    statusText = 'Quản trị viên';
+  if (data.status === 'working' && data.punchedInAt) {
+    tone = 'good';
+    statusText = `Đã chấm vào lúc ${timeOf(data.punchedInAt)}`;
+    detail = clock(tick + skew - Date.parse(data.punchedInAt));
+  } else if (data.status === 'done' && data.punchedInAt && data.punchedOutAt) {
+    tone = data.lateMinutes > 0 || data.earlyLeaveMinutes > 0 ? 'warn' : 'good';
+    statusText = `Vào ${timeOf(data.punchedInAt)} · Ra ${timeOf(data.punchedOutAt)}`;
+    detail = `ca ${data.shift} · ${congText(data.cong)} công`;
   }
 
   const tooltip = [
-    `Thời gian online hôm nay: ${hm(minutes)}`,
-    `Mốc tính công: đủ ${hm(half)} = 0,5 công · đủ ${hm(full)} = 1 công (hiện đạt ${congText(cong)} công)`,
-    'Giờ tính từ lần đăng nhập đầu tiên trong ngày; đăng nhập/đăng xuất nhiều lần vẫn tính từ lần đầu.',
+    data.status === 'done'
+      ? `Ca làm: ${data.shift}. Tính ${data.minutes} phút trong ca → ${congText(data.cong)} công.`
+      : 'Công tính theo lượt quẹt trên máy chấm công: lượt đầu là giờ vào, lượt cuối là giờ ra.',
+    data.lateMinutes > 0 ? `Vào muộn ${data.lateMinutes} phút so với đầu ca.` : '',
+    data.earlyLeaveMinutes > 0 ? `Ra sớm ${data.earlyLeaveMinutes} phút so với cuối ca.` : '',
+    'Ở lại quá giờ cuối ca vẫn chỉ tính theo ca (tối đa 1 công).',
   ]
     .filter(Boolean)
     .join('\n');
@@ -76,19 +76,13 @@ export function AttendanceChip() {
       className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-bold ${TONE_CLASS[tone]}`}
     >
       <span className="relative flex size-2 items-center justify-center">
-        {tone === 'good' && (
+        {working && (
           <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
         )}
-        <Circle
-          size={8}
-          weight="fill"
-          className={tone === 'good' ? 'text-emerald-500' : 'text-slate-400'}
-        />
+        <Circle size={8} weight="fill" className={tone === 'off' ? 'text-slate-400' : 'text-emerald-500'} />
       </span>
       <span>{statusText}</span>
-      <span className="tnum border-l border-current/30 pl-1.5 font-black opacity-90">
-        {mocProgress}
-      </span>
+      {detail && <span className="tnum border-l border-current/30 pl-1.5 font-black opacity-90">{detail}</span>}
     </span>
   );
 }

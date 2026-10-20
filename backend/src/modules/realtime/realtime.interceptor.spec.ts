@@ -17,7 +17,6 @@ describe('topicOfPath', () => {
     expect(topicOfPath('/orders/vmg-callback')).toBe('orders');
     expect(topicOfPath('/attendance/hik-event/abc')).toBe('attendance');
     expect(topicOfPath('/attendance/override')).toBe('attendance');
-    expect(topicOfPath('/attendance/heartbeat')).toBeNull();
     expect(topicOfPath('/auth/login')).toBeNull();
     expect(topicOfPath('/realtime/stream')).toBeNull();
   });

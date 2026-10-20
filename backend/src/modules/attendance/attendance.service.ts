@@ -6,11 +6,14 @@ import { AppSetting } from '../settings/entities/app-setting.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import {
   DEFAULT_ATTENDANCE_CONFIG,
+  PUNCH_COOLDOWN_SECONDS,
   congFromMinutes,
-  evaluateBeat,
+  evaluateDay,
   sanitizeAttendanceConfig,
   vietnamClock,
   type AttendanceConfig,
+  type DayResult,
+  type DayStatus,
 } from './attendance.logic.js';
 import { directionByOrder, directionFromStatus, type HikvisionPunch } from './hikvision-event.js';
 
@@ -18,18 +21,39 @@ export type PunchResult = 'recorded' | 'duplicate' | 'unknown_employee' | 'not_c
 
 const CONFIG_KEY = 'attendance_config';
 
-/** Số phút từ lần báo online đầu tiên đến lần báo gần nhất trong ngày (đăng nhập/đăng xuất nhiều lần vẫn tính từ lần đầu) */
-const MINUTES_SQL = `(CASE WHEN position('1' in "bits") = 0 THEN 0 ELSE length(rtrim("bits", '0')) - position('1' in "bits") + 1 END)`;
+/**
+ * Từ ngày này công chỉ tính theo lượt quẹt máy chấm công. Các ngày trước đó vốn tính theo thời gian đăng nhập
+ * (cột `bits` của attendance_days) nên vẫn đọc lại để bảng lương các tháng cũ không bị mất công.
+ */
+const PUNCH_ONLY_FROM = '2026-10-21';
+
+/** Số phút đăng nhập của cách tính cũ (từ phút online đầu tiên đến phút cuối cùng trong ngày) */
+const LEGACY_MINUTES_SQL = `(CASE WHEN position('1' in "bits") = 0 THEN 0 ELSE length(rtrim("bits", '0')) - position('1' in "bits") + 1 END)`;
 
 export interface AttendanceDayCell {
-  /** Số phút thao tác online */
+  /** Số phút được tính trong ca */
   minutes: number;
   /** Số công cuối cùng của ngày (đã tính cả chỉnh tay) */
   cong: number;
-  /** Số công tự tính từ số phút, bỏ qua chỉnh tay */
+  /** Số công tự tính từ lượt quẹt, bỏ qua chỉnh tay */
   autoCong: number;
   overridden: boolean;
   note: string;
+  status: DayStatus;
+  /** Nhãn ca, vd "6h - 15h30"; null nếu chưa xác định được ca (hoặc là công cũ tính theo đăng nhập) */
+  shift: string | null;
+  firstAt: string | null;
+  lastAt: string | null;
+  lateMinutes: number;
+  earlyLeaveMinutes: number;
+}
+
+interface PunchSummaryRow {
+  userId: number;
+  day: string;
+  firstAt: Date;
+  lastAt: Date;
+  n: string;
 }
 
 @Injectable()
@@ -69,38 +93,9 @@ export class AttendanceService {
   }
 
   /**
-   * Nhận một lượt "tôi đang online" từ trình duyệt của nhân viên. Giờ do server ghi.
-   * Là nhân viên thì đánh dấu phút hiện tại; số phút trong ngày tính từ lần đầu tiên đến nay.
-   */
-  async heartbeat(actor: JwtPayload) {
-    const config = await this.loadConfig();
-    const verdict = evaluateBeat({ role: actor.role });
-    const { day, minuteOfDay } = vietnamClock();
-
-    const minutes = verdict.counted
-      ? await this.markMinute(actor.sub, day, minuteOfDay)
-      : await this.minutesOf(actor.sub, day);
-
-    return { ...this.statusOf(minutes, config), counted: verdict.counted, reason: verdict.reason };
-  }
-
-  /**
-   * Ghi một lần đăng nhập. Nhân viên thì đồng thời đánh dấu phút này luôn,
-   * nên lần đăng nhập đầu tiên trong ngày chính là mốc bắt đầu tính giờ (không chờ heartbeat).
-   */
-  async recordLogin(userId: number, role: string): Promise<void> {
-    const { day, minuteOfDay } = vietnamClock();
-    await this.dataSource.query(`INSERT INTO "attendance_logins" ("userId", "day", "kind") VALUES ($1, $2, 'login')`, [
-      userId,
-      day,
-    ]);
-    if (role === UserRole.STAFF) await this.markMinute(userId, day, minuteOfDay);
-  }
-
-  /**
    * Ghi một lượt quẹt từ máy chấm công Hikvision. Giờ lấy theo giờ của máy (máy gửi lại khi mất mạng vẫn đúng giờ).
-   * Chiều vào / ra: theo nút Check In / Check Out trên máy; máy không gửi thì đoán theo thứ tự trong ngày.
-   * Số phút công tính như online: từ lượt quẹt đầu đến lượt quẹt cuối trong ngày.
+   * Quẹt lại trong vòng PUNCH_COOLDOWN_SECONDS của một lượt đã ghi thì bỏ qua, nên quẹt liền hai lần chỉ tính lượt vào.
+   * Công của ngày tính từ lượt quẹt đầu (vào) đến lượt quẹt cuối (ra), xem `evaluateDay`.
    */
   async recordPunch(punch: HikvisionPunch): Promise<PunchResult> {
     const user = await this.users.findOne({
@@ -110,16 +105,17 @@ export class AttendanceService {
     if (!user) return 'unknown_employee';
     if (!user.isActive || user.role !== UserRole.STAFF) return 'not_counted';
 
-    const { day, minuteOfDay } = vietnamClock(punch.at);
+    const { day } = vietnamClock(punch.at);
 
-    // Quẹt trùng (máy gửi lại, hoặc nhân viên quẹt 2 lần liền) trong vòng 1 phút thì bỏ qua
     const near: Array<{ n: string }> = await this.dataSource.query(
       `SELECT count(*) AS "n" FROM "attendance_punches"
-        WHERE "userId" = $1 AND "at" BETWEEN $2::timestamptz - interval '60 seconds' AND $2::timestamptz + interval '60 seconds'`,
-      [user.id, punch.at],
+        WHERE "userId" = $1
+          AND "at" BETWEEN $2::timestamptz - make_interval(secs => $3::int) AND $2::timestamptz + make_interval(secs => $3::int)`,
+      [user.id, punch.at, PUNCH_COOLDOWN_SECONDS],
     );
     if (Number(near[0].n) > 0) return 'duplicate';
 
+    // `kind` chỉ để đối chiếu nhật ký; công không dựa vào nó mà dựa vào lượt đầu và lượt cuối trong ngày
     let kind = directionFromStatus(punch.status);
     if (!kind) {
       const before: Array<{ n: string }> = await this.dataSource.query(
@@ -135,25 +131,17 @@ export class AttendanceService {
       punch.at,
       kind,
     ]);
-    await this.markMinute(user.id, day, minuteOfDay, punch.at);
     return 'recorded';
   }
 
-  async recordLogout(userId: number): Promise<void> {
-    const { day } = vietnamClock();
-    await this.dataSource.query(`INSERT INTO "attendance_logins" ("userId", "day", "kind") VALUES ($1, $2, 'logout')`, [
-      userId,
-      day,
-    ]);
-  }
-
   /**
-   * Tình hình từng nhân viên trong một ngày (mặc định hôm nay): đã vào lúc nào, lần cuối thấy online,
-   * số phút / công tạm tính và lịch sử đăng nhập - đăng xuất. Người chưa đăng nhập vẫn có mặt trong danh sách.
+   * Tình hình từng nhân viên trong một ngày (mặc định hôm nay): đã quẹt vào lúc nào, đã quẹt ra chưa,
+   * ca nào, đi muộn / về sớm bao nhiêu phút và công tạm tính. Người chưa quẹt vẫn có mặt trong danh sách.
    */
   async dayLog(day?: string) {
     const config = await this.loadConfig();
-    const target = day ?? vietnamClock().day;
+    const today = vietnamClock().day;
+    const target = day ?? today;
 
     const staff = await this.users.find({
       where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true },
@@ -161,75 +149,82 @@ export class AttendanceService {
       order: { fullName: 'ASC' },
     });
 
-    const days: Array<{ userId: number; minutes: string; firstAt: Date | null; lastAt: Date | null; overrideCong: string | null }> =
-      await this.dataSource.query(
-        `SELECT "userId", ${MINUTES_SQL} AS "minutes", "firstAt", "lastAt", "overrideCong"
-           FROM "attendance_days" WHERE "day" = $1`,
-        [target],
-      );
-    // Lượt đăng nhập web và lượt quẹt máy chấm công gộp chung một dòng thời gian (quẹt vào = vào, quẹt ra = ra);
-    // `source` cho biết lượt đó đến từ đâu để màn hình ghi rõ "web" hay "máy chấm công"
-    const events: Array<{ userId: number; kind: string; at: Date; source: 'web' | 'device' }> = await this.dataSource.query(
-      `SELECT "userId", "kind", "at", 'web' AS "source" FROM "attendance_logins" WHERE "day" = $1
-       UNION ALL
-       SELECT "userId", CASE "kind" WHEN 'in' THEN 'login' ELSE 'logout' END, "at", 'device' AS "source" FROM "attendance_punches" WHERE "day" = $1
-       ORDER BY "at" ASC`,
+    const punches: Array<{ userId: number; at: Date }> = await this.dataSource.query(
+      `SELECT "userId", "at" FROM "attendance_punches" WHERE "day" = $1 ORDER BY "at" ASC`,
+      [target],
+    );
+    const overrides: Array<{ userId: number; overrideCong: string | null }> = await this.dataSource.query(
+      `SELECT "userId", "overrideCong" FROM "attendance_days" WHERE "day" = $1`,
       [target],
     );
 
-    const dayBy = new Map(days.map((d) => [d.userId, d]));
-    const eventsBy = new Map<number, Array<{ kind: string; at: string; source: 'web' | 'device' }>>();
-    for (const e of events) {
-      const list = eventsBy.get(e.userId) ?? [];
-      list.push({ kind: e.kind, at: new Date(e.at).toISOString(), source: e.source });
-      eventsBy.set(e.userId, list);
+    const punchesBy = new Map<number, Date[]>();
+    for (const p of punches) {
+      const list = punchesBy.get(p.userId) ?? [];
+      list.push(new Date(p.at));
+      punchesBy.set(p.userId, list);
     }
+    const overrideBy = new Map(overrides.map((o) => [o.userId, o.overrideCong]));
 
     return {
       day: target,
       staff: staff.map((u) => {
-        const d = dayBy.get(u.id);
-        const minutes = d ? Number(d.minutes) : 0;
-        const autoCong = congFromMinutes(minutes, config);
+        const list = punchesBy.get(u.id) ?? [];
+        const result = evaluateDay(
+          { firstAt: list[0] ?? null, lastAt: list[list.length - 1] ?? null, punchCount: list.length, isToday: target === today },
+          config,
+        );
+        const override = overrideBy.get(u.id);
         return {
           userId: u.id,
           fullName: u.fullName,
-          minutes,
-          cong: d?.overrideCong != null ? Number(d.overrideCong) : autoCong,
-          firstAt: d?.firstAt ? new Date(d.firstAt).toISOString() : null,
-          lastAt: d?.lastAt ? new Date(d.lastAt).toISOString() : null,
-          events: eventsBy.get(u.id) ?? [],
+          status: result.status,
+          shift: result.shift?.label ?? null,
+          minutes: result.minutes,
+          cong: override != null ? Number(override) : result.cong,
+          lateMinutes: result.lateMinutes,
+          earlyLeaveMinutes: result.earlyLeaveMinutes,
+          firstAt: list[0] ? list[0].toISOString() : null,
+          lastAt: list.length > 1 ? list[list.length - 1].toISOString() : null,
+          punches: list.map((d) => d.toISOString()),
         };
       }),
     };
   }
 
-  /** Số phút và công hôm nay của chính người đăng nhập (cho chip trạng thái ở đầu trang) */
+  /** Trạng thái chấm công hôm nay của chính người đăng nhập (cho chip ở header: đã chấm vào lúc nào, bộ đếm giờ) */
   async today(actor: JwtPayload) {
     const config = await this.loadConfig();
     const { day } = vietnamClock();
-    const minutes = await this.minutesOf(actor.sub, day);
-    return this.statusOf(minutes, config);
-  }
-
-  /** Số phút online hôm nay của một danh sách nhân viên */
-  async getTodayMinutesMap(userIds: number[]): Promise<Map<number, number>> {
-    if (userIds.length === 0) return new Map();
-    const { day } = vietnamClock();
-    const rows: Array<{ userId: number; minutes: string }> = await this.dataSource.query(
-      `SELECT "userId", ${MINUTES_SQL} AS "minutes" FROM "attendance_days" WHERE "userId" = ANY($1) AND "day" = $2`,
-      [userIds, day],
+    const rows: Array<{ at: Date }> = await this.dataSource.query(
+      `SELECT "at" FROM "attendance_punches" WHERE "userId" = $1 AND "day" = $2 ORDER BY "at" ASC`,
+      [actor.sub, day],
     );
-    const map = new Map<number, number>();
-    for (const r of rows) {
-      map.set(Number(r.userId), Number(r.minutes));
-    }
-    return map;
+    const list = rows.map((r) => new Date(r.at));
+    const result = evaluateDay(
+      { firstAt: list[0] ?? null, lastAt: list[list.length - 1] ?? null, punchCount: list.length, isToday: true },
+      config,
+    );
+    return {
+      status: result.status,
+      shift: result.shift?.label ?? null,
+      minutes: result.minutes,
+      cong: result.cong,
+      lateMinutes: result.lateMinutes,
+      earlyLeaveMinutes: result.earlyLeaveMinutes,
+      punchedInAt: list[0] ? list[0].toISOString() : null,
+      punchedOutAt: list.length > 1 ? list[list.length - 1].toISOString() : null,
+      fullMinutes: config.fullMinutes,
+      halfMinutes: config.halfMinutes,
+      /** Giờ máy chủ, để bộ đếm ở trình duyệt không lệch theo đồng hồ máy nhân viên */
+      serverNow: new Date().toISOString(),
+    };
   }
 
   /** Bảng chấm công cả tháng cho Admin: từng nhân viên, từng ngày, tổng công */
   async month(month: string) {
     const config = await this.loadConfig();
+    const today = vietnamClock().day;
     const [yearStr, monthStr] = month.split('-');
     const daysInMonth = new Date(Date.UTC(Number(yearStr), Number(monthStr), 0)).getUTCDate();
     const from = `${month}-01`;
@@ -241,35 +236,69 @@ export class AttendanceService {
       order: { fullName: 'ASC' },
     });
 
-    const rows: Array<{
+    const punchRows: PunchSummaryRow[] = await this.dataSource.query(
+      `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day", min("at") AS "firstAt", max("at") AS "lastAt", count(*) AS "n"
+         FROM "attendance_punches"
+        WHERE "day" >= $1 AND "day" <= $2
+        GROUP BY "userId", "day"`,
+      [from, to],
+    );
+    const dayRows: Array<{
       userId: number;
       day: string;
-      minutes: string;
+      legacyMinutes: string;
       overrideCong: string | null;
       overrideNote: string | null;
     }> = await this.dataSource.query(
       `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day",
-              ${MINUTES_SQL} AS "minutes",
+              ${LEGACY_MINUTES_SQL} AS "legacyMinutes",
               "overrideCong", "overrideNote"
          FROM "attendance_days"
         WHERE "day" >= $1 AND "day" <= $2`,
       [from, to],
     );
 
+    const key = (userId: number, day: string) => `${userId}|${day}`;
+    const punchBy = new Map(punchRows.map((r) => [key(r.userId, r.day), r]));
+    const dayBy = new Map(dayRows.map((r) => [key(r.userId, r.day), r]));
+    const keys = new Set([...punchBy.keys(), ...dayBy.keys()]);
+
     const byUser = new Map<number, Record<string, AttendanceDayCell>>();
-    for (const r of rows) {
-      const minutes = Number(r.minutes);
-      const autoCong = congFromMinutes(minutes, config);
-      const overridden = r.overrideCong !== null;
-      const days = byUser.get(r.userId) ?? {};
-      days[r.day] = {
-        minutes,
-        autoCong,
-        cong: overridden ? Number(r.overrideCong) : autoCong,
+    for (const k of keys) {
+      const [userIdText, day] = k.split('|');
+      const userId = Number(userIdText);
+      const p = punchBy.get(k);
+      const d = dayBy.get(k);
+
+      let result: DayResult;
+      if (p) {
+        result = evaluateDay(
+          { firstAt: new Date(p.firstAt), lastAt: new Date(p.lastAt), punchCount: Number(p.n), isToday: day === today },
+          config,
+        );
+      } else if (d && day < PUNCH_ONLY_FROM && Number(d.legacyMinutes) > 0) {
+        const minutes = Number(d.legacyMinutes);
+        result = { status: 'done', shift: null, minutes, cong: congFromMinutes(minutes, config), lateMinutes: 0, earlyLeaveMinutes: 0 };
+      } else {
+        result = evaluateDay({ firstAt: null, lastAt: null, punchCount: 0, isToday: day === today }, config);
+      }
+
+      const overridden = d?.overrideCong != null;
+      const cells = byUser.get(userId) ?? {};
+      cells[day] = {
+        minutes: result.minutes,
+        autoCong: result.cong,
+        cong: overridden ? Number(d!.overrideCong) : result.cong,
         overridden,
-        note: r.overrideNote ?? '',
+        note: d?.overrideNote ?? '',
+        status: result.status,
+        shift: result.shift?.label ?? null,
+        firstAt: p ? new Date(p.firstAt).toISOString() : null,
+        lastAt: p && Number(p.n) > 1 ? new Date(p.lastAt).toISOString() : null,
+        lateMinutes: result.lateMinutes,
+        earlyLeaveMinutes: result.earlyLeaveMinutes,
       };
-      byUser.set(r.userId, days);
+      byUser.set(userId, cells);
     }
 
     return {
@@ -307,39 +336,5 @@ export class AttendanceService {
       [userId, day, rounded, (note ?? '').slice(0, 200) || null, adminId],
     );
     return { ok: true };
-  }
-
-  private statusOf(minutes: number, config: AttendanceConfig) {
-    return {
-      minutesToday: minutes,
-      congToday: congFromMinutes(minutes, config),
-      fullMinutes: config.fullMinutes,
-      halfMinutes: config.halfMinutes,
-    };
-  }
-
-  private async minutesOf(userId: number, day: string): Promise<number> {
-    const rows: Array<{ minutes: string }> = await this.dataSource.query(
-      `SELECT ${MINUTES_SQL} AS "minutes" FROM "attendance_days" WHERE "userId" = $1 AND "day" = $2`,
-      [userId, day],
-    );
-    return rows.length ? Number(rows[0].minutes) : 0;
-  }
-
-  /** Đánh dấu phút `minuteOfDay` của ngày đó là có công, trả về tổng số phút trong ngày */
-  private async markMinute(userId: number, day: string, minuteOfDay: number, at: Date = new Date()): Promise<number> {
-    const position = minuteOfDay + 1; // overlay đánh số vị trí từ 1
-    // firstAt / lastAt lấy mốc sớm nhất / muộn nhất, để lượt quẹt máy gửi chậm không làm lệch giờ vào ra
-    const rows: Array<{ minutes: string }> = await this.dataSource.query(
-      `INSERT INTO "attendance_days" ("userId", "day", "bits", "firstAt", "lastAt")
-       VALUES ($1, $2, overlay(repeat('0', 1440) placing '1' from $3::int for 1), $4::timestamptz, $4::timestamptz)
-       ON CONFLICT ("userId", "day")
-       DO UPDATE SET "bits" = overlay("attendance_days"."bits" placing '1' from $3::int for 1),
-                     "firstAt" = LEAST(COALESCE("attendance_days"."firstAt", $4::timestamptz), $4::timestamptz),
-                     "lastAt" = GREATEST(COALESCE("attendance_days"."lastAt", $4::timestamptz), $4::timestamptz)
-       RETURNING ${MINUTES_SQL} AS "minutes"`,
-      [userId, day, position, at],
-    );
-    return Number(rows[0].minutes);
   }
 }

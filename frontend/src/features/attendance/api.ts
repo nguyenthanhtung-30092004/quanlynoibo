@@ -3,16 +3,12 @@ import type {
   AttendanceConfig,
   AttendanceMonth,
   DayLog,
-  HeartbeatResult,
   MyTodayStatus,
   OnlineUser,
   OverrideInput,
 } from './types';
 
 export const attendanceApi = {
-  heartbeat: () =>
-    api<ApiResponse<HeartbeatResult>>('attendance/heartbeat', { method: 'POST', body: {} }).then((r) => r.data),
-
   dayLog: (signal?: AbortSignal) =>
     api<ApiResponse<DayLog>>('attendance/day-log', { signal }).then((r) => r.data),
 

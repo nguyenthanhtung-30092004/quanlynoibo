@@ -3,7 +3,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { Observable, Subject } from 'rxjs';
 import { User } from '../users/entities/user.entity.js';
-import { AttendanceService } from '../attendance/attendance.service.js';
 
 /** Nhóm dữ liệu vừa thay đổi; client chỉ cần biết nhóm nào để tải lại, không nhận dữ liệu thật */
 export const REALTIME_TOPICS = ['orders', 'partners', 'routes', 'carriers', 'users', 'presence', 'leave', 'attendance'] as const;
@@ -29,7 +28,6 @@ export interface OnlineUserItem {
   connections: number;
   onlineSince: string;
   lastSeenAt: string;
-  todayMinutes: number;
 }
 
 /**
@@ -43,7 +41,6 @@ export class RealtimeService {
 
   constructor(
     @Optional() @InjectRepository(User) private readonly userRepository?: Repository<User>,
-    @Optional() private readonly attendanceService?: AttendanceService,
   ) {}
 
   emit(event: RealtimeEvent): void {
@@ -111,10 +108,6 @@ export class RealtimeService {
       : [];
     const userMap = new Map(users.map((u) => [u.id, u]));
 
-    const minutesMap = this.attendanceService
-      ? await this.attendanceService.getTodayMinutesMap(userIds)
-      : new Map<number, number>();
-
     return records
       .map((r) => {
         const u = userMap.get(r.userId);
@@ -125,7 +118,6 @@ export class RealtimeService {
           connections: r.connections,
           onlineSince: r.onlineSince.toISOString(),
           lastSeenAt: r.lastSeenAt.toISOString(),
-          todayMinutes: minutesMap.get(r.userId) ?? 0,
         };
       })
       .sort((a, b) => a.fullName.localeCompare(b.fullName, 'vi'));
