@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Circle } from '@phosphor-icons/react';
+import { durationText } from './format';
 import { useMyAttendanceToday } from './hooks';
 
 const timeOf = (iso: string) =>
@@ -61,10 +62,10 @@ export function AttendanceChip() {
 
   const tooltip = [
     data.status === 'done'
-      ? `Ca làm: ${data.shift}. Tính ${data.minutes} phút trong ca → ${congText(data.cong)} công.`
+      ? `Ca làm: ${data.shift}. Tính ${durationText(data.minutes)} trong ca → ${congText(data.cong)} công.`
       : 'Công tính theo lượt quẹt trên máy chấm công: lượt đầu là giờ vào, lượt cuối là giờ ra.',
-    data.lateMinutes > 0 ? `Vào muộn ${data.lateMinutes} phút so với đầu ca.` : '',
-    data.earlyLeaveMinutes > 0 ? `Ra sớm ${data.earlyLeaveMinutes} phút so với cuối ca.` : '',
+    data.lateMinutes > 0 ? `Vào muộn ${durationText(data.lateMinutes)} so với đầu ca.` : '',
+    data.earlyLeaveMinutes > 0 ? `Ra sớm ${durationText(data.earlyLeaveMinutes)} so với cuối ca.` : '',
     'Ở lại quá giờ cuối ca vẫn chỉ tính theo ca (tối đa 1 công).',
   ]
     .filter(Boolean)

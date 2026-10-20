@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { useAttendanceMonth, useDayLog, useSetAttendanceOverride } from '@/features/attendance/hooks';
+import { durationText } from '@/features/attendance/format';
 import type { AttendanceDayCell, AttendanceStaff } from '@/features/attendance/types';
 import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { Modal } from '@/features/xvip/Modal';
@@ -29,12 +30,15 @@ function cellSummary(cell: AttendanceDayCell): string {
   if (cell.status === 'not_in') return 'Chưa quẹt máy chấm công.';
   if (!cell.shift || !cell.firstAt || !cell.lastAt) return `Công cũ tính theo đăng nhập: ${hm(cell.minutes)}`;
   const late = lateText(cell.lateMinutes, cell.earlyLeaveMinutes);
-  return `Vào ${formatTime(cell.firstAt)} · ra ${formatTime(cell.lastAt)} · ca ${cell.shift} · tính ${hm(cell.minutes)}${late ? ` (${late})` : ''}`;
+  return `Vào ${formatTime(cell.firstAt)} · ra ${formatTime(cell.lastAt)} · ca ${cell.shift} · tính ${durationText(cell.minutes)}${late ? ` (${late})` : ''}`;
 }
 
 /** Ghi chú vào muộn / ra sớm, rỗng nếu đúng giờ */
 const lateText = (lateMinutes: number, earlyLeaveMinutes: number) =>
-  [lateMinutes > 0 ? `vào muộn ${lateMinutes} phút` : '', earlyLeaveMinutes > 0 ? `ra sớm ${earlyLeaveMinutes} phút` : '']
+  [
+    lateMinutes > 0 ? `vào muộn ${durationText(lateMinutes)}` : '',
+    earlyLeaveMinutes > 0 ? `ra sớm ${durationText(earlyLeaveMinutes)}` : '',
+  ]
     .filter(Boolean)
     .join(', ');
 
