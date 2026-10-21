@@ -689,6 +689,7 @@ export function OrderFormModal({
       editingOrder.departureDate === formState.departureDate &&
       editingOrder.departureTime === formState.departureTime;
     if (
+      !isAdmin &&
       formState.departureTime.trim() &&
       formState.departureDate === getVnToday() &&
       formState.departureTime < getVnTime() &&
@@ -927,7 +928,7 @@ export function OrderFormModal({
                 >
                   <TimeInput
                     // Chọn ngày hôm nay thì khóa các giờ, phút đã qua
-                    min={formState.departureDate === getVnToday() ? getVnTime() : undefined}
+                    min={!isAdmin && formState.departureDate === getVnToday() ? getVnTime() : undefined}
                     value={formState.departureTime}
                     invalid={!!formErrors.departureTime}
                     onChange={(v) => {
@@ -943,7 +944,7 @@ export function OrderFormModal({
                   error={formErrors.departureDate}
                 >
                   <DateInput
-                    min={getVnToday()}
+                    min={isAdmin ? undefined : getVnToday()}
                     value={formState.departureDate}
                     invalid={!!formErrors.departureDate}
                     onChange={(v) => {

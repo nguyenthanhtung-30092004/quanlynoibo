@@ -1,11 +1,15 @@
 import { BadRequestException } from '@nestjs/common';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { UserRole } from '../../users/entities/user.entity.js';
 import { CabinKind } from '../entities/order.entity.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { OrdersCommandService } from './orders-command.service.js';
 
 const admin = { sub: 1, username: 'admin', role: UserRole.ADMIN } as never;
+const staff = { sub: 2, username: 'nv', role: UserRole.STAFF } as never;
+
+/** 10:00 giờ Việt Nam: trong khung nhân viên được tạo đơn, tránh test phụ thuộc giờ chạy thật */
+const freezeAtMorning = () => vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-21T03:00:00Z') });
 
 /** Ngày khởi hành xa trong tương lai để không vướng chặn ngày đã qua */
 const FUTURE = '2099-01-01';
@@ -235,7 +239,7 @@ describe('tạo đơn xe riêng và đơn thường', () => {
     expect(saved[0]).toMatchObject({ vehicleCount: 0, seatCount: 2, cabinLines: null });
   });
 
-  it('đơn thường vẫn bắt buộc có ghế và chặn ngày đã qua', async () => {
+  it('đơn thường vẫn bắt buộc có ghế', async () => {
     const { service } = build();
     await expect(
       service.create(
@@ -243,31 +247,47 @@ describe('tạo đơn xe riêng và đơn thường', () => {
         admin,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
-    await expect(
-      service.create(
-        { ...baseDto, departureDate: '2000-01-01', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
-        admin,
-      ),
-    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
 
 describe('giờ đi trong ngày hôm nay', () => {
-  const today = getBusinessDate();
+  afterEach(() => vi.useRealTimers());
 
-  it('hôm nay mà giờ đi đã qua thì bị từ chối, giờ sắp tới thì được', async () => {
+  it('nhân viên: hôm nay mà giờ đi đã qua hoặc ngày đã qua thì bị từ chối, giờ sắp tới thì được', async () => {
+    freezeAtMorning();
+    const today = getBusinessDate();
     const { service, saved } = build();
     await expect(
       service.create(
         { ...baseDto, departureDate: today, departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
-        admin,
+        staff,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    await expect(
+      service.create(
+        { ...baseDto, departureDate: '2000-01-01', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+        staff,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
     await service.create(
       { ...baseDto, departureDate: today, departureTime: '23:59', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
-      admin,
+      staff,
     );
     expect(saved).toHaveLength(1);
+  });
+
+  it('Admin được tạo vé cho ngày và giờ đã qua', async () => {
+    freezeAtMorning();
+    const { service, saved } = build();
+    await service.create(
+      { ...baseDto, departureDate: '2000-01-01', departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+      admin,
+    );
+    await service.create(
+      { ...baseDto, departureDate: getBusinessDate(), departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+      admin,
+    );
+    expect(saved).toHaveLength(2);
   });
 });
 

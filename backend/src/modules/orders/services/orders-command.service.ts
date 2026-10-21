@@ -169,8 +169,8 @@ export class OrdersCommandService {
       );
     }
 
-    // Không tạo vé cho ngày hoặc giờ đã qua (bỏ qua khi nhập bù có chỉ định ngày vào sổ)
-    if (!options.entryDate) {
+    // Không tạo vé cho ngày hoặc giờ đã qua (Admin và nhập bù có chỉ định ngày vào sổ thì được bỏ qua)
+    if (!options.entryDate && actor.role !== UserRole.ADMIN) {
       const past = departurePastReason(dto.departureDate, dto.departureTime);
       if (past === 'DATE') throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
       if (past === 'TIME') {
@@ -268,10 +268,10 @@ export class OrdersCommandService {
       throw new BadRequestException('Vé đã hủy, không thể sửa.');
     }
 
-    // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác
+    // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác. Admin không bị chặn
     const nextDate = dto.departureDate ?? order.departureDate;
     const nextTime = dto.departureTime ?? order.departureTime;
-    if (nextDate !== order.departureDate || nextTime !== order.departureTime) {
+    if (actor.role !== UserRole.ADMIN && (nextDate !== order.departureDate || nextTime !== order.departureTime)) {
       const past = departurePastReason(nextDate, nextTime);
       if (past === 'DATE') throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
       if (past === 'TIME') {
