@@ -202,7 +202,7 @@ function Field({
   error,
   children,
 }: {
-  label: string;
+  label: ReactNode;
   required?: boolean;
   error?: string;
   children: ReactNode;
@@ -1289,7 +1289,7 @@ export function OrderFormModal({
                   </>
                 )}
 
-                <Field label="Đã cọc XVIP">
+                <Field label={<>Đã cọc <span className="text-red-600 dark:text-red-400">XVIP</span></>}>
                   <MoneyInput
                     className="input-3d"
                     value={formState.deposit}
