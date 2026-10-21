@@ -261,7 +261,7 @@ function OverviewContent() {
                   </span>
                 </div>
               </div>
-              <ul className="w-full max-h-56 overflow-y-auto space-y-2 pr-1 text-xs lg:max-h-none lg:overflow-visible font-semibold text-slate-700 dark:text-slate-300">
+              <ul className="w-full space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
                     <div className="flex items-start gap-2.5 rounded-lg p-1">
