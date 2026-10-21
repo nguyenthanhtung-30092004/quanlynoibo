@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { useRoutes } from '@/features/routes/hooks';
@@ -282,20 +281,13 @@ function OverviewContent() {
         </Card>
 
         {/* Nhân viên tổng đài */}
-        <Card
-          title="Nhân viên tổng đài"
-          action={
-            <Link href="/xvip/bao-cao" className="btn-3d btn-3d-white px-3 py-1 text-xs">
-              Báo cáo chi tiết
-            </Link>
-          }
-        >
+        <Card title="Nhân viên tổng đài">
           {staffPodium.length === 0 ? (
             <div className="py-8 text-center text-xs font-bold text-slate-400">
               Chưa có nhân viên nào trong cơ sở dữ liệu.
             </div>
           ) : (
-            <ol className="space-y-3 pt-1 max-h-[380px] overflow-y-auto pr-1 lg:max-h-none lg:overflow-visible">
+            <ol className="space-y-3 pt-1">
               {staffPodium.map((s, i) => (
                 <li
                   key={s.staffId || s.fullName}
