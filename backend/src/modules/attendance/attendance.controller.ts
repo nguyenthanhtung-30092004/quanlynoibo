@@ -24,8 +24,10 @@ import { AttendanceService } from './attendance.service.js';
 import { parseHikvisionPunch } from './hikvision-event.js';
 import {
   AttendanceDayQueryDto,
+  AttendanceDefaultShiftDto,
   AttendanceMonthQueryDto,
   AttendanceOverrideDto,
+  AttendanceShiftOverrideDto,
   SaveAttendanceConfigDto,
 } from './dto/attendance.dto.js';
 
@@ -113,6 +115,28 @@ export class AttendanceController {
       statusCode: HttpStatus.OK,
       message: 'Đã chỉnh công',
       data: await this.attendanceService.setOverride(user.sub, dto.userId, dto.day, dto.cong ?? null, dto.note),
+    };
+  }
+
+  /** Admin chọn lại ca cho một ngày của nhân viên (để tính đúng tăng ca); shiftStart null = bỏ chọn */
+  @Put('shift-override')
+  @Roles(UserRole.ADMIN)
+  async shiftOverride(@Body() dto: AttendanceShiftOverrideDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã chọn ca',
+      data: await this.attendanceService.setShiftOverride(dto.userId, dto.day, dto.shiftStart ?? null),
+    };
+  }
+
+  /** Ca mặc định của nhân viên; shiftStart null = bỏ ca mặc định */
+  @Put('default-shift')
+  @Roles(UserRole.ADMIN)
+  async defaultShift(@Body() dto: AttendanceDefaultShiftDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã đặt ca mặc định',
+      data: await this.attendanceService.setDefaultShift(dto.userId, dto.shiftStart ?? null),
     };
   }
 }

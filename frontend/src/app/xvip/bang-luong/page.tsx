@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CaretDown,
   CaretLeft,
@@ -12,10 +12,12 @@ import {
 import { ApiError } from '@/lib/api-client';
 import { shiftMonth, monthLabel } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
-import { computePayroll, standardDays } from '@/features/payroll/calc';
+import { computePayroll, monthLateMinutes, monthOvertimeHours, standardDays } from '@/features/payroll/calc';
 import { FormulaPanel } from '@/features/payroll/FormulaPanel';
+import { PayrollDetailModal } from '@/features/payroll/PayrollDetailModal';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
 import { attendanceApi } from '@/features/attendance/api';
+import type { AttendanceMonth } from '@/features/attendance/types';
 import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
 import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
@@ -33,7 +35,8 @@ export default function PayrollPage() {
   const showToast = useToast();
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const [formulaOpen, setFormulaOpen] = useState(true);
-  const [expanded, setExpanded] = useState<number | null>(null);
+  // Nhân viên đang mở form xem chi tiết (null = đóng)
+  const [detailId, setDetailId] = useState<number | null>(null);
 
   // Header của trang cũng dính và cao không cố định (xuống dòng khi hẹp): đo để thanh tháng dính ngay bên dưới
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -54,12 +57,23 @@ export default function PayrollPage() {
   const [config, setConfig] = useState<PayrollConfig | null>(null);
   const [entries, setEntries] = useState<Entries>({});
   const [autoFilledIds, setAutoFilledIds] = useState<Set<number>>(new Set());
+  // Chấm công cả tháng: lấy phút vào muộn và giờ tăng ca của từng nhân viên, và cho form xem chi tiết
+  const [att, setAtt] = useState<AttendanceMonth | null>(null);
+  const lateById = useMemo(
+    () => new Map((att?.staff ?? []).map((s) => [s.id, monthLateMinutes(s.days)])),
+    [att],
+  );
+  const overtimeById = useMemo(
+    () => new Map((att?.staff ?? []).map((s) => [s.id, monthOvertimeHours(s.days)])),
+    [att],
+  );
 
   useEffect(() => {
     if (!data) return;
     setConfig(data.config);
     setEntries(entriesOf(data));
     setAutoFilledIds(new Set());
+    setAtt(null);
 
     // Tự động điền công từ chấm công cho nhân viên chưa có số công đã lưu (workDays === null)
     let cancelled = false;
@@ -67,6 +81,7 @@ export default function PayrollPage() {
       .month(data.month)
       .then((att) => {
         if (cancelled) return;
+        setAtt(att);
         const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
         const newAuto = new Set<number>();
         setEntries((prev) => {
@@ -108,7 +123,20 @@ export default function PayrollPage() {
     return data.staff
       .map((s) => {
         const entry = entries[s.id] ?? s.entry;
-        return { staff: s, entry, result: computePayroll({ config, daysInMonth: data.daysInMonth, daily: s.daily, entry }) };
+        const lateMinutes = lateById.get(s.id) ?? 0;
+        const overtimeHours = overtimeById.get(s.id) ?? 0;
+        return {
+          staff: s,
+          entry,
+          result: computePayroll({
+            config,
+            daysInMonth: data.daysInMonth,
+            daily: s.daily,
+            entry,
+            lateMinutes,
+            overtimeHours,
+          }),
+        };
       })
       .sort((a, b) => {
         const levelA = a.entry?.level ?? 0;
@@ -118,7 +146,7 @@ export default function PayrollPage() {
         }
         return a.staff.fullName.localeCompare(b.staff.fullName, 'vi');
       });
-  }, [data, config, entries]);
+  }, [data, config, entries, lateById, overtimeById]);
 
   const totals = useMemo(
     () => ({
@@ -127,11 +155,15 @@ export default function PayrollPage() {
       dailyBonus: rows.reduce((sum, r) => sum + r.result.dailyBonus, 0),
       monthlyBonus: rows.reduce((sum, r) => sum + r.result.monthlyBonus, 0),
       overBonus: rows.reduce((sum, r) => sum + r.result.overBonus, 0),
+      latePenalty: rows.reduce((sum, r) => sum + r.result.latePenalty, 0),
+      overtimePay: rows.reduce((sum, r) => sum + r.result.overtimePay, 0),
       adjustment: rows.reduce((sum, r) => sum + r.result.adjustment, 0),
       total: rows.reduce((sum, r) => sum + r.result.total, 0),
     }),
     [rows],
   );
+
+  const detailRow = detailId === null ? null : (rows.find((r) => r.staff.id === detailId) ?? null);
 
   const std = data && config ? standardDays(data.daysInMonth, config.standardDaysOffset) : 0;
 
@@ -146,7 +178,7 @@ export default function PayrollPage() {
       return;
     }
     setMonth(next);
-    setExpanded(null);
+    setDetailId(null);
   };
 
   const save = async () => {
@@ -178,6 +210,7 @@ export default function PayrollPage() {
     setFillingAttendance(true);
     try {
       const att = await attendanceApi.month(month);
+      setAtt(att);
       const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
       const targets = data.staff.filter((s) => (congById.get(s.id) ?? 0) > 0);
       setAutoFilledIds((prev) => {
@@ -203,6 +236,11 @@ export default function PayrollPage() {
     } finally {
       setFillingAttendance(false);
     }
+  };
+
+  /** Sau khi Admin đổi ca trong form chi tiết: tải lại chấm công để tính lại tăng ca / vào muộn */
+  const reloadAttendance = async () => {
+    setAtt(await attendanceApi.month(month));
   };
 
   const missingDays = rows.filter((r) => r.entry.workDays === null).length;
@@ -336,6 +374,14 @@ export default function PayrollPage() {
                 <th className={`${TH} text-right`}>Thưởng ngày</th>
                 <th className={`${TH} text-right`}>Thưởng tháng</th>
                 <th className={`${TH} text-right`}>Vượt mốc</th>
+                <th className={`${TH} text-right`}>
+                  Trừ vào muộn
+                  <span className="block text-[10px] font-normal normal-case text-slate-400">Theo phút muộn</span>
+                </th>
+                <th className={`${TH} text-right`}>
+                  Tăng ca
+                  <span className="block text-[10px] font-normal normal-case text-slate-400">Theo giờ ở lại thêm</span>
+                </th>
                 <th className={`${TH} text-right`}>Điều chỉnh (+/−)</th>
                 <th className={TH}>Ghi chú</th>
                 <th className={`${TH} text-right`}>Tổng lương</th>
@@ -344,167 +390,167 @@ export default function PayrollPage() {
             <tbody>
               {isLoading || !config ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={14} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải bảng lương...
                   </td>
                 </tr>
               ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={14} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     Chưa có nhân viên nào.
                   </td>
                 </tr>
               ) : (
                 rows.map(({ staff, entry, result }, index) => {
-                  const open = expanded === staff.id;
                   const days = Object.entries(staff.daily)
                     .filter(([, d]) => d.commission > 0)
                     .sort(([a], [b]) => a.localeCompare(b));
                   return (
-                    <Fragment key={staff.id}>
-                      <tr className="transition-colors hover:bg-blue-50/25 dark:hover:bg-slate-800/50">
-                        <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{index + 1}</td>
-                        <td className={TD}>
-                          <button
-                            type="button"
-                            onClick={() => setExpanded(open ? null : staff.id)}
-                            title="Xem chi tiết từng ngày"
-                            className="flex items-center gap-2.5 text-left"
-                          >
-                            <Avatar name={staff.fullName} />
-                            <span>
-                              <span className="block font-extrabold text-slate-900 dark:text-white">{staff.fullName}</span>
-                              <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
-                                {open ? <CaretUp size={10} weight="bold" /> : <CaretDown size={10} weight="bold" />}
-                                {days.length} ngày có doanh số
-                                {!staff.isActive && <span className="ml-1 rounded bg-red-100 px-1 text-red-700">Đã khóa</span>}
-                              </span>
+                    <tr
+                      key={staff.id}
+                      onClick={() => setDetailId(staff.id)}
+                      title="Bấm để xem chi tiết"
+                      className="cursor-pointer transition-colors hover:bg-blue-50/25 dark:hover:bg-slate-800/50"
+                    >
+                      <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{index + 1}</td>
+                      <td className={TD}>
+                        <div className="flex items-center gap-2.5 text-left">
+                          <Avatar name={staff.fullName} />
+                          <span>
+                            <span className="block font-extrabold text-slate-900 dark:text-white">{staff.fullName}</span>
+                            <span className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
+                              {days.length} ngày có doanh số
+                              {!staff.isActive && <span className="ml-1 rounded bg-red-100 px-1 text-red-700">Đã khóa</span>}
                             </span>
-                          </button>
-                        </td>
-                        <td className={TD}>
-                          <select
-                            className="input-3d !h-9 !w-28 !py-1 !px-2 text-sm"
-                            aria-label={`Bậc lương của ${staff.fullName}`}
-                            value={Math.min(entry.level, config.levels.length - 1)}
-                            onChange={(e) => patchEntry(staff.id, { level: Number(e.target.value) })}
-                          >
-                            {config.levels.map((l, i) => (
-                              <option key={i} value={i}>
-                                {l.label}
-                              </option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <input
-                            type="number"
-                            min={0}
-                            max={31}
-                            step={0.5}
-                            inputMode="decimal"
-                            aria-label={`Số công của ${staff.fullName}`}
-                            placeholder={String(std)}
-                            value={entry.workDays ?? ''}
-                            onChange={(e) => {
-                              setAutoFilledIds((prev) => {
-                                if (!prev.has(staff.id)) return prev;
-                                const next = new Set(prev);
-                                next.delete(staff.id);
-                                return next;
-                              });
-                              patchEntry(staff.id, {
-                                workDays: e.target.value === '' ? null : Math.min(31, Math.max(0, Number(e.target.value))),
-                              });
-                            }}
-                            className="input-3d tnum !h-9 !w-20 !py-1 !px-2 text-right text-sm"
-                          />
-                          <span className="block text-[11px] text-slate-400">/ {std} công</span>
-                          {autoFilledIds.has(staff.id) && (
-                            <span className="mt-0.5 inline-block rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                              từ chấm công{month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}
-                            </span>
+                          </span>
+                        </div>
+                      </td>
+                      <td className={TD} onClick={(e) => e.stopPropagation()}>
+                        <select
+                          className="input-3d !h-9 !w-28 !py-1 !px-2 text-sm"
+                          aria-label={`Bậc lương của ${staff.fullName}`}
+                          value={Math.min(entry.level, config.levels.length - 1)}
+                          onChange={(e) => patchEntry(staff.id, { level: Number(e.target.value) })}
+                        >
+                          {config.levels.map((l, i) => (
+                            <option key={i} value={i}>
+                              {l.label}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="number"
+                          min={0}
+                          max={31}
+                          step={0.5}
+                          inputMode="decimal"
+                          aria-label={`Số công của ${staff.fullName}`}
+                          placeholder={String(std)}
+                          value={entry.workDays ?? ''}
+                          onChange={(e) => {
+                            setAutoFilledIds((prev) => {
+                              if (!prev.has(staff.id)) return prev;
+                              const next = new Set(prev);
+                              next.delete(staff.id);
+                              return next;
+                            });
+                            patchEntry(staff.id, {
+                              workDays: e.target.value === '' ? null : Math.min(31, Math.max(0, Number(e.target.value))),
+                            });
+                          }}
+                          className="input-3d tnum !h-9 !w-20 !py-1 !px-2 text-right text-sm"
+                        />
+                        <span className="block text-[11px] text-slate-400">/ {std} công</span>
+                        {autoFilledIds.has(staff.id) && (
+                          <span className="mt-0.5 inline-block rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                            từ chấm công{month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.commission)}</span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.baseSalary)}</span>
+                        <span className="block text-[11px] text-slate-400">
+                          {result.baseSource === 'top' && (
+                            <b className="mr-1 rounded bg-amber-100 px-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                              đạt mốc
+                            </b>
                           )}
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.commission)}</span>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.baseSalary)}</span>
-                          <span className="block text-[11px] text-slate-400">
-                            {result.baseSource === 'top' && (
-                              <b className="mr-1 rounded bg-amber-100 px-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
-                                đạt mốc
-                              </b>
-                            )}
-                            {money(result.base)} ÷ {result.standardDays} × {result.workDays}
-                          </span>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.dailyBonus)}</span>
-                          <span className="block text-[11px] text-slate-400">{result.bonusDays.length} ngày đạt</span>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.monthlyBonus)}</span>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.overBonus)}</span>
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <MoneyInput
-                            allowNegative
-                            align="right"
-                            ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
-                            className="!h-9 !w-28 !py-1 !px-2 text-sm"
-                            value={entry.adjustment}
-                            onChange={(adjustment) => patchEntry(staff.id, { adjustment })}
-                          />
-                        </td>
-                        <td className={TD}>
-                          <input
-                            className="input-3d !h-9 !w-40 !py-1 !px-2 text-sm"
-                            aria-label={`Ghi chú lương của ${staff.fullName}`}
-                            placeholder="Ghi chú..."
-                            maxLength={200}
-                            value={entry.note}
-                            onChange={(e) => patchEntry(staff.id, { note: e.target.value })}
-                          />
-                        </td>
-                        <td className={`${TD} text-right`}>
-                          <span className="tnum text-base font-black text-emerald-700 dark:text-emerald-400">
-                            {vnd(result.total)}
-                          </span>
-                        </td>
-                      </tr>
-                      {open && (
-                        <tr className="bg-slate-50/70 dark:bg-slate-800/30">
-                          <td colSpan={12} className="border-t border-slate-200 px-6 py-3 dark:border-slate-700">
-                            {days.length === 0 ? (
-                              <p className="text-xs font-semibold text-slate-500">Tháng này chưa có doanh số ngày nào.</p>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {days.map(([day, d]) => {
-                                  const bonus = result.bonusDays.find((b) => b.day === day)?.bonus ?? 0;
-                                  return (
-                                    <span
-                                      key={day}
-                                      className={`rounded-lg border px-2.5 py-1 text-xs ${
-                                        bonus > 0
-                                          ? 'border-teal-300 bg-teal-50 text-teal-900 dark:border-teal-800 dark:bg-teal-950/40 dark:text-teal-200'
-                                          : 'border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300'
-                                      }`}
-                                    >
-                                      <b>{day.slice(8)}/{day.slice(5, 7)}</b> · <span className="tnum">{money(d.commission)}đ</span>
-                                      {bonus > 0 && <b className="tnum ml-1">+{money(bonus)}</b>}
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-                          </td>
-                        </tr>
-                      )}
-                    </Fragment>
+                          {money(result.base)} ÷ {result.standardDays} × {result.workDays}
+                        </span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.dailyBonus)}</span>
+                        <span className="block text-[11px] text-slate-400">{result.bonusDays.length} ngày đạt</span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.monthlyBonus)}</span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum font-bold text-teal-700 dark:text-teal-400">{vnd(result.overBonus)}</span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span
+                          className={`tnum font-bold ${
+                            result.latePenalty > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'
+                          }`}
+                        >
+                          {result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
+                        </span>
+                        <span className="block text-[11px] text-slate-400">
+                          {result.lateMinutes > 0
+                            ? `muộn ${result.lateMinutes} phút${
+                                config.latePenaltyPerMinute > 0 ? '' : ' (chưa đặt mức trừ)'
+                              }`
+                            : 'không muộn'}
+                        </span>
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span
+                          className={`tnum font-bold ${
+                            result.overtimePay > 0 ? 'text-teal-700 dark:text-teal-400' : 'text-slate-400'
+                          }`}
+                        >
+                          {result.overtimePay > 0 ? `+${vnd(result.overtimePay)}` : vnd(0)}
+                        </span>
+                        <span className="block text-[11px] text-slate-400">
+                          {result.overtimeHours > 0
+                            ? `${String(result.overtimeHours).replace('.', ',')} giờ${
+                                config.overtimePerHour > 0 ? '' : ' (chưa đặt mức tiền)'
+                              }`
+                            : 'không tăng ca'}
+                        </span>
+                      </td>
+                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
+                        <MoneyInput
+                          allowNegative
+                          align="right"
+                          ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
+                          className="!h-9 !w-28 !py-1 !px-2 text-sm"
+                          value={entry.adjustment}
+                          onChange={(adjustment) => patchEntry(staff.id, { adjustment })}
+                        />
+                      </td>
+                      <td className={TD} onClick={(e) => e.stopPropagation()}>
+                        <input
+                          className="input-3d !h-9 !w-40 !py-1 !px-2 text-sm"
+                          aria-label={`Ghi chú lương của ${staff.fullName}`}
+                          placeholder="Ghi chú..."
+                          maxLength={200}
+                          value={entry.note}
+                          onChange={(e) => patchEntry(staff.id, { note: e.target.value })}
+                        />
+                      </td>
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum text-base font-black text-emerald-700 dark:text-emerald-400">
+                          {vnd(result.total)}
+                        </span>
+                      </td>
+                    </tr>
                   );
                 })
               )}
@@ -520,6 +566,12 @@ export default function PayrollPage() {
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.dailyBonus)}</td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.monthlyBonus)}</td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.overBonus)}</td>
+                  <td className={`${TD} text-right tnum font-black text-red-600 dark:text-red-400`}>
+                    {totals.latePenalty > 0 ? `−${vnd(totals.latePenalty)}` : vnd(0)}
+                  </td>
+                  <td className={`${TD} text-right tnum font-black text-teal-700 dark:text-teal-400`}>
+                    {totals.overtimePay > 0 ? `+${vnd(totals.overtimePay)}` : vnd(0)}
+                  </td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.adjustment)}</td>
                   <td className={TD} />
                   <td className={`${TD} text-right tnum text-base font-black text-emerald-700 dark:text-emerald-400`}>
@@ -531,6 +583,19 @@ export default function PayrollPage() {
           </table>
         </div>
       </Card>
+
+      {detailRow && config && (
+        <PayrollDetailModal
+          staff={detailRow.staff}
+          month={month}
+          config={config}
+          result={detailRow.result}
+          attendance={att?.staff.find((a) => a.id === detailRow.staff.id) ?? null}
+          shifts={att?.shifts ?? []}
+          onClose={() => setDetailId(null)}
+          onShiftChanged={reloadAttendance}
+        />
+      )}
 
       {/* Công thức điền tay */}
       <Card
@@ -553,7 +618,7 @@ export default function PayrollPage() {
             <>
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
                 <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) ± Điều chỉnh tay
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) ± Điều chỉnh tay
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
@@ -569,6 +634,8 @@ export default function PayrollPage() {
               {config.dailyBonuses.map((t) => `≥${money(t.threshold)}: ${money(t.bonus)}`).join(', ')}. Tháng ≥
               {money(config.monthlyBonus.threshold)}: +{money(config.monthlyBonus.bonus)}. Vượt{' '}
               {money(config.overRate.threshold)}: {config.overRate.percent}% phần vượt.
+              {config.latePenaltyPerMinute > 0 && ` Vào muộn trừ ${money(config.latePenaltyPerMinute)}đ mỗi phút.`}
+              {config.overtimePerHour > 0 && ` Tăng ca ${money(config.overtimePerHour)}đ mỗi giờ.`}
             </p>
           )
         ) : (

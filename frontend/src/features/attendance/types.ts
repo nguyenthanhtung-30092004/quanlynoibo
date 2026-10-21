@@ -47,21 +47,41 @@ export interface AttendanceDayCell {
   lastAt: string | null;
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  /** Ở lại sau giờ kết thúc ca bao nhiêu phút */
+  overtimeMinutes: number;
+  /** Số giờ tăng ca được tính (mốc 0,5 giờ, tối đa 3 giờ/ngày) */
+  overtimeHours: number;
+  /** Giờ bắt đầu ca đang áp dụng (phút trong ngày); null nếu chưa có ca */
+  shiftStart: number | null;
+  /** auto: tự đoán; default: ca mặc định của nhân viên; forced: Admin chọn tay cho ngày này */
+  shiftSource: 'auto' | 'default' | 'forced' | null;
+  /** Cách hiểu ca khác cho số giờ tăng ca khác, cần Admin xem lại; null nếu không mập mờ */
+  alternative: { shiftStart: number; shift: string; overtimeHours: number } | null;
 }
 
 export interface AttendanceStaff {
   id: number;
   fullName: string;
   isActive: boolean;
+  /** Giờ bắt đầu ca mặc định (phút trong ngày); null = chưa đặt */
+  defaultShift: number | null;
   /** Theo ngày YYYY-MM-DD; ngày không có dữ liệu thì không có khóa */
   days: Record<string, AttendanceDayCell>;
   totalCong: number;
+  totalOvertimeHours: number;
+}
+
+export interface ShiftOption {
+  startMinute: number;
+  /** vd "6h - 15h30" */
+  label: string;
 }
 
 export interface AttendanceMonth {
   month: string;
   daysInMonth: number;
   config: AttendanceConfig;
+  shifts: ShiftOption[];
   staff: AttendanceStaff[];
 }
 

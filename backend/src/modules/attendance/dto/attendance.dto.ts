@@ -37,3 +37,30 @@ export class AttendanceOverrideDto {
   @IsString({ message: 'Ghi chú không hợp lệ' })
   note?: string;
 }
+
+export class AttendanceShiftOverrideDto {
+  @IsInt({ message: 'Mã nhân viên không hợp lệ' })
+  userId: number;
+
+  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
+  day: string;
+
+  /** Giờ bắt đầu ca (phút trong ngày) Admin chọn cho ngày đó; null = bỏ chọn, quay về tự đoán */
+  @IsOptional()
+  @IsInt({ message: 'Ca làm việc không hợp lệ' })
+  @Min(0)
+  @Max(1439)
+  shiftStart?: number | null;
+}
+
+export class AttendanceDefaultShiftDto {
+  @IsInt({ message: 'Mã nhân viên không hợp lệ' })
+  userId: number;
+
+  /** Giờ bắt đầu ca mặc định (phút trong ngày); null = bỏ ca mặc định */
+  @IsOptional()
+  @IsInt({ message: 'Ca làm việc không hợp lệ' })
+  @Min(0)
+  @Max(1439)
+  shiftStart?: number | null;
+}

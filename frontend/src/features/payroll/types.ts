@@ -21,6 +21,10 @@ export interface PayrollConfig {
   monthlyBonus: PayrollTier;
   /** Hoa hồng vượt mốc thì được `percent`% phần vượt */
   overRate: { threshold: number; percent: number };
+  /** Vào ca muộn: trừ bấy nhiêu đồng cho mỗi phút muộn (0 = không trừ) */
+  latePenaltyPerMinute: number;
+  /** Tăng ca: mỗi giờ tăng ca được bấy nhiêu đồng (0 = không tính) */
+  overtimePerHour: number;
 }
 
 export interface PayrollEntry {

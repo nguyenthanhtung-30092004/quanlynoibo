@@ -27,6 +27,10 @@ export interface PayrollConfig {
   monthlyBonus: PayrollTier;
   /** Hoa hồng vượt `threshold` thì được `percent`% phần vượt */
   overRate: { threshold: number; percent: number };
+  /** Vào ca muộn: trừ bấy nhiêu đồng cho mỗi phút muộn (0 = không trừ) */
+  latePenaltyPerMinute: number;
+  /** Tăng ca: mỗi giờ tăng ca được bấy nhiêu đồng (0 = không tính) */
+  overtimePerHour: number;
 }
 
 /** Phần nhập tay của từng nhân viên trong một tháng */
@@ -55,6 +59,8 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   ],
   monthlyBonus: { threshold: 30_000_000, bonus: 100_000 },
   overRate: { threshold: 30_000_000, percent: 10 },
+  latePenaltyPerMinute: 0,
+  overtimePerHour: 25_000,
 };
 
 export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
@@ -122,6 +128,8 @@ export function sanitizeConfig(input: unknown): PayrollConfig {
       threshold: num(over.threshold, def.overRate.threshold),
       percent: num(over.percent, def.overRate.percent, 0, 100),
     },
+    latePenaltyPerMinute: num(raw.latePenaltyPerMinute, def.latePenaltyPerMinute, 0, 10_000_000),
+    overtimePerHour: num(raw.overtimePerHour, def.overtimePerHour, 0, 10_000_000),
   };
 }
 

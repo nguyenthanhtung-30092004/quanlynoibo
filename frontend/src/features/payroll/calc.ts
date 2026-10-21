@@ -1,3 +1,4 @@
+import type { AttendanceDayCell } from '@/features/attendance/types';
 import type { PayrollConfig, PayrollDay, PayrollEntry } from './types';
 
 export interface DayBonus {
@@ -24,8 +25,34 @@ export interface PayrollResult {
   monthlyBonus: number;
   /** 10% (hoặc tỷ lệ cấu hình) phần hoa hồng vượt mốc */
   overBonus: number;
+  /** Tổng số phút vào muộn trong tháng (lấy từ chấm công) */
+  lateMinutes: number;
+  /** Tiền trừ vì vào muộn = số phút muộn × mức trừ mỗi phút (số dương, đã trừ khỏi tổng lương) */
+  latePenalty: number;
+  /** Tổng số giờ tăng ca trong tháng (lấy từ chấm công, đã làm tròn theo mốc 0,5 giờ) */
+  overtimeHours: number;
+  /** Tiền tăng ca = số giờ tăng ca × mức mỗi giờ */
+  overtimePay: number;
   adjustment: number;
   total: number;
+}
+
+/**
+ * Tổng phút vào muộn của một nhân viên trong tháng, cộng từ từng ngày chấm công.
+ * Ngày Admin đã chỉnh tay số công thì bỏ qua (coi như Admin đã xem xét ngày đó).
+ */
+export function monthLateMinutes(
+  days: Record<string, Pick<AttendanceDayCell, 'lateMinutes' | 'overridden' | 'status'>>,
+): number {
+  return Object.values(days).reduce(
+    (sum, d) => (d.status === 'done' && !d.overridden ? sum + Math.max(0, d.lateMinutes) : sum),
+    0,
+  );
+}
+
+/** Tổng giờ tăng ca của một nhân viên trong tháng, cộng từ từng ngày chấm công (mỗi ngày đã giới hạn 3 giờ) */
+export function monthOvertimeHours(days: Record<string, Pick<AttendanceDayCell, 'overtimeHours'>>): number {
+  return Object.values(days).reduce((sum, d) => sum + Math.max(0, d.overtimeHours ?? 0), 0);
 }
 
 /** Công chuẩn = số ngày trong tháng − offset (31 → 27, 30 → 26, 29 → 25, 28 → 24) */
@@ -51,8 +78,14 @@ export function computePayroll(input: {
   daysInMonth: number;
   daily: Record<string, PayrollDay>;
   entry: PayrollEntry;
+  /** Tổng phút vào muộn trong tháng; không truyền thì coi như 0 */
+  lateMinutes?: number;
+  /** Tổng giờ tăng ca trong tháng; không truyền thì coi như 0 */
+  overtimeHours?: number;
 }): PayrollResult {
   const { config, daysInMonth, daily, entry } = input;
+  const lateMinutes = Math.max(0, Math.round(input.lateMinutes ?? 0));
+  const overtimeHours = Math.max(0, input.overtimeHours ?? 0);
   const std = standardDays(daysInMonth, config.standardDaysOffset);
 
   const days = Object.entries(daily).sort(([a], [b]) => a.localeCompare(b));
@@ -81,7 +114,12 @@ export function computePayroll(input: {
     (Math.max(0, commission - config.overRate.threshold) * config.overRate.percent) / 100,
   );
 
-  const total = baseSalary + dailyBonus + monthlyBonus + overBonus + entry.adjustment;
+  const latePenalty = lateMinutes * Math.max(0, config.latePenaltyPerMinute);
+
+  const overtimePay = Math.round(overtimeHours * Math.max(0, config.overtimePerHour));
+
+  const total =
+    baseSalary + dailyBonus + monthlyBonus + overBonus - latePenalty + overtimePay + entry.adjustment;
 
   return {
     standardDays: std,
@@ -94,6 +132,10 @@ export function computePayroll(input: {
     bonusDays,
     monthlyBonus,
     overBonus,
+    lateMinutes,
+    latePenalty,
+    overtimeHours,
+    overtimePay,
     adjustment: entry.adjustment,
     total,
   };

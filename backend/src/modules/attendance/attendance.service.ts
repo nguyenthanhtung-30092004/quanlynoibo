@@ -9,6 +9,7 @@ import {
   AUTO_CLOSE_MINUTE,
   DEFAULT_ATTENDANCE_CONFIG,
   PUNCH_COOLDOWN_SECONDS,
+  SHIFTS,
   congFromMinutes,
   evaluateDay,
   sanitizeAttendanceConfig,
@@ -16,12 +17,17 @@ import {
   type AttendanceConfig,
   type DayResult,
   type DayStatus,
+  type ShiftSource,
 } from './attendance.logic.js';
 import { directionByOrder, directionFromStatus, type HikvisionPunch } from './hikvision-event.js';
 
 export type PunchResult = 'recorded' | 'duplicate' | 'unknown_employee' | 'not_counted';
 
 const CONFIG_KEY = 'attendance_config';
+/** Ca mặc định của từng nhân viên: { "<userId>": giờ bắt đầu ca (phút trong ngày) } */
+const DEFAULT_SHIFT_KEY = 'attendance_shift_default';
+/** Ca Admin chọn tay cho từng ngày của một tháng: { "<userId>|<YYYY-MM-DD>": giờ bắt đầu ca } */
+const shiftOverrideKey = (month: string) => `attendance_shift_override_${month}`;
 
 /**
  * Từ ngày này công chỉ tính theo lượt quẹt máy chấm công. Các ngày trước đó vốn tính theo thời gian đăng nhập
@@ -48,6 +54,15 @@ export interface AttendanceDayCell {
   lastAt: string | null;
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  /** Ở lại sau giờ kết thúc ca bao nhiêu phút */
+  overtimeMinutes: number;
+  /** Số giờ tăng ca được tính (mốc 0,5 giờ, tối đa 3 giờ) */
+  overtimeHours: number;
+  /** Giờ bắt đầu ca (phút trong ngày) đang áp dụng; null nếu chưa có ca */
+  shiftStart: number | null;
+  shiftSource: ShiftSource | null;
+  /** Cách hiểu ca khác cho số giờ tăng ca khác, cần Admin xem lại; null nếu không mập mờ */
+  alternative: { shiftStart: number; shift: string; overtimeHours: number } | null;
 }
 
 /** Admin xem được mọi nhân viên; người khác chỉ xem được chính mình (không lộ công của đồng nghiệp) */
@@ -98,6 +113,53 @@ export class AttendanceService {
     await this.settings.save(this.settings.create({ key: CONFIG_KEY, value: JSON.stringify(config) }));
     this.cachedConfig = { data: config, expiresAt: Date.now() + this.CONFIG_TTL_MS };
     return config;
+  }
+
+  private async loadShiftMap(key: string): Promise<Record<string, number>> {
+    const row = await this.settings.findOne({ where: { key } });
+    if (!row?.value) return {};
+    try {
+      const parsed = JSON.parse(row.value) as Record<string, unknown>;
+      const map: Record<string, number> = {};
+      for (const [k, v] of Object.entries(parsed)) {
+        if (typeof v === 'number' && SHIFTS.some((sh) => sh.startMinute === v)) map[k] = v;
+      }
+      return map;
+    } catch {
+      return {};
+    }
+  }
+
+  private async saveShiftMap(key: string, map: Record<string, number>) {
+    await this.settings.save(this.settings.create({ key, value: JSON.stringify(map) }));
+  }
+
+  private assertShift(startMinute: number | null) {
+    if (startMinute !== null && !SHIFTS.some((sh) => sh.startMinute === startMinute)) {
+      throw new BadRequestException('Ca làm việc không hợp lệ.');
+    }
+  }
+
+  /** Admin chọn lại ca cho một ngày của nhân viên (null = bỏ chọn, quay về tự đoán / ca mặc định) */
+  async setShiftOverride(userId: number, day: string, startMinute: number | null) {
+    this.assertShift(startMinute);
+    const key = shiftOverrideKey(day.slice(0, 7));
+    const map = await this.loadShiftMap(key);
+    const field = `${userId}|${day}`;
+    if (startMinute === null) delete map[field];
+    else map[field] = startMinute;
+    await this.saveShiftMap(key, map);
+    return { ok: true };
+  }
+
+  /** Ca mặc định của một nhân viên (null = bỏ, quay về tự đoán) */
+  async setDefaultShift(userId: number, startMinute: number | null) {
+    this.assertShift(startMinute);
+    const map = await this.loadShiftMap(DEFAULT_SHIFT_KEY);
+    if (startMinute === null) delete map[String(userId)];
+    else map[String(userId)] = startMinute;
+    await this.saveShiftMap(DEFAULT_SHIFT_KEY, map);
+    return { ok: true };
   }
 
   /**
@@ -310,6 +372,11 @@ export class AttendanceService {
       [from, to],
     );
 
+    const [defaultShifts, shiftOverrides] = await Promise.all([
+      this.loadShiftMap(DEFAULT_SHIFT_KEY),
+      this.loadShiftMap(shiftOverrideKey(month)),
+    ]);
+
     const key = (userId: number, day: string) => `${userId}|${day}`;
     const punchBy = new Map(punchRows.map((r) => [key(r.userId, r.day), r]));
     const dayBy = new Map(dayRows.map((r) => [key(r.userId, r.day), r]));
@@ -331,12 +398,25 @@ export class AttendanceService {
             punchCount: Number(p.n),
             isToday: day === today,
             autoClosed: p.autoClosed,
+            forcedShiftStart: shiftOverrides[k],
+            defaultShiftStart: defaultShifts[String(userId)],
           },
           config,
         );
       } else if (d && day < PUNCH_ONLY_FROM && Number(d.legacyMinutes) > 0) {
         const minutes = Number(d.legacyMinutes);
-        result = { status: 'done', shift: null, minutes, cong: congFromMinutes(minutes, config), lateMinutes: 0, earlyLeaveMinutes: 0 };
+        result = {
+          status: 'done',
+          shift: null,
+          minutes,
+          cong: congFromMinutes(minutes, config),
+          lateMinutes: 0,
+          earlyLeaveMinutes: 0,
+          overtimeMinutes: 0,
+          overtimeHours: 0,
+          shiftSource: null,
+          alternative: null,
+        };
       } else {
         result = evaluateDay({ firstAt: null, lastAt: null, punchCount: 0, isToday: day === today }, config);
       }
@@ -355,6 +435,17 @@ export class AttendanceService {
         lastAt: p && Number(p.n) > 1 ? new Date(p.lastAt).toISOString() : null,
         lateMinutes: result.lateMinutes,
         earlyLeaveMinutes: result.earlyLeaveMinutes,
+        overtimeMinutes: result.overtimeMinutes,
+        overtimeHours: result.overtimeHours,
+        shiftStart: result.shift?.startMinute ?? null,
+        shiftSource: result.shiftSource,
+        alternative: result.alternative
+          ? {
+              shiftStart: result.alternative.shift.startMinute,
+              shift: result.alternative.shift.label,
+              overtimeHours: result.alternative.overtimeHours,
+            }
+          : null,
       };
       byUser.set(userId, cells);
     }
@@ -363,10 +454,20 @@ export class AttendanceService {
       month,
       daysInMonth,
       config,
+      shifts: SHIFTS.map((sh) => ({ startMinute: sh.startMinute, label: sh.label })),
       staff: staff.map((u) => {
         const days = byUser.get(u.id) ?? {};
         const totalCong = Object.values(days).reduce((sum, d) => sum + d.cong, 0);
-        return { id: u.id, fullName: u.fullName, isActive: u.isActive, days, totalCong };
+        const totalOvertimeHours = Object.values(days).reduce((sum, d) => sum + d.overtimeHours, 0);
+        return {
+          id: u.id,
+          fullName: u.fullName,
+          isActive: u.isActive,
+          defaultShift: defaultShifts[String(u.id)] ?? null,
+          days,
+          totalCong,
+          totalOvertimeHours,
+        };
       }),
     };
   }

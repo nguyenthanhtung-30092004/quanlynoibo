@@ -5,7 +5,9 @@ import {
   congFromMinutes,
   evaluateDay,
   isAutoCloseDue,
+  overtimeHoursFromMinutes,
   resolveShift,
+  resolveShiftForDay,
   sanitizeAttendanceConfig,
   vietnamClock,
   type AttendanceConfig,
@@ -199,5 +201,108 @@ describe('vietnamClock', () => {
   it('đổi sang giờ Việt Nam (UTC+7), qua ngày đúng', () => {
     expect(vietnamClock(new Date('2026-10-13T16:59:00Z'))).toEqual({ day: '2026-10-13', minuteOfDay: 23 * 60 + 59 });
     expect(vietnamClock(new Date('2026-10-13T17:00:00Z'))).toEqual({ day: '2026-10-14', minuteOfDay: 0 });
+  });
+});
+
+describe('overtimeHoursFromMinutes', () => {
+  it('dưới 1 tiếng thì không tính tăng ca', () => {
+    expect(overtimeHoursFromMinutes(0)).toBe(0);
+    expect(overtimeHoursFromMinutes(59)).toBe(0);
+  });
+
+  it('các mốc 1 / 1,5 / 2 / 2,5 / 3 tiếng, phần lẻ làm tròn xuống nửa giờ', () => {
+    expect(overtimeHoursFromMinutes(60)).toBe(1);
+    expect(overtimeHoursFromMinutes(75)).toBe(1); // 1g15 -> 1
+    expect(overtimeHoursFromMinutes(89)).toBe(1);
+    expect(overtimeHoursFromMinutes(90)).toBe(1.5);
+    expect(overtimeHoursFromMinutes(104)).toBe(1.5);
+    expect(overtimeHoursFromMinutes(105)).toBe(2); // 1g45 -> 2
+    expect(overtimeHoursFromMinutes(120)).toBe(2);
+    expect(overtimeHoursFromMinutes(150)).toBe(2.5);
+    expect(overtimeHoursFromMinutes(165)).toBe(3);
+  });
+
+  it('tối đa 3 tiếng, phần dư không tính', () => {
+    expect(overtimeHoursFromMinutes(180)).toBe(3);
+    expect(overtimeHoursFromMinutes(400)).toBe(3);
+  });
+});
+
+describe('resolveShiftForDay', () => {
+  it('Admin chọn tay thì dùng đúng ca đó, không mập mờ', () => {
+    const c = resolveShiftForDay(hm(6, 5), hm(16, 45), { forcedStart: hm(7) });
+    expect(c).toMatchObject({ source: 'forced', alternative: null });
+    expect(c.shift.label).toBe('7h - 16h30');
+  });
+
+  it('ca mặc định của nhân viên được dùng khi giờ vào hợp lý', () => {
+    const c = resolveShiftForDay(hm(6, 5), hm(16, 45), { defaultStart: hm(6) });
+    expect(c.source).toBe('default');
+    expect(c.shift.label).toBe('6h - 15h30');
+  });
+
+  it('ca mặc định quá xa giờ vào thì bỏ qua và tự đoán', () => {
+    const c = resolveShiftForDay(hm(13, 30), hm(22), { defaultStart: hm(5) });
+    expect(c.source).toBe('auto');
+    expect(c.shift.label).toBe('13h30 - 22h');
+  });
+
+  it('ra đúng giờ một ca thì lấy ca đó, không có tăng ca', () => {
+    const c = resolveShiftForDay(hm(6, 5), hm(15, 30));
+    expect(c.shift.label).toBe('6h - 15h30');
+    expect(c.alternative).toBeNull();
+  });
+
+  it('giờ ra lệch hẳn mọi ca thì dựa vào giờ vào: vào 6h ra 16h45 là ca 6h tăng ca', () => {
+    const c = resolveShiftForDay(hm(6, 5), hm(16, 45));
+    expect(c.shift.label).toBe('6h - 15h30');
+    // cách hiểu khác: ca 7h ra 16h45 chỉ ở lại 15 phút, không tăng ca => đánh dấu để Admin xem lại
+    expect(c.alternative?.shift.label).toBe('7h - 16h30');
+    expect(c.alternative?.overtimeHours).toBe(0);
+  });
+
+  it('vào 6h ra đúng 16h30: nghiêng về ca 7h (không tăng ca) nhưng đánh dấu mập mờ', () => {
+    const c = resolveShiftForDay(hm(6, 5), hm(16, 30));
+    expect(c.shift.label).toBe('7h - 16h30');
+    expect(c.alternative?.shift.label).toBe('6h - 15h30');
+    expect(c.alternative?.overtimeHours).toBe(1);
+  });
+});
+
+describe('evaluateDay: tăng ca', () => {
+  const day = (inAt: string, outAt: string) =>
+    evaluateDay(
+      { firstAt: vn(inAt), lastAt: vn(outAt), punchCount: 2, isToday: false },
+      DEFAULT_ATTENDANCE_CONFIG,
+    );
+
+  it('ca 6h - 15h30 ra 17h: ở lại 90 phút, tăng ca 1,5 giờ, công vẫn tối đa 1', () => {
+    const r = day('06:00', '17:00');
+    expect(r).toMatchObject({ cong: 1, overtimeMinutes: 90, overtimeHours: 1.5 });
+  });
+
+  it('ra đúng giờ hoặc về sớm thì không có tăng ca', () => {
+    expect(day('06:00', '15:30')).toMatchObject({ overtimeMinutes: 0, overtimeHours: 0 });
+    expect(day('06:00', '14:00')).toMatchObject({ overtimeHours: 0 });
+  });
+
+  it('ở lại dưới 1 tiếng thì chưa tính tăng ca', () => {
+    expect(day('06:00', '16:00')).toMatchObject({ overtimeMinutes: 30, overtimeHours: 0 });
+  });
+
+  it('quên quẹt ra (hệ thống tự chấm 23:59) thì không có tăng ca', () => {
+    const r = evaluateDay(
+      { firstAt: vn('06:00'), lastAt: vn('06:00'), punchCount: 1, isToday: false, autoClosed: true },
+      DEFAULT_ATTENDANCE_CONFIG,
+    );
+    expect(r).toMatchObject({ overtimeHours: 0, overtimeMinutes: 0 });
+  });
+
+  it('Admin chọn ca 7h cho ngày vào 6h ra 16h45: không tăng ca', () => {
+    const r = evaluateDay(
+      { firstAt: vn('06:05'), lastAt: vn('16:45'), punchCount: 2, isToday: false, forcedShiftStart: hm(7) },
+      DEFAULT_ATTENDANCE_CONFIG,
+    );
+    expect(r).toMatchObject({ overtimeHours: 0, shiftSource: 'forced' });
   });
 });

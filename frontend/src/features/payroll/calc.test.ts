@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computePayroll, dayBonus, standardDays } from './calc';
+import { computePayroll, dayBonus, monthLateMinutes, monthOvertimeHours, standardDays } from './calc';
 import type { PayrollConfig, PayrollEntry } from './types';
 
 const config: PayrollConfig = {
@@ -15,6 +15,8 @@ const config: PayrollConfig = {
   ],
   monthlyBonus: { threshold: 30_000_000, bonus: 100_000 },
   overRate: { threshold: 30_000_000, percent: 10 },
+  latePenaltyPerMinute: 0,
+  overtimePerHour: 0,
 };
 
 const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
@@ -109,5 +111,91 @@ describe('computePayroll', () => {
     const minus = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ adjustment: -200_000 }) });
     expect(plus.total).toBe(4_500_000);
     expect(minus.total).toBe(4_000_000);
+  });
+
+  it('vào muộn: trừ số phút muộn × mức trừ mỗi phút khỏi tổng lương', () => {
+    const late = { ...config, latePenaltyPerMinute: 1_000 };
+    const r = computePayroll({ config: late, daysInMonth: 31, daily: {}, entry: entry(), lateMinutes: 45 });
+    expect(r.lateMinutes).toBe(45);
+    expect(r.latePenalty).toBe(45_000);
+    expect(r.total).toBe(4_200_000 - 45_000);
+  });
+
+  it('mức trừ bằng 0 hoặc không có phút muộn thì không trừ gì', () => {
+    const free = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry(), lateMinutes: 120 });
+    expect(free.latePenalty).toBe(0);
+    expect(free.total).toBe(4_200_000);
+    const onTime = computePayroll({
+      config: { ...config, latePenaltyPerMinute: 1_000 },
+      daysInMonth: 31,
+      daily: {},
+      entry: entry(),
+    });
+    expect(onTime.latePenalty).toBe(0);
+    expect(onTime.total).toBe(4_200_000);
+  });
+
+  it('trừ muộn cộng được với điều chỉnh tay', () => {
+    const late = { ...config, latePenaltyPerMinute: 2_000 };
+    const r = computePayroll({
+      config: late,
+      daysInMonth: 31,
+      daily: {},
+      entry: entry({ adjustment: 100_000 }),
+      lateMinutes: 10,
+    });
+    expect(r.total).toBe(4_200_000 - 20_000 + 100_000);
+  });
+});
+
+describe('monthLateMinutes', () => {
+  const cell = (lateMinutes: number, over: { overridden?: boolean; status?: 'done' | 'working' } = {}) => ({
+    lateMinutes,
+    overridden: over.overridden ?? false,
+    status: over.status ?? ('done' as const),
+  });
+
+  it('cộng phút muộn của các ngày đã quẹt đủ vào / ra', () => {
+    expect(monthLateMinutes({ '2026-10-01': cell(5), '2026-10-02': cell(0), '2026-10-03': cell(20) })).toBe(25);
+  });
+
+  it('bỏ qua ngày Admin đã chỉnh tay và ngày chưa quẹt ra', () => {
+    expect(
+      monthLateMinutes({
+        '2026-10-01': cell(30, { overridden: true }),
+        '2026-10-02': cell(15, { status: 'working' }),
+        '2026-10-03': cell(10),
+      }),
+    ).toBe(10);
+  });
+
+  it('không có ngày nào thì là 0', () => {
+    expect(monthLateMinutes({})).toBe(0);
+  });
+});
+
+describe('tăng ca', () => {
+  it('cộng giờ tăng ca của từng ngày trong tháng', () => {
+    expect(monthOvertimeHours({ '2026-10-01': { overtimeHours: 1.5 }, '2026-10-02': { overtimeHours: 0 }, '2026-10-03': { overtimeHours: 3 } })).toBe(4.5);
+    expect(monthOvertimeHours({})).toBe(0);
+  });
+
+  it('tiền tăng ca = số giờ × mức mỗi giờ, cộng vào tổng lương', () => {
+    const r = computePayroll({
+      config: { ...config, overtimePerHour: 25_000 },
+      daysInMonth: 31,
+      daily: {},
+      entry: entry({ workDays: 0 }),
+      overtimeHours: 6.5,
+    });
+    expect(r).toMatchObject({ overtimeHours: 6.5, overtimePay: 162_500 });
+    expect(r.total).toBe(162_500);
+  });
+
+  it('mức tăng ca 0 thì không cộng tiền; không truyền giờ thì coi như 0', () => {
+    expect(computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry(), overtimeHours: 5 }).overtimePay).toBe(0);
+    expect(
+      computePayroll({ config: { ...config, overtimePerHour: 25_000 }, daysInMonth: 31, daily: {}, entry: entry() }).overtimePay,
+    ).toBe(0);
   });
 });

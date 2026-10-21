@@ -24,6 +24,14 @@ export const attendanceApi = {
   override: (input: OverrideInput) =>
     api<ApiResponse<{ ok: boolean }>>('attendance/override', { method: 'PUT', body: input }).then((r) => r.data),
 
+  /** Admin chọn lại ca cho một ngày (shiftStart null = bỏ chọn) */
+  setShiftOverride: (input: { userId: number; day: string; shiftStart: number | null }) =>
+    api<ApiResponse<{ ok: boolean }>>('attendance/shift-override', { method: 'PUT', body: input }).then((r) => r.data),
+
+  /** Ca mặc định của nhân viên (shiftStart null = bỏ) */
+  setDefaultShift: (input: { userId: number; shiftStart: number | null }) =>
+    api<ApiResponse<{ ok: boolean }>>('attendance/default-shift', { method: 'PUT', body: input }).then((r) => r.data),
+
   onlineUsers: (signal?: AbortSignal) =>
     api<ApiResponse<OnlineUser[]>>('realtime/online', { signal }).then((r) => r.data),
 };

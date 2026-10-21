@@ -22,6 +22,8 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   ],
   monthlyBonus: { threshold: 30_000_000, bonus: 100_000 },
   overRate: { threshold: 30_000_000, percent: 10 },
+  latePenaltyPerMinute: 0,
+  overtimePerHour: 25_000,
 };
 
 const vnd = (n: number) => `${money(Math.round(n))}đ`;
@@ -355,6 +357,62 @@ export function FormulaPanel({
                   ariaLabel="Phần trăm trên phần vượt"
                   value={config.overRate.percent}
                   onChange={(percent) => set({ overRate: { ...config.overRate, percent: Math.min(100, percent) } })}
+                />
+              </Field>
+            </div>
+          </Rule>
+
+          {/* 7. Trừ tiền vào muộn */}
+          <Rule
+            no={7}
+            title="Trừ tiền khi vào muộn"
+            desc="Quẹt vào sau giờ bắt đầu ca thì bị trừ tiền theo từng phút muộn. Số phút lấy từ máy chấm công, cộng dồn cả tháng. Để 0 là không trừ."
+            example={
+              config.latePenaltyPerMinute > 0 ? (
+                <>
+                  Cả tháng muộn 90 phút × {vnd(config.latePenaltyPerMinute)}/phút ={' '}
+                  <b>−{vnd(90 * config.latePenaltyPerMinute)}</b> trừ vào tổng lương.
+                </>
+              ) : (
+                <>Đang để 0đ/phút nên chưa trừ tiền vào muộn.</>
+              )
+            }
+          >
+            <div className="max-w-xs">
+              <Field label="Mỗi phút vào muộn bị trừ" unit="đ / phút">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Tiền trừ mỗi phút vào muộn"
+                  value={config.latePenaltyPerMinute}
+                  onChange={(latePenaltyPerMinute) => set({ latePenaltyPerMinute })}
+                />
+              </Field>
+            </div>
+          </Rule>
+
+          {/* 8. Tiền tăng ca */}
+          <Rule
+            no={8}
+            title="Tiền tăng ca"
+            desc="Quẹt ra sau giờ kết thúc ca từ 1 tiếng trở lên thì được tính tăng ca theo mốc 0,5 giờ: 1g15 tính 1 giờ, 1g30 tính 1,5 giờ, 1g45 tính 2 giờ... tối đa 3 giờ mỗi ngày. Để 0 là không tính."
+            example={
+              config.overtimePerHour > 0 ? (
+                <>
+                  Cả tháng tăng ca 6,5 giờ × {vnd(config.overtimePerHour)}/giờ ={' '}
+                  <b>+{vnd(6.5 * config.overtimePerHour)}</b> cộng vào tổng lương.
+                </>
+              ) : (
+                <>Đang để 0đ/giờ nên chưa tính tiền tăng ca.</>
+              )
+            }
+          >
+            <div className="max-w-xs">
+              <Field label="Mỗi giờ tăng ca được" unit="đ / giờ">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Tiền tăng ca mỗi giờ"
+                  value={config.overtimePerHour}
+                  onChange={(overtimePerHour) => set({ overtimePerHour })}
                 />
               </Field>
             </div>
