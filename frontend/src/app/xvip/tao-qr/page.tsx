@@ -75,7 +75,7 @@ export default function TaoQrPage() {
       return;
     }
     const acc = accounts[accountIdx] ?? accounts[0];
-    const base = `https://img.vietqr.io/image/${acc.vietqrBank}-${acc.number}-print.jpg`;
+    const base = `https://img.vietqr.io/image/${acc.vietqrBank}-${acc.number}-print.svg`;
     const nameParam = acc.showHolder
       ? `&accountName=${encodeURIComponent(acc.holder)}`
       : '';
@@ -108,25 +108,34 @@ export default function TaoQrPage() {
 
   const copyQr = async () => {
     if (!qrUrl) return;
-    // Clipboard chỉ nhận ảnh PNG (VietQR trả JPG) nên phải vẽ qua canvas để đổi sang PNG.
+    // Clipboard chỉ nhận ảnh PNG (VietQR trả SVG) nên phải vẽ qua canvas để đổi sang PNG.
+    // Tải SVG bằng fetch (VietQR cho phép CORS) rồi dùng object URL cùng origin để canvas không bị "tainted".
     // Đưa Promise vào ClipboardItem ngay trong cú bấm để Safari/iOS không chặn.
-    const makePng = () =>
-      new Promise<Blob>((resolve, reject) => {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.naturalWidth;
-          canvas.height = img.naturalHeight;
-          canvas.getContext('2d')?.drawImage(img, 0, 0);
+    const makePng = async () => {
+      const res = await fetch(qrUrl, { cache: 'no-store' });
+      if (!res.ok) throw new Error('fetch');
+      const objectUrl = URL.createObjectURL(await res.blob());
+      try {
+        const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+          const el = new Image();
+          el.onload = () => resolve(el);
+          el.onerror = () => reject(new Error('load'));
+          el.src = objectUrl;
+        });
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth || 600;
+        canvas.height = img.naturalHeight || 776;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        return await new Promise<Blob>((resolve, reject) =>
           canvas.toBlob(
             (b) => (b ? resolve(b) : reject(new Error('toBlob'))),
             'image/png',
-          );
-        };
-        img.onerror = () => reject(new Error('load'));
-        img.src = qrUrl;
-      });
+          ),
+        );
+      } finally {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
 
     try {
       if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
