@@ -16,8 +16,9 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  * thanh kéo ở đầu bảng (cả chuột lăn ngang / Shift + lăn cũng được chuyển sang thanh đó).
  * Khung bao ngoài bảng phải dùng `overflow-clip`, đừng dùng `overflow-hidden` kẻo chặn sticky.
  *
- * Điện thoại: bảng cuộn ngang bình thường trong khung, vuốt dọc theo trang. Sticky không dùng
- * được ở đây nên tiêu đề được dời bằng transform theo vị trí cuộn trang.
+ * Điện thoại: bảng cuộn cả hai chiều trong một khung có chiều cao tối đa bằng màn hình, và
+ * tiêu đề được ghim bằng `sticky top-0` ngay trong khung đó. Trình duyệt tự ghim nên mượt,
+ * không cần JS dời tiêu đề theo sự kiện scroll (cách cũ bị trễ một nhịp nên giật).
  */
 export function ScrollTable({ children }: { children: ReactNode }) {
   const rootRef = useRef<HTMLDivElement>(null);
@@ -51,7 +52,6 @@ export function ScrollTable({ children }: { children: ReactNode }) {
     const root = rootRef.current;
     if (!root) return;
     const mq = window.matchMedia(DESKTOP_QUERY);
-    let frame = 0;
 
     const measurePins = () => {
       const pageHeader = document.querySelector('header');
@@ -60,41 +60,13 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       root.style.setProperty('--bar-h', `${topRef.current?.offsetHeight ?? 0}px`);
     };
 
-    // Chỉ dùng cho điện thoại: dời tiêu đề bằng transform vì sticky không chạy được ở đó
-    const updateMobile = () => {
-      frame = 0;
-      if (mq.matches) {
-        root.style.setProperty('--stick-y', '0px');
-        return;
-      }
-      const rect = root.getBoundingClientRect();
-      const pageHeader = document.querySelector('header');
-      const pinTop =
-        pageHeader && getComputedStyle(pageHeader).position === 'sticky'
-          ? pageHeader.getBoundingClientRect().bottom
-          : 0;
-      const head = root.querySelector('thead');
-      const pinnedHeight = head?.getBoundingClientRect().height ?? 0;
-      // Không đẩy tiêu đề ra khỏi cuối bảng
-      const shift = Math.min(
-        Math.max(0, pinTop - rect.top),
-        Math.max(0, rect.height - pinnedHeight),
-      );
-      root.style.setProperty('--stick-y', `${Math.round(shift)}px`);
-    };
-    const schedule = () => {
-      if (!frame) frame = requestAnimationFrame(updateMobile);
-    };
     const onResize = () => {
       measurePins();
       // Thu cửa sổ xuống cỡ điện thoại: bỏ phần dịch bảng của chế độ máy tính
       if (!mq.matches && innerRef.current) innerRef.current.style.transform = '';
-      schedule();
     };
 
     measurePins();
-    updateMobile();
-    window.addEventListener('scroll', schedule, { passive: true, capture: true });
     window.addEventListener('resize', onResize);
     const ro = new ResizeObserver(onResize);
     ro.observe(root);
@@ -102,10 +74,8 @@ export function ScrollTable({ children }: { children: ReactNode }) {
     if (pageHeader) ro.observe(pageHeader);
     if (topRef.current) ro.observe(topRef.current);
     return () => {
-      window.removeEventListener('scroll', schedule, { capture: true });
       window.removeEventListener('resize', onResize);
       ro.disconnect();
-      if (frame) cancelAnimationFrame(frame);
     };
   }, [overflowing]);
 
@@ -161,7 +131,7 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       <div
         ref={mainRef}
         onScroll={onMainScroll}
-        className="scroll-big scroll-hide-md overflow-x-auto overscroll-x-contain md:overflow-x-clip [&_thead_th]:relative [&_thead_th]:z-10 [&_thead_th]:!bg-slate-100 dark:[&_thead_th]:!bg-slate-800 max-md:[&_thead_th]:[transform:translateY(var(--stick-y,0px))] max-md:[&_thead_th]:will-change-transform md:[&_thead_th]:!sticky md:[&_thead_th]:top-[calc(var(--pin-top,0px)+var(--bar-h,0px))]"
+        className="scroll-big scroll-hide-md overflow-x-auto overscroll-x-contain max-md:max-h-[calc(100dvh-var(--pin-top,0px)-1rem)] max-md:overflow-y-auto md:overflow-x-clip [&_thead_th]:relative [&_thead_th]:z-10 [&_thead_th]:!bg-slate-100 dark:[&_thead_th]:!bg-slate-800 max-md:[&_thead_th]:!sticky max-md:[&_thead_th]:top-0 md:[&_thead_th]:!sticky md:[&_thead_th]:top-[calc(var(--pin-top,0px)+var(--bar-h,0px))]"
       >
         <div ref={innerRef} className="md:will-change-transform">
           {children}
