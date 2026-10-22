@@ -73,6 +73,8 @@ export function resolveShift(inMinute: number, outMinute: number): Shift {
 
 /** Ở lại sau giờ kết thúc ca tối thiểu bấy nhiêu phút mới tính là tăng ca */
 export const OVERTIME_MIN_MINUTES = 60;
+/** Vào muộn dưới bấy nhiêu phút thì vẫn đủ công (chỉ trừ tiền vào muộn); từ mức này trở lên công tính theo giờ có mặt */
+export const LATE_KEEP_FULL_CONG_MINUTES = 15;
 /** Mỗi ngày tính tối đa bấy nhiêu giờ tăng ca, phần dư không tính */
 export const OVERTIME_MAX_HOURS = 3;
 
@@ -274,12 +276,15 @@ export function evaluateDay(
   const from = Math.max(inMinute, s.startMinute);
   const to = Math.min(outMinute, s.endMinute);
   const minutes = Math.max(0, to - from);
+  const lateMinutes = Math.max(0, inMinute - s.startMinute);
+  // Vào muộn dưới ngưỡng chỉ bị trừ tiền theo phút, công vẫn tính như vào đúng giờ
+  const congMinutes = lateMinutes < LATE_KEEP_FULL_CONG_MINUTES ? Math.max(0, to - s.startMinute) : minutes;
   return {
     status: 'done',
     shift: s,
     minutes,
-    cong: congForShift(minutes, s),
-    lateMinutes: Math.max(0, inMinute - s.startMinute),
+    cong: congForShift(congMinutes, s),
+    lateMinutes,
     earlyLeaveMinutes: Math.max(0, s.endMinute - outMinute),
     overtimeMinutes: Math.max(0, outMinute - s.endMinute),
     overtimeHours: overtimeOf(s, outMinute),

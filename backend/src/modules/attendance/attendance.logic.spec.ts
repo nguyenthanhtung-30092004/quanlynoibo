@@ -146,9 +146,23 @@ describe('evaluateDay', () => {
     expect(day('12:00', '21:00', 2)).toMatchObject({ minutes: 540, cong: 1 });
   });
 
-  it('thiếu dù một phút so với cả ca thì không đủ 1 công', () => {
-    expect(day('06:01', '15:30', 2)).toMatchObject({ cong: 0.5, lateMinutes: 1 });
+  it('ra sớm dù một phút so với cả ca thì không đủ 1 công', () => {
     expect(day('06:00', '15:29', 2)).toMatchObject({ cong: 0.5, earlyLeaveMinutes: 1 });
+  });
+
+  it('vào muộn dưới 15 phút vẫn đủ 1 công (chỉ bị trừ tiền theo phút muộn)', () => {
+    expect(day('06:01', '15:30', 2)).toMatchObject({ cong: 1, lateMinutes: 1 });
+    expect(day('06:02', '15:30', 2)).toMatchObject({ cong: 1, lateMinutes: 2 });
+    expect(day('06:14', '15:30', 2)).toMatchObject({ cong: 1, lateMinutes: 14 });
+  });
+
+  it('vào muộn từ 15 phút trở lên thì trừ nửa công', () => {
+    expect(day('06:15', '15:30', 2)).toMatchObject({ cong: 0.5, lateMinutes: 15 });
+    expect(day('06:30', '15:30', 2)).toMatchObject({ cong: 0.5, lateMinutes: 30 });
+  });
+
+  it('vào muộn dưới 15 phút nhưng lại ra sớm thì vẫn bị nửa công vì ra sớm', () => {
+    expect(day('06:05', '15:20', 2)).toMatchObject({ cong: 0.5, lateMinutes: 5, earlyLeaveMinutes: 10 });
   });
 
   it('đủ một nửa ca là 0,5 công, chưa tới nửa ca là 0', () => {
