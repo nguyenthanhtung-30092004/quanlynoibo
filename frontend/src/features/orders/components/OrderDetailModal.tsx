@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { money } from '@/features/xvip/data';
 import { Modal } from '@/features/xvip/Modal';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
+import { perVehicle } from '../cabin-pricing';
 import { CABIN_LABELS, type Order } from '../types';
 
 /** Nhóm các dòng thông tin trong hộp chi tiết đơn */
@@ -31,6 +32,37 @@ function DetailRow({ label, value }: { label: string; value?: string | null }) {
   );
 }
 
+/**
+ * Giá nhập, giá bán hiển thị đúng như lúc nhập (giá 1 cabin, giá 1 xe), không nhân với số lượng.
+ * Đơn trong database vẫn lưu tổng để báo cáo cộng đúng.
+ */
+function priceRowsOf(order: Order): { label: string; value: string }[] {
+  const d = (n: number) => `${money(n)}đ`;
+  const lines = order.cabinLines ?? [];
+  if (lines.length === 1) {
+    return [
+      { label: 'Giá nhập', value: d(lines[0].costPrice) },
+      { label: 'Giá bán', value: d(lines[0].sellPrice) },
+    ];
+  }
+  if (lines.length > 1) {
+    return lines.flatMap((l) => [
+      { label: `Giá nhập ${CABIN_LABELS[l.kind]}`, value: d(l.costPrice) },
+      { label: `Giá bán ${CABIN_LABELS[l.kind]}`, value: d(l.sellPrice) },
+    ]);
+  }
+  if (order.vehicleCount > 0) {
+    return [
+      { label: 'Giá nhập', value: d(perVehicle(order.costPrice, order.vehicleCount)) },
+      { label: 'Giá bán', value: d(perVehicle(order.sellPrice, order.vehicleCount)) },
+    ];
+  }
+  return [
+    { label: 'Giá nhập', value: d(order.costPrice) },
+    { label: order.goods ? 'Cước phí' : 'Giá bán', value: d(order.sellPrice) },
+  ];
+}
+
 /** Hộp chi tiết một đơn vé; truyền các callback thì hiện nút thao tác tương ứng (sửa/hủy chỉ với đơn chưa hủy) */
 export function OrderDetailModal({
   order,
@@ -49,6 +81,7 @@ export function OrderDetailModal({
   onCancel?: (order: Order) => void;
   onDelete?: (order: Order) => void;
 }) {
+  const priceRows = priceRowsOf(order);
   return (
     <Modal title={`Chi tiết đơn ${formatOrderCode(order.id)}`} onClose={onClose}>
       <div className="space-y-4">
@@ -108,8 +141,9 @@ export function OrderDetailModal({
           />
         </DetailGroup>
         <DetailGroup title="Giá tiền">
-          <DetailRow label="Giá nhập" value={`${money(order.costPrice)}đ`} />
-          <DetailRow label={order.goods ? 'Cước phí' : 'Giá bán'} value={`${money(order.sellPrice)}đ`} />
+          {priceRows.map((r) => (
+            <DetailRow key={r.label} label={r.label} value={r.value} />
+          ))}
           <DetailRow label="Đã cọc" value={`${money(order.deposit)}đ`} />
           <DetailRow label="Nhờ thu" value={`${money(order.collectOnDelivery)}đ`} />
           <DetailRow label="Hoa hồng" value={`${money(order.commission)}đ`} />
