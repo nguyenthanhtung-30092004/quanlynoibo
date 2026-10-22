@@ -216,10 +216,12 @@ describe('overtimeHoursFromMinutes', () => {
     expect(overtimeHoursFromMinutes(89)).toBe(1);
     expect(overtimeHoursFromMinutes(90)).toBe(1.5);
     expect(overtimeHoursFromMinutes(104)).toBe(1.5);
-    expect(overtimeHoursFromMinutes(105)).toBe(2); // 1g45 -> 2
+    expect(overtimeHoursFromMinutes(105)).toBe(1.5); // 1g45 -> 1,5
+    expect(overtimeHoursFromMinutes(119)).toBe(1.5);
     expect(overtimeHoursFromMinutes(120)).toBe(2);
     expect(overtimeHoursFromMinutes(150)).toBe(2.5);
-    expect(overtimeHoursFromMinutes(165)).toBe(3);
+    expect(overtimeHoursFromMinutes(165)).toBe(2.5); // 2g45 -> 2,5
+    expect(overtimeHoursFromMinutes(179)).toBe(2.5);
   });
 
   it('tối đa 3 tiếng, phần dư không tính', () => {

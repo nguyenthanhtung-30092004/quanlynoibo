@@ -394,7 +394,7 @@ export function FormulaPanel({
           <Rule
             no={8}
             title="Tiền tăng ca"
-            desc="Quẹt ra sau giờ kết thúc ca từ 1 tiếng trở lên thì được tính tăng ca theo mốc 0,5 giờ: 1g15 tính 1 giờ, 1g30 tính 1,5 giờ, 1g45 tính 2 giờ... tối đa 3 giờ mỗi ngày. Để 0 là không tính."
+            desc="Quẹt ra sau giờ kết thúc ca từ 1 tiếng trở lên thì được tính tăng ca theo mốc 0,5 giờ: 1g15 tính 1 giờ, 1g30 tính 1,5 giờ, 1g45 vẫn tính 1,5 giờ (luôn làm tròn xuống)... tối đa 3 giờ mỗi ngày. Để 0 là không tính."
             example={
               config.overtimePerHour > 0 ? (
                 <>

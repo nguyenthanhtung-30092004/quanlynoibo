@@ -78,14 +78,12 @@ export const OVERTIME_MAX_HOURS = 3;
 
 /**
  * Đổi số phút ở lại sau giờ kết thúc ca thành số giờ tăng ca theo mốc 0,5 giờ.
- * Dưới 60 phút: 0. Từ 60 phút: phần lẻ dưới 30 phút bỏ đi, từ 30 phút là 0,5 giờ, từ 45 phút làm tròn lên giờ kế.
- * Vd 1g15 -> 1, 1g30 -> 1,5, 1g45 -> 2, 2g30 -> 2,5, 2g45 -> 3; tối đa OVERTIME_MAX_HOURS.
+ * Dưới 60 phút: 0. Từ 60 phút: luôn làm tròn xuống mốc 0,5 giờ (phần lẻ dưới 30 phút bỏ đi, từ 30 phút là 0,5 giờ).
+ * Vd 1g15 -> 1, 1g30 -> 1,5, 1g45 -> 1,5, 2g30 -> 2,5, 2g45 -> 2,5; tối đa OVERTIME_MAX_HOURS.
  */
 export function overtimeHoursFromMinutes(extraMinutes: number): number {
   if (!(extraMinutes >= OVERTIME_MIN_MINUTES)) return 0;
-  const whole = Math.floor(extraMinutes / 60);
-  const rest = extraMinutes % 60;
-  const hours = rest >= 45 ? whole + 1 : rest >= 30 ? whole + 0.5 : whole;
+  const hours = Math.floor(extraMinutes / 30) / 2;
   return Math.min(OVERTIME_MAX_HOURS, hours);
 }
 

@@ -307,7 +307,7 @@ export function PayrollDetailModal({
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-        Tăng ca tính từ giờ kết thúc ca khi ở lại từ 1 tiếng, theo mốc 0,5 giờ (1g15 → 1 giờ, 1g45 → 2 giờ), tối đa 3 giờ/ngày.
+        Tăng ca tính từ giờ kết thúc ca khi ở lại từ 1 tiếng, theo mốc 0,5 giờ (1g15 → 1 giờ, 1g45 → 1,5 giờ, luôn làm tròn xuống), tối đa 3 giờ/ngày.
         Ngày có dấu <Warning size={12} weight="fill" className="inline text-amber-500" /> là ngày hệ thống chưa chắc ca:
         chọn lại ca ở cột Ca (hoặc đặt ca mặc định cho nhân viên) để tính đúng tăng ca. Sau khi đổi ca, bấm
         &ldquo;Điền công từ chấm công&rdquo; ở bảng lương nếu muốn cập nhật số công.
