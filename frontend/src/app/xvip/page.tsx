@@ -54,7 +54,10 @@ function OverviewContent() {
   const dates = rangeParams(range, basis);
   // Đang mở danh sách vé của một tuyến hoặc một nhân viên
   const [selected, setSelected] = useState<
-    { kind: 'route'; ids: number[]; name: string } | { kind: 'staff'; id: number; name: string } | null
+    | { kind: 'route'; ids: number[]; name: string }
+    | { kind: 'staff'; id: number; name: string }
+    | { kind: 'partner'; name: string }
+    | null
   >(null);
   const [showMessages, setShowMessages] = useState(false);
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, dates);
@@ -271,7 +274,7 @@ function OverviewContent() {
               Chưa có vé nào trong khoảng thời gian đã chọn.
             </div>
           ) : (
-            <PartnerChart data={carrierStats} />
+            <PartnerChart data={carrierStats} onSelect={(name) => setSelected({ kind: 'partner', name })} />
           )}
         </Card>
 
@@ -379,18 +382,23 @@ function OverviewContent() {
       {selected && (
         <DashboardOrdersModal
           title={
-            selected.kind === 'route' ? `Vé tuyến ${selected.name}` : `Vé của nhân viên ${selected.name}`
+            selected.kind === 'route'
+              ? `Vé tuyến ${selected.name}`
+              : selected.kind === 'partner'
+                ? `Vé của đối tác ${selected.name}`
+                : `Vé của nhân viên ${selected.name}`
           }
           filters={{
             staffId: selected.kind === 'staff' ? selected.id : 'all',
             routeId: 'all',
             routeIds: selected.kind === 'route' ? selected.ids : undefined,
+            partner: selected.kind === 'partner' ? selected.name : undefined,
             dateFrom: null,
             dateTo: null,
             ...dates,
           }}
-          showRoute={selected.kind === 'staff'}
-          showStaff={selected.kind === 'route'}
+          showRoute={selected.kind !== 'route'}
+          showStaff={selected.kind !== 'staff'}
           onClose={() => setSelected(null)}
         />
       )}

@@ -25,7 +25,14 @@ function compactMoney(n: number): string {
  * Hoa hồng, số đơn và số vé theo đối tác, gọn để đặt trong một ô nhỏ: mỗi đối tác một hàng
  * (tên + hoa hồng + số đơn / vé, thanh năng lượng bên dưới dài theo hoa hồng).
  */
-export function PartnerChart({ data }: { data: PartnerStat[] }) {
+export function PartnerChart({
+  data,
+  onSelect,
+}: {
+  data: PartnerStat[];
+  /** Bấm một đối tác để xem vé của đối tác đó */
+  onSelect?: (partner: string) => void;
+}) {
   const maxCommission = Math.max(1, ...data.map((d) => d.commission));
   const totalCommission = data.reduce((sum, d) => sum + d.commission, 0);
   const totalOrders = data.reduce((sum, d) => sum + d.total, 0);
@@ -53,7 +60,11 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
           const pct = (d.commission / maxCommission) * 100;
           return (
             <li key={d.partner}>
-              <div className="group relative block rounded-lg px-2 py-1.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
+              <button
+                type="button"
+                onClick={() => onSelect?.(d.partner)}
+                title="Bấm để xem toàn bộ vé của đối tác này"
+                className="group relative block w-full cursor-pointer rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-slate-100/80 dark:hover:bg-slate-800/60"
               >
                 <span className="flex items-baseline justify-between gap-2 text-xs">
                   <span className="min-w-0 truncate font-bold text-slate-800 dark:text-slate-100" title={d.partner}>
@@ -74,7 +85,7 @@ export function PartnerChart({ data }: { data: PartnerStat[] }) {
                     style={{ width: `${d.commission > 0 ? Math.max(2, pct) : 0}%` }}
                   />
                 </span>
-              </div>
+              </button>
             </li>
           );
         })}
