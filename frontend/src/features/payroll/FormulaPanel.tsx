@@ -366,7 +366,7 @@ export function FormulaPanel({
           <Rule
             no={7}
             title="Trừ tiền khi vào muộn"
-            desc="Quẹt vào sau giờ bắt đầu ca thì bị trừ tiền theo từng phút muộn. Số phút lấy từ máy chấm công, cộng dồn cả tháng. Để 0 là không trừ."
+            desc="Quẹt vào sau giờ bắt đầu ca dưới 30 phút thì vẫn đủ công nhưng bị trừ tiền theo từng phút muộn. Số phút lấy từ máy chấm công, cộng dồn cả tháng. Muộn từ 30 phút trở lên thì bị trừ nửa công và không trừ tiền vào muộn nữa. Để 0 là không trừ."
             example={
               config.latePenaltyPerMinute > 0 ? (
                 <>

@@ -169,6 +169,10 @@ describe('monthLateMinutes', () => {
     ).toBe(10);
   });
 
+  it('ngày muộn từ 30 phút đã bị trừ nửa công nên không trừ tiền vào muộn nữa', () => {
+    expect(monthLateMinutes({ '2026-10-01': cell(29), '2026-10-02': cell(30), '2026-10-03': cell(90) })).toBe(29);
+  });
+
   it('không có ngày nào thì là 0', () => {
     expect(monthLateMinutes({})).toBe(0);
   });

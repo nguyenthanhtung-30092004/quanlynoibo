@@ -73,8 +73,12 @@ export function resolveShift(inMinute: number, outMinute: number): Shift {
 
 /** Ở lại sau giờ kết thúc ca tối thiểu bấy nhiêu phút mới tính là tăng ca */
 export const OVERTIME_MIN_MINUTES = 60;
-/** Vào muộn dưới bấy nhiêu phút thì vẫn đủ công (chỉ trừ tiền vào muộn); từ mức này trở lên công tính theo giờ có mặt */
-export const LATE_KEEP_FULL_CONG_MINUTES = 15;
+/**
+ * Vào muộn dưới bấy nhiêu phút thì vẫn đủ công và chỉ bị trừ tiền vào muộn;
+ * từ mức này trở lên công tính theo giờ có mặt (nửa công) và không trừ tiền vào muộn nữa.
+ * Bảng lương ở frontend (`LATE_HALF_CONG_MINUTES` trong payroll/calc.ts) phải dùng cùng con số này.
+ */
+export const LATE_KEEP_FULL_CONG_MINUTES = 30;
 /** Mỗi ngày tính tối đa bấy nhiêu giờ tăng ca, phần dư không tính */
 export const OVERTIME_MAX_HOURS = 3;
 

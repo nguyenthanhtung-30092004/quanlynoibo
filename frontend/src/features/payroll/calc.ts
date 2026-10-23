@@ -38,14 +38,24 @@ export interface PayrollResult {
 }
 
 /**
- * Tổng phút vào muộn của một nhân viên trong tháng, cộng từ từng ngày chấm công.
+ * Vào muộn từ bấy nhiêu phút thì bị trừ nửa công, và khi đó không trừ tiền vào muộn nữa.
+ * Phải trùng `LATE_KEEP_FULL_CONG_MINUTES` ở backend (attendance.logic.ts).
+ */
+export const LATE_HALF_CONG_MINUTES = 30;
+
+/**
+ * Tổng phút vào muộn bị trừ tiền của một nhân viên trong tháng, cộng từ từng ngày chấm công.
+ * Ngày muộn từ 30 phút trở lên đã bị trừ nửa công nên không trừ tiền nữa.
  * Ngày Admin đã chỉnh tay số công thì bỏ qua (coi như Admin đã xem xét ngày đó).
  */
 export function monthLateMinutes(
   days: Record<string, Pick<AttendanceDayCell, 'lateMinutes' | 'overridden' | 'status'>>,
 ): number {
   return Object.values(days).reduce(
-    (sum, d) => (d.status === 'done' && !d.overridden ? sum + Math.max(0, d.lateMinutes) : sum),
+    (sum, d) =>
+      d.status === 'done' && !d.overridden && d.lateMinutes < LATE_HALF_CONG_MINUTES
+        ? sum + Math.max(0, d.lateMinutes)
+        : sum,
     0,
   );
 }

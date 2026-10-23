@@ -316,7 +316,7 @@ export default function AttendancePage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
                 <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">1 công</span>
                 <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Có mặt đủ cả khung giờ của ca (ra đúng hoặc sau giờ kết thúc). Vào muộn dưới 15 phút vẫn đủ công,
+                  Có mặt đủ cả khung giờ của ca (ra đúng hoặc sau giờ kết thúc). Vào muộn dưới 30 phút vẫn đủ công,
                   chỉ bị trừ tiền theo phút muộn. Không trừ nghỉ trưa.
                 </p>
                 <div className="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
@@ -327,7 +327,7 @@ export default function AttendancePage() {
               <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-700 dark:bg-slate-800/30">
                 <span className="mb-1.5 block text-xs font-bold text-slate-600 dark:text-slate-300">0,5 công</span>
                 <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Vào muộn từ 15 phút trở lên, hoặc ra sớm, nhưng có mặt từ một nửa độ dài của ca trở lên (ca 6h - 15h30
+                  Vào muộn từ 30 phút trở lên (không trừ tiền vào muộn nữa), hoặc ra sớm, nhưng có mặt từ một nửa độ dài của ca trở lên (ca 6h - 15h30
                   dài 9g30 thì cần từ 4g45). Ít hơn một nửa ca thì 0 công.
                 </p>
                 <div className="mt-2 text-xs font-bold text-emerald-700 dark:text-emerald-400">
