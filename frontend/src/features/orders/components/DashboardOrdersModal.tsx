@@ -84,44 +84,65 @@ export function DashboardOrdersModal({
                 Hãy thu hẹp khoảng ngày để xem đủ.
               </p>
             )}
-            <ul className="divide-y divide-slate-100 rounded-xl border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-              {orders.map((o) => (
-                <li key={o.id}>
-                  <button
-                    type="button"
-                    onClick={() => setDetail(o)}
-                    className="flex w-full flex-col gap-1 px-3 py-2.5 text-left transition-colors hover:bg-blue-50 dark:hover:bg-slate-800/60 sm:flex-row sm:items-center sm:gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="break-words text-sm font-extrabold text-slate-900 dark:text-white">
-                        <span className="tnum text-blue-700 dark:text-blue-400">{formatOrderCode(o.id)}</span>
-                        {' · '}
-                        {o.customerName || 'Khách lẻ'}
-                        <span className="tnum font-semibold text-slate-500 dark:text-slate-400"> · {o.phone}</span>
-                      </div>
-                      <div className="mt-0.5 break-words text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        {showRoute && o.route?.name && <span>{o.route.name} · </span>}
-                        <span className="tnum">
-                          {o.departureTime} - {formatDateVN(o.departureDate)}
-                        </span>
-                        {showStaff && o.staff?.fullName && <span> · NV {o.staff.fullName}</span>}
-                        {o.partner && <span> · {o.partner}</span>}
-                      </div>
-                    </div>
-                    <div className="tnum flex shrink-0 items-center justify-between gap-3 text-xs font-bold sm:justify-end">
-                      <span className="text-slate-600 dark:text-slate-300">{quantityText(o)}</span>
-                      <span className="text-slate-900 dark:text-white sm:w-24 sm:text-right">{money(o.sellPrice)}đ</span>
-                      <span className="font-black text-emerald-700 dark:text-emerald-400 sm:w-20 sm:text-right">
+            <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+              <table className="w-full min-w-[40rem] border-collapse text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-100 text-[10px] font-extrabold uppercase tracking-wide text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                    <th className="px-3 py-2">Mã vé</th>
+                    <th className="px-3 py-2">Khách hàng</th>
+                    {showRoute && <th className="px-3 py-2">Tuyến</th>}
+                    {showStaff && <th className="px-3 py-2">Nhân viên</th>}
+                    <th className="px-3 py-2">Giờ đi</th>
+                    <th className="px-3 py-2">Đối tác</th>
+                    <th className="px-3 py-2 text-right">Số vé</th>
+                    <th className="px-3 py-2 text-right">Giá bán</th>
+                    <th className="px-3 py-2 text-right">Hoa hồng</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {orders.map((o) => (
+                    <tr
+                      key={o.id}
+                      tabIndex={0}
+                      onClick={() => setDetail(o)}
+                      onKeyDown={(e) => e.key === 'Enter' && setDetail(o)}
+                      className="cursor-pointer align-top transition-colors hover:bg-blue-50 focus:bg-blue-50 focus:outline-none dark:hover:bg-slate-800/60 dark:focus:bg-slate-800/60"
+                    >
+                      <td className="tnum whitespace-nowrap px-3 py-2 font-extrabold text-blue-700 dark:text-blue-400">
+                        {formatOrderCode(o.id)}
+                      </td>
+                      <td className="px-3 py-2">
+                        <div className="font-bold text-slate-900 dark:text-white">{o.customerName || 'Khách lẻ'}</div>
+                        <div className="tnum font-semibold text-slate-500 dark:text-slate-400">{o.phone}</div>
+                      </td>
+                      {showRoute && (
+                        <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">{o.route?.name ?? '—'}</td>
+                      )}
+                      {showStaff && (
+                        <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                          {o.staff?.fullName ?? '—'}
+                        </td>
+                      )}
+                      <td className="tnum whitespace-nowrap px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">
+                        <div>{o.departureTime}</div>
+                        <div className="text-slate-500 dark:text-slate-400">{formatDateVN(o.departureDate)}</div>
+                      </td>
+                      <td className="px-3 py-2 font-semibold text-slate-700 dark:text-slate-300">{o.partner || '—'}</td>
+                      <td className="tnum whitespace-nowrap px-3 py-2 text-right font-bold text-slate-800 dark:text-slate-200">
+                        {quantityText(o) || '—'}
+                      </td>
+                      <td className="tnum whitespace-nowrap px-3 py-2 text-right font-bold text-slate-900 dark:text-white">
+                        {money(o.sellPrice)}đ
+                      </td>
+                      <td className="tnum whitespace-nowrap px-3 py-2 text-right font-black text-emerald-700 dark:text-emerald-400">
                         {money(o.commission)}đ
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-2 text-[11px] font-semibold text-slate-400">
-              Mỗi dòng: số vé · giá bán · hoa hồng. Bấm vào một vé để xem chi tiết.
-            </p>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-[11px] font-semibold text-slate-400">Bấm vào một dòng để xem chi tiết vé.</p>
           </>
         )}
       </Modal>
