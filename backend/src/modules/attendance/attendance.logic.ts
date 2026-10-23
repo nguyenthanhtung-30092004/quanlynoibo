@@ -130,12 +130,18 @@ export function resolveShiftForDay(
   const forced = shiftByStart(hints.forcedStart);
   if (forced) return { shift: forced, source: 'forced', alternative: null };
 
+  const byOut = resolveShift(inMinute, outMinute);
+
   const preferred = shiftByStart(hints.defaultStart);
   if (preferred && Math.abs(inMinute - preferred.startMinute) <= DEFAULT_SHIFT_MAX_GAP) {
-    return { shift: preferred, source: 'default', alternative: null };
+    // Giờ quẹt khớp rõ ràng một ca khác (ra đúng giờ kết thúc ca đó, và vào gần giờ bắt đầu ca đó hơn
+    // ca mặc định) thì ca mặc định sai, vd mặc định 7h nhưng vào 7h53 ra 17h31 là ca 8h.
+    const fitsOtherShift =
+      byOut !== preferred &&
+      Math.abs(outMinute - byOut.endMinute) <= CLEAN_FINISH_MINUTES &&
+      Math.abs(inMinute - byOut.startMinute) < Math.abs(inMinute - preferred.startMinute);
+    if (!fitsOtherShift) return { shift: preferred, source: 'default', alternative: null };
   }
-
-  const byOut = resolveShift(inMinute, outMinute);
   let byIn = SHIFTS[0];
   for (const s of SHIFTS) {
     if (Math.abs(s.startMinute - inMinute) < Math.abs(byIn.startMinute - inMinute)) byIn = s;

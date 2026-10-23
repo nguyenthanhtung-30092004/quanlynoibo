@@ -258,6 +258,12 @@ describe('resolveShiftForDay', () => {
     expect(c.shift.label).toBe('6h - 15h30');
   });
 
+  it('ca mặc định 7h nhưng vào 7h53 ra 17h31 khớp ca 8h thì tự đoán ca 8h', () => {
+    const c = resolveShiftForDay(hm(7, 53), hm(17, 31), { defaultStart: hm(7) });
+    expect(c.source).toBe('auto');
+    expect(c.shift.label).toBe('8h - 17h30');
+  });
+
   it('ca mặc định quá xa giờ vào thì bỏ qua và tự đoán', () => {
     const c = resolveShiftForDay(hm(13, 30), hm(22), { defaultStart: hm(5) });
     expect(c.source).toBe('auto');
