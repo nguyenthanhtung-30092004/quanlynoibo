@@ -280,7 +280,8 @@ export default function TicketManagementPage() {
           const res = await ordersApi.sendMessage(savedOrder.id, ch);
           if (res.fallbackToSms) {
             smsAlreadySent = true;
-            showToast('Zalo không gửi được, đã tự gửi SMS cho khách.');
+            // res.message đã kèm lý do Zalo lỗi (mã lỗi, khách không có Zalo...)
+            showToast(res.message || 'Zalo không gửi được, đã tự gửi SMS cho khách.', 'error');
           } else {
             showToast(`Đã gửi ${ch === 'ZALO' ? 'Zalo' : 'SMS'} cho khách.`);
           }
