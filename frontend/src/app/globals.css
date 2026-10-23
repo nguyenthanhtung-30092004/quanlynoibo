@@ -73,6 +73,37 @@ html.dark * {
 html.dark .scroll-big {
   scrollbar-color: #64748b #1e293b;
 }
+/* Thanh kéo ngang ghim ở đầu bảng: to và dễ kéo bằng chuột.
+   Không đặt scrollbar-color/width ở đây vì Chrome sẽ bỏ qua ::-webkit-scrollbar nếu có hai thuộc tính đó. */
+.scroll-top-bar::-webkit-scrollbar {
+  height: 26px;
+}
+.scroll-top-bar::-webkit-scrollbar-track {
+  background: #e2e8f0;
+  border-radius: 10px;
+}
+.scroll-top-bar::-webkit-scrollbar-thumb {
+  background: #64748b;
+  border-radius: 10px;
+  border: 5px solid #e2e8f0;
+}
+.scroll-top-bar::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+html.dark .scroll-top-bar::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+html.dark .scroll-top-bar::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-color: #1e293b;
+}
+/* Firefox không chỉnh được độ dày thanh kéo: dùng cỡ chuẩn */
+@supports (-moz-appearance: none) {
+  .scroll-top-bar {
+    scrollbar-width: auto;
+    scrollbar-color: #64748b #e2e8f0;
+  }
+}
 /* Máy tính: ẩn thanh kéo ngang ở đáy bảng (đã có thanh ghim ở đầu bảng); vẫn cuộn ngang được bằng chuột/touchpad */
 @media (min-width: 768px) {
   .scroll-big.scroll-hide-md {

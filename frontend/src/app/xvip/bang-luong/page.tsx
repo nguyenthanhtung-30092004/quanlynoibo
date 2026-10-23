@@ -16,8 +16,7 @@ import { computePayroll, monthLateMinutes, monthOvertimeHours, standardDays } fr
 import { FormulaPanel } from '@/features/payroll/FormulaPanel';
 import { PayrollDetailModal } from '@/features/payroll/PayrollDetailModal';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
-import { attendanceApi } from '@/features/attendance/api';
-import type { AttendanceMonth } from '@/features/attendance/types';
+import { useAttendanceMonth } from '@/features/attendance/hooks';
 import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
 import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
@@ -70,9 +69,13 @@ export default function PayrollPage() {
   // Bản đang sửa tay (chưa lưu); đồng bộ lại từ server mỗi khi tải xong tháng mới hoặc vừa lưu
   const [config, setConfig] = useState<PayrollConfig | null>(null);
   const [entries, setEntries] = useState<Entries>({});
-  const [autoFilledIds, setAutoFilledIds] = useState<Set<number>>(new Set());
-  // Chấm công cả tháng: lấy phút vào muộn và giờ tăng ca của từng nhân viên, và cho form xem chi tiết
-  const [att, setAtt] = useState<AttendanceMonth | null>(null);
+  // Chấm công cả tháng (tự tải lại khi có lượt quẹt mới): công thực tế, phút vào muộn, giờ tăng ca của từng nhân viên
+  const { data: attData, isError: attError, refetch: refetchAtt } = useAttendanceMonth(month);
+  const att = attData ?? null;
+  const congById = useMemo(
+    () => new Map((att?.staff ?? []).map((s) => [s.id, Math.min(31, s.totalCong)])),
+    [att],
+  );
   const lateById = useMemo(
     () => new Map((att?.staff ?? []).map((s) => [s.id, monthLateMinutes(s.days)])),
     [att],
@@ -86,45 +89,7 @@ export default function PayrollPage() {
     if (!data) return;
     setConfig(data.config);
     setEntries(entriesOf(data));
-    setAutoFilledIds(new Set());
-    setAtt(null);
-
-    // Tự động điền công từ chấm công cho nhân viên chưa có số công đã lưu (workDays === null)
-    let cancelled = false;
-    attendanceApi
-      .month(data.month)
-      .then((att) => {
-        if (cancelled) return;
-        setAtt(att);
-        const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
-        const newAuto = new Set<number>();
-        setEntries((prev) => {
-          const next = { ...prev };
-          let changed = false;
-          for (const s of data.staff) {
-            // Chỉ tự điền cho người chưa có số công đã lưu trong DB (workDays === null)
-            if (s.entry.workDays === null) {
-              const cong = congById.get(s.id);
-              if (typeof cong === 'number') {
-                next[s.id] = { ...(prev[s.id] ?? s.entry), workDays: Math.min(31, cong) };
-                newAuto.add(s.id);
-                changed = true;
-              }
-            }
-          }
-          return changed ? next : prev;
-        });
-        setAutoFilledIds(newAuto);
-      })
-      .catch(() => {
-        // Lỗi gọi chấm công không được chặn việc mở bảng lương: bỏ qua và hiện toast
-        showToast('Lưu ý: Không tự động lấy được số liệu chấm công cho tháng này.');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [data, showToast]);
+  }, [data]);
 
   const baseline = useMemo(
     () => (data ? JSON.stringify({ config: data.config, entries: entriesOf(data) }) : ''),
@@ -137,6 +102,8 @@ export default function PayrollPage() {
     return data.staff
       .map((s) => {
         const entry = entries[s.id] ?? s.entry;
+        // Công thực tế luôn lấy từ chấm công (máy chấm công), không nhập tay
+        const workDays = att ? (congById.get(s.id) ?? 0) : null;
         const lateMinutes = lateById.get(s.id) ?? 0;
         const overtimeHours = overtimeById.get(s.id) ?? 0;
         return {
@@ -146,7 +113,7 @@ export default function PayrollPage() {
             config,
             daysInMonth: data.daysInMonth,
             daily: s.daily,
-            entry,
+            entry: { ...entry, workDays },
             lateMinutes,
             overtimeHours,
           }),
@@ -160,7 +127,7 @@ export default function PayrollPage() {
         }
         return a.staff.fullName.localeCompare(b.staff.fullName, 'vi');
       });
-  }, [data, config, entries, lateById, overtimeById]);
+  }, [data, config, entries, att, congById, lateById, overtimeById]);
 
   const totals = useMemo(
     () => ({
@@ -205,28 +172,14 @@ export default function PayrollPage() {
     }
   };
 
-  const fillFullDays = () => {
-    if (!data) return;
-    setEntries((prev) => {
-      const next = { ...prev };
-      for (const s of data.staff) {
-        const e = prev[s.id] ?? s.entry;
-        if (e.workDays === null) next[s.id] = { ...e, workDays: std };
-      }
-      return next;
-    });
-  };
-
   /** Sau khi Admin đổi ca trong form chi tiết: tải lại chấm công để tính lại tăng ca / vào muộn */
   const reloadAttendance = async () => {
-    setAtt(await attendanceApi.month(month));
+    await refetchAtt();
   };
-
-  const missingDays = rows.filter((r) => r.entry.workDays === null).length;
 
   return (
     <>
-      {/* Thanh chọn tháng + nút lưu dính ngay dưới header, cuộn xuống vẫn thấy */}
+      {/* Thanh chọn tháng dính ngay dưới header, cuộn xuống vẫn thấy */}
       <div
         ref={barRef}
         className="sticky z-10 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90 sm:-mx-6 sm:px-6"
@@ -261,15 +214,6 @@ export default function PayrollPage() {
                 <CaretRight size={16} weight="bold" />
               </button>
             </div>
-            <button
-              type="button"
-              onClick={save}
-              disabled={!dirty || saveMutation.isPending}
-              className="btn-3d btn-3d-blue flex items-center gap-2 px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-40 disabled:grayscale"
-            >
-              <FloppyDisk size={18} weight="bold" />
-              {saveMutation.isPending ? 'Đang lưu...' : dirty ? 'Lưu bảng lương' : 'Đã lưu'}
-            </button>
           </div>
         }
       >
@@ -320,15 +264,6 @@ export default function PayrollPage() {
       <Card
         className="mt-5 !p-0 overflow-clip"
         title={`Bảng lương ${monthLabel(month).toLowerCase()}`}
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            {missingDays > 0 && (
-              <button type="button" onClick={fillFullDays} className="btn-3d btn-3d-white px-3 py-1 text-xs">
-                Điền đủ {std} công cho {missingDays} người chưa nhập
-              </button>
-            )}
-          </div>
-        }
       >
         <ScrollTable pinOffset={barHeight}>
           <table className="w-full">
@@ -411,35 +346,14 @@ export default function PayrollPage() {
                           ))}
                         </select>
                       </td>
-                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
-                        <input
-                          type="number"
-                          min={0}
-                          max={31}
-                          step={0.5}
-                          inputMode="decimal"
-                          aria-label={`Số công của ${staff.fullName}`}
-                          placeholder={String(std)}
-                          value={entry.workDays ?? ''}
-                          onChange={(e) => {
-                            setAutoFilledIds((prev) => {
-                              if (!prev.has(staff.id)) return prev;
-                              const next = new Set(prev);
-                              next.delete(staff.id);
-                              return next;
-                            });
-                            patchEntry(staff.id, {
-                              workDays: e.target.value === '' ? null : Math.min(31, Math.max(0, Number(e.target.value))),
-                            });
-                          }}
-                          className="input-3d tnum !h-9 !w-20 !py-1 !px-2 text-right text-sm"
-                        />
+                      <td className={`${TD} text-right`}>
+                        <span className="tnum text-base font-black text-slate-900 dark:text-white">
+                          {att ? String(result.workDays).replace('.', ',') : attError ? '—' : '…'}
+                        </span>
                         <span className="block text-[11px] text-slate-400">/ {std} công</span>
-                        {autoFilledIds.has(staff.id) && (
-                          <span className="mt-0.5 inline-block rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
-                            từ chấm công{month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}
-                          </span>
-                        )}
+                        <span className="mt-0.5 inline-block rounded bg-blue-50 px-1 py-0.2 text-[10px] font-semibold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+                          từ chấm công{month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}
+                        </span>
                       </td>
                       <td className={`${TD} text-right`}>
                         <span className="tnum font-bold text-slate-900 dark:text-white">{vnd(result.commission)}</span>
@@ -594,7 +508,7 @@ export default function PayrollPage() {
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
-                  bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> để giữ lại.
+                  bên dưới tính lại ngay, bấm <b>Lưu bảng lương</b> ở cuối trang để giữ lại.
                 </p>
               </div>
               <FormulaPanel config={config} onChange={setConfig} daysInMonth={data.daysInMonth} />
@@ -614,6 +528,24 @@ export default function PayrollPage() {
           <p className="text-sm text-slate-400">Đang tải...</p>
         )}
       </Card>
+
+      {/* Chỉ hiện khi có thay đổi chưa lưu (công thức, bậc, điều chỉnh, ghi chú); công thực tế thì tự lấy từ chấm công */}
+      {dirty && (
+        <div className="sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md dark:border-blue-900 dark:bg-slate-900/95">
+          <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
+            Có thay đổi chưa lưu (công thức, bậc, điều chỉnh hoặc ghi chú).
+          </span>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saveMutation.isPending}
+            className="btn-3d btn-3d-blue flex items-center gap-2 px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <FloppyDisk size={18} weight="bold" />
+            {saveMutation.isPending ? 'Đang lưu...' : 'Lưu bảng lương'}
+          </button>
+        </div>
+      )}
     </>
   );
 }

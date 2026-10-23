@@ -123,7 +123,7 @@ export function ScrollTable({ children, pinOffset = 0 }: { children: ReactNode; 
         <div
           ref={topRef}
           onScroll={onTopScroll}
-          className="scroll-big sticky top-[var(--pin-top,0px)] z-[11] hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+          className="scroll-top-bar sticky top-[var(--pin-top,0px)] z-[11] hidden md:block overflow-x-auto overflow-y-hidden border-b border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
           aria-hidden="true"
         >
           <div style={{ width: contentWidth, height: 1 }} />
