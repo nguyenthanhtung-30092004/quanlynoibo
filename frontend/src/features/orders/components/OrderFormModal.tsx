@@ -118,10 +118,12 @@ function NumInput({
   className,
   required,
   blankZero,
+  disabled,
 }: {
   value: number;
   onChange: (n: number) => void;
   blankZero?: boolean;
+  disabled?: boolean;
   min?: number;
   max?: number;
   step?: number;
@@ -138,7 +140,8 @@ function NumInput({
 
   return (
     <input
-      className={className}
+      className={disabled ? `${className ?? ''} cursor-not-allowed opacity-50` : className}
+      disabled={disabled}
       type="number"
       inputMode="numeric"
       min={min}
@@ -1219,6 +1222,14 @@ export function OrderFormModal({
                         min={0}
                         max={60}
                         blankZero
+                        disabled={
+                          z.key === 'seatCount'
+                            ? (Number(formState.seatFront) || 0) +
+                                (Number(formState.seatMiddle) || 0) +
+                                (Number(formState.seatBack) || 0) >
+                              0
+                            : (Number(formState.seatCount) || 0) > 0
+                        }
                       />
                     </label>
                     <label className="block min-w-0">
