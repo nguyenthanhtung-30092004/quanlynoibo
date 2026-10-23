@@ -6,10 +6,16 @@ import { Partner } from '../../partners/entities/partner.entity.js';
 import { UserRole } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import { OrderHistory } from '../entities/order-history.entity.js';
-import type { OrderFilterDto, QueryOrdersDto } from '../dto/query-orders.dto.js';
+import type {
+  OrderFilterDto,
+  QueryOrdersDto,
+} from '../dto/query-orders.dto.js';
 import { OrderFilterBuilder } from '../filters/order-filter.builder.js';
 import { toOrderView } from '../mappers/order.mapper.js';
-import { summarizeUnlistedPartners, type UnlistedPartnerSummary } from '../order-partner.util.js';
+import {
+  summarizeUnlistedPartners,
+  type UnlistedPartnerSummary,
+} from '../order-partner.util.js';
 
 const ACTIVITY_DAYS = 7;
 const SEARCH_COUNT_CAP = 10000;
@@ -33,12 +39,18 @@ export class OrdersQueryService {
     if (this.cachedPartners && this.cachedPartners.expiresAt > now) {
       return this.cachedPartners.data;
     }
-    const data = await this.partnerRepository.find({ select: { id: true, name: true } });
+    const data = await this.partnerRepository.find({
+      select: { id: true, name: true },
+    });
     this.cachedPartners = { data, expiresAt: now + this.MASTER_DATA_TTL_MS };
     return data;
   }
 
-  buildListQuery(filter: OrderFilterDto, actor: JwtPayload, ownOnly = false): SelectQueryBuilder<Order> {
+  buildListQuery(
+    filter: OrderFilterDto,
+    actor: JwtPayload,
+    ownOnly = false,
+  ): SelectQueryBuilder<Order> {
     const qb = this.orderRepository
       .createQueryBuilder('order')
       .leftJoin('order.createdBy', 'staff')
@@ -70,14 +82,19 @@ export class OrdersQueryService {
         .offset((page - 1) * limit)
         .limit(limit)
         .getMany(),
-      searching ? this.countCapped(query, actor) : this.buildListQuery(query, actor).getCount(),
+      searching
+        ? this.countCapped(query, actor)
+        : this.buildListQuery(query, actor).getCount(),
     ]);
 
     return { items: items.map((o) => toOrderView(o)), total, page, limit };
   }
 
   /** Khi tìm kiếm, chỉ đếm tối đa SEARCH_COUNT_CAP đơn để từ khóa quá rộng không phải đếm hết cả bảng */
-  private async countCapped(query: QueryOrdersDto, actor: JwtPayload): Promise<number> {
+  private async countCapped(
+    query: QueryOrdersDto,
+    actor: JwtPayload,
+  ): Promise<number> {
     const rows = await this.buildListQuery(query, actor)
       .select('order.id')
       .limit(SEARCH_COUNT_CAP)
@@ -109,7 +126,9 @@ export class OrdersQueryService {
     });
     if (
       !order ||
-      (!readOnly && actor.role !== UserRole.ADMIN && order.createdById !== actor.sub)
+      (!readOnly &&
+        actor.role !== UserRole.ADMIN &&
+        order.createdById !== actor.sub)
     ) {
       throw new NotFoundException(`Không tìm thấy đơn hàng "${id}".`);
     }
@@ -135,7 +154,10 @@ export class OrdersQueryService {
       .createQueryBuilder('h')
       .where('h.orderId = :id', { id });
     this.hideAdminEdits(qb, actor);
-    return qb.orderBy('h.createdAt', 'DESC').addOrderBy('h.id', 'DESC').getMany();
+    return qb
+      .orderBy('h.createdAt', 'DESC')
+      .addOrderBy('h.id', 'DESC')
+      .getMany();
   }
 
   /**
@@ -152,7 +174,11 @@ export class OrdersQueryService {
       qb.andWhere('o.createdById = :uid', { uid: actor.sub });
     }
     this.hideAdminEdits(qb, actor);
-    const rows = await qb.orderBy('h.createdAt', 'DESC').addOrderBy('h.id', 'DESC').limit(limit).getMany();
+    const rows = await qb
+      .orderBy('h.createdAt', 'DESC')
+      .addOrderBy('h.id', 'DESC')
+      .limit(limit)
+      .getMany();
     if (rows.length === 0) return [];
 
     const orders = await this.orderRepository.find({

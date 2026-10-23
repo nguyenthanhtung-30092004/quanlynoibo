@@ -31,7 +31,8 @@ export function SmsModal() {
         message.success(`Đã gửi tin nhắn cho ${order.customerName || order.phone}.`);
         close();
       },
-      onError: (err) => message.error(err instanceof ApiError ? err.message : 'Gửi tin nhắn thất bại.'),
+      onError: (err) =>
+        message.error(err instanceof ApiError ? err.message : 'Gửi tin nhắn thất bại.', 8),
     });
   };
 
