@@ -305,6 +305,15 @@ function privateFields(o: Order) {
   };
 }
 
+/**
+ * Đơn cũ (trước khi số ghế độc lập với đầu/giữa/cuối) lưu "Số ghế" = tổng ba vị trí.
+ * Khi mở lại để sửa, nếu bằng đúng tổng thì để trống ô "Số ghế" để mỗi ô hiện đúng giá trị đã nhập.
+ */
+function seatCountForEdit(o: Pick<Order, 'seatFront' | 'seatMiddle' | 'seatBack' | 'seatCount'>): number {
+  const zones = o.seatFront + o.seatMiddle + o.seatBack;
+  return zones > 0 && o.seatCount === zones ? 0 : o.seatCount;
+}
+
 function buildPreviewLines(f: OrderFormState): string[] {
   const join = (parts: (string | false | undefined)[], sep = ' - ') =>
     parts.filter(Boolean).join(sep);
@@ -451,7 +460,7 @@ export function OrderFormModal({
         seatFront: editingOrder.seatFront,
         seatMiddle: editingOrder.seatMiddle,
         seatBack: editingOrder.seatBack,
-        seatCount: editingOrder.seatCount,
+        seatCount: seatCountForEdit(editingOrder),
         departureTime: editingOrder.departureTime,
         departureDate: editingOrder.departureDate,
         sellPrice: editingOrder.sellPrice,
@@ -479,7 +488,7 @@ export function OrderFormModal({
         seatFront: rebookOrder.seatFront,
         seatMiddle: rebookOrder.seatMiddle,
         seatBack: rebookOrder.seatBack,
-        seatCount: rebookOrder.seatCount,
+        seatCount: seatCountForEdit(rebookOrder),
         departureTime: rebookOrder.departureTime,
         departureDate: todayStr,
         sellPrice: rebookOrder.sellPrice,
