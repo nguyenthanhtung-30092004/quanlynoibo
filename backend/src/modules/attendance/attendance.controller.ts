@@ -12,6 +12,7 @@ import {
   Put,
   Query,
   Req,
+  StreamableFile,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiExcludeEndpoint, ApiTags } from '@nestjs/swagger';
@@ -20,6 +21,7 @@ import { CurrentUser, type JwtPayload } from '../auth/decorators/current-user.de
 import { Public } from '../auth/decorators/public.decorator.js';
 import { Roles } from '../auth/decorators/roles.decorator.js';
 import { UserRole } from '../users/entities/user.entity.js';
+import { buildAttendanceWorkbook } from './attendance-export.js';
 import { AttendanceService } from './attendance.service.js';
 import { parseHikvisionPunch } from './hikvision-event.js';
 import {
@@ -96,6 +98,17 @@ export class AttendanceController {
       message: 'Lấy bảng chấm công thành công',
       data: await this.attendanceService.month(query.month, user),
     };
+  }
+
+  /** Xuất bảng chấm công cả tháng ra Excel (chỉ Admin) */
+  @Get('export')
+  @Roles(UserRole.ADMIN)
+  async exportMonth(@Query() query: AttendanceMonthQueryDto, @CurrentUser() user: JwtPayload) {
+    const buffer = await buildAttendanceWorkbook(await this.attendanceService.month(query.month, user));
+    return new StreamableFile(buffer, {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      disposition: `attachment; filename="cham-cong-${query.month}.xlsx"`,
+    });
   }
 
   @Put('config')

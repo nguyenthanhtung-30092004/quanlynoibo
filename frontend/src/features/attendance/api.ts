@@ -1,4 +1,4 @@
-import { api, type ApiResponse } from '@/lib/api-client';
+import { api, apiDownload, type ApiResponse } from '@/lib/api-client';
 import type {
   AttendanceConfig,
   AttendanceMonth,
@@ -17,6 +17,9 @@ export const attendanceApi = {
 
   month: (month: string, signal?: AbortSignal) =>
     api<ApiResponse<AttendanceMonth>>('attendance', { query: { month }, signal }).then((r) => r.data),
+
+  /** Tải bảng chấm công cả tháng ra file Excel (chỉ Admin) */
+  exportMonth: (month: string) => apiDownload('attendance/export', { month }),
 
   saveConfig: (config: AttendanceConfig) =>
     api<ApiResponse<AttendanceConfig>>('attendance/config', { method: 'PUT', body: { config } }).then((r) => r.data),

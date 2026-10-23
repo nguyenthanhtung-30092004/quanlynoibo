@@ -1,11 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CaretLeft, CaretRight } from '@phosphor-icons/react';
+import { CaretLeft, CaretRight, DownloadSimple } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { useCurrentUser } from '@/features/auth/hooks';
+import { attendanceApi } from '@/features/attendance/api';
 import { useAttendanceMonth, useDayLog, useSetAttendanceOverride } from '@/features/attendance/hooks';
 import { durationText } from '@/features/attendance/format';
 import type { AttendanceDayCell, AttendanceStaff } from '@/features/attendance/types';
@@ -113,6 +114,26 @@ export default function AttendancePage() {
     }
   };
 
+  // Xuất bảng chấm công của tháng đang xem ra Excel
+  const [exporting, setExporting] = useState(false);
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const { blob, filename } = await attendanceApi.exportMonth(month);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      showToast('Đã xuất bảng chấm công ra file Excel.');
+    } catch (err) {
+      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không xuất được bảng chấm công.'}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const days = useMemo(() => {
     if (!data) return [];
     const [y, m] = data.month.split('-').map(Number);
@@ -133,6 +154,18 @@ export default function AttendancePage() {
     <>
       <PageTitle
         actions={
+          <div className="flex flex-wrap items-center gap-2">
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={handleExport}
+              disabled={exporting || isLoading || !data}
+              className="btn-3d btn-3d-white flex items-center gap-1.5 px-3 py-1.5 text-sm disabled:opacity-50"
+            >
+              <DownloadSimple size={16} weight="bold" />
+              {exporting ? 'Đang xuất...' : 'Xuất Excel'}
+            </button>
+          )}
           <div className="flex items-center gap-1 rounded-xl border border-slate-200 bg-white p-1 shadow-sm dark:border-slate-700 dark:bg-slate-900">
             <button
               type="button"
@@ -157,6 +190,7 @@ export default function AttendancePage() {
             >
               <CaretRight size={16} weight="bold" />
             </button>
+          </div>
           </div>
         }
       >
@@ -445,7 +479,7 @@ export default function AttendancePage() {
         </div>
         {isAdmin && (
           <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương (hoặc có thể bấm nút &ldquo;Điền công từ chấm công&rdquo; để điền lại thủ công).
+            Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương cho nhân viên chưa có công đã lưu.
           </p>
         )}
       </Card>

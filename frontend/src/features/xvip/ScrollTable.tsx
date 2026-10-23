@@ -15,12 +15,13 @@ const DESKTOP_QUERY = '(min-width: 768px)';
  * `overflow-x: clip` (không phải `auto`) và việc cuộn ngang được làm bằng cách dịch bảng theo
  * thanh kéo ở đầu bảng (cả chuột lăn ngang / Shift + lăn cũng được chuyển sang thanh đó).
  * Khung bao ngoài bảng phải dùng `overflow-clip`, đừng dùng `overflow-hidden` kẻo chặn sticky.
+ * `pinOffset`: chiều cao (px) của thanh dính khác nằm dưới header (vd thanh chọn tháng), để bảng ghim dưới thanh đó.
  *
  * Điện thoại: bảng cuộn cả hai chiều trong một khung có chiều cao tối đa bằng màn hình, và
  * tiêu đề được ghim bằng `sticky top-0` ngay trong khung đó. Trình duyệt tự ghim nên mượt,
  * không cần JS dời tiêu đề theo sự kiện scroll (cách cũ bị trễ một nhịp nên giật).
  */
-export function ScrollTable({ children }: { children: ReactNode }) {
+export function ScrollTable({ children, pinOffset = 0 }: { children: ReactNode; pinOffset?: number }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const topRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
@@ -56,7 +57,7 @@ export function ScrollTable({ children }: { children: ReactNode }) {
     const measurePins = () => {
       const pageHeader = document.querySelector('header');
       const sticky = pageHeader && getComputedStyle(pageHeader).position === 'sticky';
-      root.style.setProperty('--pin-top', `${sticky ? pageHeader.offsetHeight : 0}px`);
+      root.style.setProperty('--pin-top', `${(sticky ? pageHeader.offsetHeight : 0) + pinOffset}px`);
       root.style.setProperty('--bar-h', `${topRef.current?.offsetHeight ?? 0}px`);
     };
 
@@ -77,7 +78,7 @@ export function ScrollTable({ children }: { children: ReactNode }) {
       window.removeEventListener('resize', onResize);
       ro.disconnect();
     };
-  }, [overflowing]);
+  }, [overflowing, pinOffset]);
 
   // Máy tính: lăn chuột ngang / Shift + lăn / vuốt ngang trên bảng thì cuộn thanh ở đầu bảng
   useEffect(() => {

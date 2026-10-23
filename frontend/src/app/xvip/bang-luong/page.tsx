@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   CaretDown,
   CaretLeft,
@@ -21,6 +21,7 @@ import type { AttendanceMonth } from '@/features/attendance/types';
 import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
 import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
+import { ScrollTable } from '@/features/xvip/ScrollTable';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
@@ -47,6 +48,19 @@ export default function PayrollPage() {
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(header);
+    return () => observer.disconnect();
+  }, []);
+
+  // Thanh chọn tháng dính dưới header: bảng lương ghim tiêu đề dưới cả thanh này nên cần biết chiều cao
+  const barRef = useRef<HTMLDivElement>(null);
+  const [barHeight, setBarHeight] = useState(0);
+  useEffect(() => {
+    const bar = barRef.current;
+    if (!bar) return;
+    const measure = () => setBarHeight(bar.getBoundingClientRect().height);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
     return () => observer.disconnect();
   }, []);
 
@@ -203,41 +217,6 @@ export default function PayrollPage() {
     });
   };
 
-  /** Điền số công thực tế từ bảng chấm công của tháng (chỉ người đã có công, không ghi đè người chưa có dữ liệu) */
-  const [fillingAttendance, setFillingAttendance] = useState(false);
-  const fillFromAttendance = async () => {
-    if (!data) return;
-    setFillingAttendance(true);
-    try {
-      const att = await attendanceApi.month(month);
-      setAtt(att);
-      const congById = new Map(att.staff.map((s) => [s.id, s.totalCong]));
-      const targets = data.staff.filter((s) => (congById.get(s.id) ?? 0) > 0);
-      setAutoFilledIds((prev) => {
-        const next = new Set(prev);
-        for (const s of targets) next.add(s.id);
-        return next;
-      });
-      setEntries((prev) => {
-        const next = { ...prev };
-        for (const s of targets) {
-          next[s.id] = { ...(prev[s.id] ?? s.entry), workDays: Math.min(31, congById.get(s.id) ?? 0) };
-        }
-        return next;
-      });
-      const filled = targets.length;
-      showToast(
-        filled > 0
-          ? `Đã điền công từ chấm công cho ${filled} nhân viên. Bấm Lưu bảng lương để giữ lại.`
-          : 'Tháng này chưa có công nào từ chấm công để điền.',
-      );
-    } catch (err) {
-      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không lấy được dữ liệu chấm công.'}`);
-    } finally {
-      setFillingAttendance(false);
-    }
-  };
-
   /** Sau khi Admin đổi ca trong form chi tiết: tải lại chấm công để tính lại tăng ca / vào muộn */
   const reloadAttendance = async () => {
     setAtt(await attendanceApi.month(month));
@@ -249,6 +228,7 @@ export default function PayrollPage() {
     <>
       {/* Thanh chọn tháng + nút lưu dính ngay dưới header, cuộn xuống vẫn thấy */}
       <div
+        ref={barRef}
         className="sticky z-10 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90 sm:-mx-6 sm:px-6"
         style={{ top: headerHeight }}
       >
@@ -338,18 +318,10 @@ export default function PayrollPage() {
 
       {/* Bảng lương */}
       <Card
-        className="mt-5 !p-0 overflow-hidden"
+        className="mt-5 !p-0 overflow-clip"
         title={`Bảng lương ${monthLabel(month).toLowerCase()}`}
         action={
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={fillFromAttendance}
-              disabled={fillingAttendance || !data}
-              className="btn-3d btn-3d-white px-3 py-1 text-xs disabled:opacity-50"
-            >
-              {fillingAttendance ? 'Đang lấy...' : 'Điền công từ chấm công'}
-            </button>
             {missingDays > 0 && (
               <button type="button" onClick={fillFullDays} className="btn-3d btn-3d-white px-3 py-1 text-xs">
                 Điền đủ {std} công cho {missingDays} người chưa nhập
@@ -358,7 +330,7 @@ export default function PayrollPage() {
           </div>
         }
       >
-        <div className="overflow-x-auto">
+        <ScrollTable pinOffset={barHeight}>
           <table className="w-full">
             <thead>
               <tr>
@@ -367,7 +339,7 @@ export default function PayrollPage() {
                 <th className={TH}>Bậc</th>
                 <th className={`${TH} text-right`}>Công thực tế</th>
                 <th className={`${TH} text-right`}>
-                  Doanh số (hoa hồng)
+                  Doanh số
                   <span className="block text-[10px] font-normal normal-case text-slate-400">Theo ngày vào sổ</span>
                 </th>
                 <th className={`${TH} text-right`}>Lương cứng</th>
@@ -581,7 +553,7 @@ export default function PayrollPage() {
               </tfoot>
             )}
           </table>
-        </div>
+        </ScrollTable>
       </Card>
 
       {detailRow && config && (
