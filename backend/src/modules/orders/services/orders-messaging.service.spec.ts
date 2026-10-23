@@ -1,6 +1,6 @@
 import { BadGatewayException } from '@nestjs/common';
 import { describe, expect, it, vi } from 'vitest';
-import { MessageChannel } from '../messaging/message.types.js';
+import { MessageChannel, PaymentRequiredException } from '../messaging/message.types.js';
 import { OrdersMessagingService } from './orders-messaging.service.js';
 
 const actor = { sub: 1, username: 'admin', role: 'ADMIN' } as never;
@@ -72,6 +72,14 @@ describe('OrdersMessagingService.sendMessage - Zalo lỗi thì tự gửi SMS', 
       .mockRejectedValueOnce(new BadGatewayException('SMS hỏng'));
     const { service, update } = build(send);
     await expect(service.sendMessage(7, MessageChannel.ZALO, actor)).rejects.toThrow(/Zalo hỏng.*SMS hỏng/);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('Zalo hết tiền thì báo hết tiền, không chuyển sang SMS', async () => {
+    const send = vi.fn().mockRejectedValue(new PaymentRequiredException('Tài khoản Zalo ZNS đã hết tiền'));
+    const { service, update } = build(send);
+    await expect(service.sendMessage(7, MessageChannel.ZALO, actor)).rejects.toThrow('hết tiền');
+    expect(send).toHaveBeenCalledTimes(1);
     expect(update).not.toHaveBeenCalled();
   });
 

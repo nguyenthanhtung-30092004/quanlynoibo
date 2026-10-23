@@ -1,11 +1,16 @@
-import { BadGatewayException, BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadGatewayException,
+  BadRequestException,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { User } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import { OrderHistory } from '../entities/order-history.entity.js';
-import { MessageChannel } from '../messaging/message.types.js';
+import { MessageChannel, PaymentRequiredException } from '../messaging/message.types.js';
 import { MessagingService } from '../messaging/messaging.service.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 import { toOrderView } from '../mappers/order.mapper.js';
@@ -63,6 +68,7 @@ export class OrdersMessagingService {
    *
    * Chọn Zalo mà Zalo không gửi được (khách không có Zalo, token hết hạn, lỗi mạng,
    * chưa cấu hình...) thì tự gửi SMS thay thế; `fallbackReason` là lý do Zalo thất bại.
+   * Riêng lỗi hết tiền (PaymentRequiredException) thì báo lỗi, không chuyển SMS.
    */
   async sendMessage(id: number, channel: MessageChannel, actor: JwtPayload) {
     const order = await this.queryService.findEntity(id, actor);
@@ -97,7 +103,8 @@ export class OrdersMessagingService {
     try {
       sent = await this.messaging.send(channel, message);
     } catch (err) {
-      if (channel !== MessageChannel.ZALO) throw err;
+      // Hết tiền thì báo luôn, không tự đổi sang kênh khác
+      if (channel !== MessageChannel.ZALO || err instanceof PaymentRequiredException) throw err;
       fallbackReason = errorText(err);
       this.logger.warn(`Đơn #${order.id}: Zalo không gửi được (${fallbackReason}), chuyển sang SMS.`);
       try {

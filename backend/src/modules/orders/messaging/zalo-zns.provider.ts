@@ -2,6 +2,7 @@ import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   MessageChannel,
+  PaymentRequiredException,
   toInternationalPhone,
   type MessageProvider,
   type OutgoingMessage,
@@ -29,6 +30,10 @@ const DEFAULT_PARAMS =
 
 /** Mỗi tham số của mẫu ZNS tối đa 30 ký tự và không được để trống */
 const MAX_PARAM_LENGTH = 30;
+
+/** Zalo báo tài khoản ZBA không đủ số dư (mã -119) */
+const OUT_OF_FUNDS_CODE = -119;
+const OUT_OF_FUNDS_TEXT = /balance|số dư|không đủ tiền|hết tiền/i;
 
 const ERROR_HINT: Record<number, string> = {
   [-124]: 'access token không hợp lệ hoặc đã hết hạn',
@@ -107,6 +112,11 @@ export class ZaloZnsProvider implements MessageProvider {
 
     if (!res.ok || json?.error !== 0) {
       const code = json?.error;
+      if (code === OUT_OF_FUNDS_CODE || (json?.message && OUT_OF_FUNDS_TEXT.test(json.message))) {
+        throw new PaymentRequiredException(
+          'Tài khoản Zalo ZNS đã hết tiền, vui lòng nạp thêm rồi gửi lại (hệ thống không tự chuyển sang SMS).',
+        );
+      }
       const reason = (code !== undefined && ERROR_HINT[code]) || json?.message;
       throw new BadGatewayException(
         `Gửi Zalo thất bại (mã ${code ?? res.status})${reason ? `: ${reason}` : ''}.`,

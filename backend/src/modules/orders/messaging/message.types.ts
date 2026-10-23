@@ -1,4 +1,13 @@
 /** Kênh gửi tin cho khách */
+import { HttpException, HttpStatus } from '@nestjs/common';
+
+/** Nhà cung cấp báo hết tiền: phải báo người dùng nạp thêm, không được tự đổi kênh gửi */
+export class PaymentRequiredException extends HttpException {
+  constructor(message: string) {
+    super(message, HttpStatus.PAYMENT_REQUIRED);
+  }
+}
+
 export enum MessageChannel {
   SMS = 'SMS',
   ZALO = 'ZALO',
