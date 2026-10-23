@@ -7,6 +7,7 @@ import { Partner } from '../../partners/entities/partner.entity.js';
 import { UserRole } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import type { KpiQueryDto } from '../dto/query-orders.dto.js';
+import { MessageChannel } from '../messaging/message.types.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula, ticketsOf } from '../mappers/order.mapper.js';
@@ -114,6 +115,7 @@ export class OrdersReportService {
       'order.collectOnDelivery',
       'order.commission',
       'order.smsSent',
+      'order.messageChannel',
       'staff.id',
       'staff.fullName',
     ]);
@@ -157,6 +159,9 @@ export class OrdersReportService {
       total: list.length,
       seats: sum(list, (o) => ticketsOf(o)),
       smsSent: list.filter((o) => o.smsSent).length,
+      // Đơn gửi trước khi có cột kênh (messageChannel null) đều là SMS
+      zaloSent: list.filter((o) => o.smsSent && o.messageChannel === MessageChannel.ZALO).length,
+      smsOnlySent: list.filter((o) => o.smsSent && o.messageChannel !== MessageChannel.ZALO).length,
       revenue: sum(list, (o) => o.sellPrice),
       cost: sum(list, (o) => o.costPrice),
       deposit: sum(list, (o) => o.deposit),
@@ -165,7 +170,7 @@ export class OrdersReportService {
     });
 
     const result: Partial<ReturnType<typeof summarize>> &
-      Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent'> & {
+      Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent' | 'zaloSent' | 'smsOnlySent'> & {
         date: string;
         leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;

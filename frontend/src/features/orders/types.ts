@@ -234,6 +234,9 @@ export interface KpiSummary {
   total: number;
   seats: number;
   smsSent: number;
+  /** Trong số tin đã gửi: gửi qua Zalo / gửi qua SMS */
+  zaloSent: number;
+  smsOnlySent: number;
   /** Chỉ Admin nhận được (server không trả cho nhân viên) */
   revenue?: number;
   cost?: number;

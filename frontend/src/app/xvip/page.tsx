@@ -7,6 +7,7 @@ import { DashboardOrdersModal } from '@/features/orders/components/DashboardOrde
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { useRoutes } from '@/features/routes/hooks';
 import { useActiveStaff, useUsers } from '@/features/users/hooks';
+import { Modal } from '@/features/xvip/Modal';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
 import { PartnerChart } from '@/features/xvip/partner-chart';
@@ -18,6 +19,20 @@ const ROUTE_PALETTE = [
   '#3b82f6', '#22c55e', '#eab308', '#a855f7',
 ];
 
+
+function MessageStat({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'blue' | 'cyan' }) {
+  const colors = {
+    slate: 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white',
+    blue: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
+    cyan: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300',
+  }[tone];
+  return (
+    <div className={`rounded-xl px-2 py-4 ${colors}`}>
+      <div className="tnum text-3xl font-black leading-none">{value.toLocaleString('vi-VN')}</div>
+      <div className="mt-1.5 text-xs font-bold uppercase tracking-wide">{label}</div>
+    </div>
+  );
+}
 
 /** Chỉ Admin xem tổng quan; nhân viên được chuyển sang trang Quản lý vé */
 export default function OverviewPage() {
@@ -41,6 +56,7 @@ function OverviewContent() {
   const [selected, setSelected] = useState<
     { kind: 'route'; ids: number[]; name: string } | { kind: 'staff'; id: number; name: string } | null
   >(null);
+  const [showMessages, setShowMessages] = useState(false);
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, dates);
   const { data: ordersData } = useOrders({
     search: '',
@@ -67,6 +83,8 @@ function OverviewContent() {
   const totalTickets = kpiData?.seats ?? 0;
   const totalCommission = kpiData?.commission ?? orders.reduce((sum, o) => sum + (o.commission || 0), 0);
   const smsSentCount = kpiData?.smsSent ?? orders.filter((o) => o.smsSent).length;
+  const zaloSentCount = kpiData?.zaloSent ?? orders.filter((o) => o.smsSent && o.messageChannel === 'ZALO').length;
+  const smsOnlyCount = kpiData?.smsOnlySent ?? smsSentCount - zaloSentCount;
 
   const STATS = [
     {
@@ -86,9 +104,10 @@ function OverviewContent() {
     {
       label: 'Tin SMS đã gửi',
       value: `${smsSentCount} tin`,
-      note: 'Xác nhận tới khách',
+      note: 'Bấm để xem chi tiết Zalo / SMS',
       color: 'from-cyan-600 to-cyan-700',
       borderBottom: '#0e7490',
+      onClick: () => setShowMessages(true),
     },
   ];
 
@@ -219,9 +238,13 @@ function OverviewContent() {
 
       {/* 4 Thẻ chỉ số 3D kết nối API thật */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {STATS.map(({ label, value, note, color, borderBottom }) => (
+        {STATS.map(({ label, value, note, color, borderBottom, onClick }) => (
           <div
             key={label}
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
             style={{
               boxShadow: `inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 ${borderBottom}, 0 12px 24px -4px rgba(15,23,42,0.18)`,
             }}
@@ -339,6 +362,19 @@ function OverviewContent() {
           )}
         </Card>
       </div>
+
+      {showMessages && (
+        <Modal title="Tin nhắn đã gửi cho khách" onClose={() => setShowMessages(false)}>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <MessageStat label="Tổng" value={smsSentCount} tone="slate" />
+            <MessageStat label="Zalo" value={zaloSentCount} tone="blue" />
+            <MessageStat label="SMS" value={smsOnlyCount} tone="cyan" />
+          </div>
+          <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+            Tính theo khoảng ngày đang lọc, không gồm vé đã hủy. Mỗi vé tính một tin, kênh là kênh đã gửi thành công.
+          </p>
+        </Modal>
+      )}
 
       {selected && (
         <DashboardOrdersModal
