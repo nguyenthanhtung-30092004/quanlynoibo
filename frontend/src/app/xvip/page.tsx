@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCurrentUser } from '@/features/auth/hooks';
+import { DashboardOrdersModal } from '@/features/orders/components/DashboardOrdersModal';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { useRoutes } from '@/features/routes/hooks';
 import { useActiveStaff, useUsers } from '@/features/users/hooks';
@@ -36,6 +37,10 @@ function OverviewContent() {
   // Lọc theo ngày đi hoặc ngày tạo vé, chọn ở nút ngày trên header
   const { range, basis } = useDateFilter();
   const dates = rangeParams(range, basis);
+  // Đang mở danh sách vé của một tuyến hoặc một nhân viên
+  const [selected, setSelected] = useState<
+    { kind: 'route'; ids: number[]; name: string } | { kind: 'staff'; id: number; name: string } | null
+  >(null);
   const { data: kpiData, isLoading: kpiLoading } = useKpi(undefined, dates);
   const { data: ordersData } = useOrders({
     search: '',
@@ -99,7 +104,17 @@ function OverviewContent() {
     const nameById = new Map(routes.map((r) => [r.id, r.name]));
     const groups = new Map<
       string,
-      { id: number; name: string; orders: number; count: number; revenue: number; commission: number; topSeats: number }
+      {
+        id: number;
+        /** Id của mọi chiều thuộc tuyến này, dùng để lọc danh sách vé */
+        ids: number[];
+        name: string;
+        orders: number;
+        count: number;
+        revenue: number;
+        commission: number;
+        topSeats: number;
+      }
     >();
     for (const r of kpiData?.byRoute ?? []) {
       if (r.total <= 0) continue;
@@ -109,9 +124,10 @@ function OverviewContent() {
       const key = [forward, [...parts].reverse().join('|')].sort()[0];
       const cur = groups.get(key);
       if (!cur) {
-        groups.set(key, { id: r.routeId, name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, topSeats: r.seats });
+        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, topSeats: r.seats });
         continue;
       }
+      cur.ids.push(r.routeId);
       cur.orders += r.total;
       cur.count += r.seats;
       cur.revenue += r.revenue ?? 0;
@@ -264,7 +280,12 @@ function OverviewContent() {
               <ul className="w-full space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {routeStats.map((r) => (
                   <li key={r.id}>
-                    <div className="flex items-start gap-2.5 rounded-lg p-1">
+                    <button
+                      type="button"
+                      onClick={() => setSelected({ kind: 'route', ids: r.ids, name: r.name })}
+                      title="Bấm để xem toàn bộ vé của tuyến này"
+                      className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                    >
                       <span className="mt-0.5 size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
                       <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:justify-between sm:gap-3">
                         <div className="break-words">{r.name}</div>
@@ -272,7 +293,7 @@ function OverviewContent() {
                           {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
                         </div>
                       </div>
-                    </div>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -289,9 +310,12 @@ function OverviewContent() {
           ) : (
             <ol className="space-y-3 pt-1">
               {staffPodium.map((s, i) => (
-                <li
-                  key={s.staffId || s.fullName}
-                  className="flex items-center gap-3 text-sm rounded-lg p-1.5 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
+                <li key={s.staffId || s.fullName}>
+                <button
+                  type="button"
+                  onClick={() => s.staffId && setSelected({ kind: 'staff', id: s.staffId, name: s.fullName })}
+                  title="Bấm để xem toàn bộ vé của nhân viên này"
+                  className="flex w-full cursor-pointer items-center gap-3 text-sm rounded-lg p-1.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                 >
                   <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-black text-slate-600 dark:text-slate-300 shadow-sm border border-slate-200 dark:border-slate-700">
                     {i + 1}
@@ -308,12 +332,32 @@ function OverviewContent() {
                       </span>
                     </div>
                   </div>
+                </button>
                 </li>
               ))}
             </ol>
           )}
         </Card>
       </div>
+
+      {selected && (
+        <DashboardOrdersModal
+          title={
+            selected.kind === 'route' ? `Vé tuyến ${selected.name}` : `Vé của nhân viên ${selected.name}`
+          }
+          filters={{
+            staffId: selected.kind === 'staff' ? selected.id : 'all',
+            routeId: 'all',
+            routeIds: selected.kind === 'route' ? selected.ids : undefined,
+            dateFrom: null,
+            dateTo: null,
+            ...dates,
+          }}
+          showRoute={selected.kind === 'staff'}
+          showStaff={selected.kind === 'route'}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </>
   );
 }
