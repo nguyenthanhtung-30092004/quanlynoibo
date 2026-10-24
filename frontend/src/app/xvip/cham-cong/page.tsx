@@ -23,6 +23,17 @@ const hm = (minutes: number) => {
 
 const congText = (n: number) => (n === 0.5 ? '½' : String(n));
 
+/** So sánh theo tên (từ cuối của họ tên), trùng tên thì so cả họ tên */
+const byName = (a: string, b: string) => {
+  const given = (s: string) => s.trim().split(/\s+/).pop() ?? '';
+  return given(a).localeCompare(given(b), 'vi') || a.localeCompare(b, 'vi');
+};
+
+/** Người đang làm lên đầu, còn lại xếp theo tên */
+function sortWorkingFirst<T>(list: T[], isWorking: (item: T) => boolean, nameOf: (item: T) => string): T[] {
+  return [...list].sort((a, b) => Number(isWorking(b)) - Number(isWorking(a)) || byName(nameOf(a), nameOf(b)));
+}
+
 /** Mô tả một ô công: vào / ra lúc nào, ca nào, số phút được tính, muộn hay sớm */
 function cellSummary(cell: AttendanceDayCell): string {
   if (cell.status === 'auto_out') {
@@ -83,7 +94,18 @@ export default function AttendancePage() {
   const [month, setMonth] = useState(() => getVnToday().slice(0, 7));
   const { data, isLoading, isError, error, refetch } = useAttendanceMonth(month);
   const { data: dayLog } = useDayLog();
-  const staffToday = dayLog?.staff ?? [];
+  const staffToday = useMemo(
+    () => sortWorkingFirst(dayLog?.staff ?? [], (s) => s.status === 'working', (s) => s.fullName),
+    [dayLog],
+  );
+  const workingIds = useMemo(
+    () => new Set(staffToday.filter((s) => s.status === 'working').map((s) => s.userId)),
+    [staffToday],
+  );
+  const monthStaff = useMemo(
+    () => sortWorkingFirst(data?.staff ?? [], (s) => workingIds.has(s.id), (s) => s.fullName),
+    [data, workingIds],
+  );
   const workingCount = staffToday.filter((s) => s.status === 'working').length;
   const doneCount = staffToday.filter((s) => s.status === 'done').length;
   const setOverride = useSetAttendanceOverride();
@@ -223,11 +245,11 @@ export default function AttendancePage() {
           </div>
         }
       >
-        {!dayLog || dayLog.staff.length === 0 ? (
+        {staffToday.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có nhân viên nào.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {dayLog.staff.map((u) => {
+            {staffToday.map((u) => {
               const dot =
                 u.status === 'working'
                   ? 'bg-emerald-500'
@@ -423,7 +445,7 @@ export default function AttendancePage() {
                   </td>
                 </tr>
               ) : (
-                data.staff.map((s) => (
+                monthStaff.map((s) => (
                   <tr key={s.id} className="border-t border-slate-200 dark:border-slate-700">
                     <td className="sticky left-0 z-10 bg-white px-4 py-2 text-left dark:bg-[#111d35]">
                       <div className="flex items-center gap-2.5">
