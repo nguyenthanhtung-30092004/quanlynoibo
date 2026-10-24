@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef, useState } from 'react';
 import {
   MagnifyingGlass,
   X,
@@ -51,6 +52,17 @@ export function OrdersFiltersBar({
   onUpdateFilters,
   onResetColumnFilters,
 }: OrdersFiltersBarProps) {
+  // Ô tìm kiếm mặc định hiện bàn phím số (gõ SĐT); bấm nút ABC để gõ mã đơn (XV116)
+  const [textKeys, setTextKeys] = useState(false);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const toggleKeys = () => {
+    setTextKeys((v) => !v);
+    // Blur rồi focus lại để trình duyệt đổi bàn phím ngay
+    const el = searchRef.current;
+    el?.blur();
+    requestAnimationFrame(() => el?.focus());
+  };
+
   // Thanh chip bộ lọc cột đang bật
   const renderChips = () => {
     if (searching) {
@@ -237,11 +249,21 @@ export function OrdersFiltersBar({
               aria-hidden
             />
             <input
-              className="input-3d pl-9"
+              ref={searchRef}
+              className="input-3d pl-9 pr-14"
+              inputMode={textKeys ? 'text' : 'tel'}
               value={filters.search}
               onChange={(e) => onUpdateFilters({ search: e.target.value })}
               placeholder="Số điện thoại hoặc mã đơn (XV116)..."
             />
+            <button
+              type="button"
+              onClick={toggleKeys}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300"
+              aria-label={textKeys ? 'Chuyển sang bàn phím số' : 'Chuyển sang bàn phím chữ'}
+            >
+              {textKeys ? '123' : 'ABC'}
+            </button>
           </span>
         </label>
 

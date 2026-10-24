@@ -55,7 +55,7 @@ export function PartnerChart({
         </span>
       </div>
 
-      <ol className="max-h-80 space-y-0.5 overflow-y-auto pr-1 lg:max-h-none lg:overflow-visible" aria-label="Hoa hồng và số vé theo đối tác">
+      <ol className="space-y-0.5" aria-label="Hoa hồng và số vé theo đối tác">
         {data.map((d, idx) => {
           const pct = (d.commission / maxCommission) * 100;
           return (
