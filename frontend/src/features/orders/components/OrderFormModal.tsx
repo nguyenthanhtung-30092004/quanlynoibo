@@ -716,6 +716,8 @@ export function OrderFormModal({
     }
     if (!formState.partner.trim()) {
       errors.partner = 'Vui lòng chọn đối tác.';
+    } else if (!partnerSuggestions.includes(formState.partner)) {
+      errors.partner = 'Đối tác phải chọn từ danh sách có sẵn.';
     }
     if (!formState.vehicleType.trim()) {
       errors.vehicleType = 'Vui lòng chọn loại hình.';
@@ -976,7 +978,6 @@ export function OrderFormModal({
                       setFormErrors((er) => ({ ...er, partner: undefined }));
                     }}
                     maxLength={100}
-                    allowFree
                   />
                 </Field>
 

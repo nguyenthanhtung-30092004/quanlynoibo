@@ -136,6 +136,15 @@ export default function AttendancePage() {
     }
   };
 
+  // Chi tiết cả ngày: bấm vào tiêu đề cột ngày để xem mọi nhân viên vào/ra ca nào, muộn hay không
+  const [dayDetail, setDayDetail] = useState<string | null>(null);
+  const dayRows = useMemo(() => {
+    if (!dayDetail) return [];
+    return monthStaff
+      .map((s) => ({ staff: s, cell: s.days[dayDetail] as AttendanceDayCell | undefined }))
+      .sort((a, b) => Number(!!b.cell?.firstAt) - Number(!!a.cell?.firstAt));
+  }, [dayDetail, monthStaff]);
+
   // Xuất bảng chấm công của tháng đang xem ra Excel
   const [exporting, setExporting] = useState(false);
   const handleExport = async () => {
@@ -422,8 +431,15 @@ export default function AttendancePage() {
                         : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                     } ${d.key === today ? 'underline decoration-blue-500 decoration-2 underline-offset-2' : ''}`}
                   >
-                    <div>{d.d}</div>
-                    <div className="font-medium opacity-70">{WEEKDAY[d.weekday]}</div>
+                    <button
+                      type="button"
+                      onClick={() => setDayDetail(d.key)}
+                      title="Bấm để xem chi tiết cả ngày"
+                      className="w-full cursor-pointer rounded-md py-0.5 hover:bg-blue-100 dark:hover:bg-blue-950/50"
+                    >
+                      <div>{d.d}</div>
+                      <div className="font-medium opacity-70">{WEEKDAY[d.weekday]}</div>
+                    </button>
                   </th>
                 ))}
                 <th className="min-w-20 border-l-2 border-slate-300 bg-emerald-50 px-3 py-2 text-xs font-black uppercase text-emerald-800 dark:border-slate-600 dark:bg-emerald-950/30 dark:text-emerald-300">
@@ -505,6 +521,54 @@ export default function AttendancePage() {
           </p>
         )}
       </Card>
+
+      {dayDetail && (
+        <Modal
+          title={`Chấm công ngày ${Number(dayDetail.slice(8))}/${dayDetail.slice(5, 7)}/${dayDetail.slice(0, 4)}`}
+          onClose={() => setDayDetail(null)}
+        >
+          <div className="max-h-[70vh] space-y-2 overflow-y-auto">
+            {dayRows.map(({ staff, cell }) => {
+              const late = cell ? lateText(cell.lateMinutes, cell.earlyLeaveMinutes) : '';
+              const hasPunch = !!cell?.firstAt;
+              return (
+                <div
+                  key={staff.id}
+                  className={`rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40 ${
+                    hasPunch ? '' : 'opacity-60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Avatar name={staff.fullName} />
+                      <span className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
+                        {staff.fullName}
+                      </span>
+                    </div>
+                    {cell && cell.cong > 0 && (
+                      <span className="shrink-0 text-xs font-black text-blue-600 dark:text-blue-400">
+                        {congText(cell.cong)} công
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-1.5 text-xs text-slate-600 dark:text-slate-300">
+                    {cell ? cellSummary(cell) : 'Không có dữ liệu chấm công.'}
+                  </div>
+                  {hasPunch && cell && cell.shift && (
+                    <div
+                      className={`mt-1 text-xs font-bold ${
+                        late ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}
+                    >
+                      {late || 'Đúng giờ, không đi muộn'}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </Modal>
+      )}
 
       {isAdmin && editing && data && (
         <Modal
