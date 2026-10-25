@@ -1,4 +1,72 @@
-import { DEFAULT_LEAVE_CONFIG, isLateWeek, isRealDay, limitForDay, sanitizeLeaveConfig, weekdayOf } from './leave.logic.js';
+import {
+  DEFAULT_LEAVE_CONFIG,
+  findAutoUrgentAbsences,
+  isLateWeek,
+  isRealDay,
+  limitForDay,
+  sanitizeLeaveConfig,
+  weekdayOf,
+} from './leave.logic.js';
+
+describe('findAutoUrgentAbsences', () => {
+  const staff = [
+    { id: 1, fullName: 'An', since: '2026-01-01' },
+    { id: 2, fullName: 'Bình', since: '2026-01-01' },
+    { id: 3, fullName: 'Cường', since: '2026-10-20' },
+  ];
+  const set = (...ids: number[]) => new Set(ids);
+  const run = (over: Partial<Parameters<typeof findAutoUrgentAbsences>[0]> = {}) =>
+    findAutoUrgentAbsences({
+      days: ['2026-10-18', '2026-10-21', '2026-10-24'],
+      today: '2026-10-25',
+      staff,
+      punched: new Map([
+        ['2026-10-18', set(1, 2)],
+        ['2026-10-21', set(1)],
+        ['2026-10-24', set(1, 2, 3)],
+      ]),
+      registered: new Map(),
+      ...over,
+    });
+
+  it('không quẹt và chưa đăng ký nghỉ thì tính nghỉ đột xuất', () => {
+    expect(run().get('2026-10-21')).toContainEqual({ userId: 2, fullName: 'Bình' });
+  });
+
+  it('ngày ai cũng đi làm thì không có ai nghỉ', () => {
+    expect(run().has('2026-10-24')).toBe(false);
+  });
+
+  it('đã đăng ký nghỉ trước thì không tính nghỉ đột xuất', () => {
+    const result = run({ registered: new Map([['2026-10-21', set(2)]]) });
+    expect(result.get('2026-10-21')).not.toContainEqual({ userId: 2, fullName: 'Bình' });
+  });
+
+  it('chưa có tài khoản vào ngày đó thì không tính nghỉ', () => {
+    // Cường tạo tài khoản 20/10, nên 18/10 không bị tính dù không quẹt; 21/10 thì có
+    expect(run().get('2026-10-18')).toBeUndefined();
+    expect(run().get('2026-10-21')).toEqual([
+      { userId: 2, fullName: 'Bình' },
+      { userId: 3, fullName: 'Cường' },
+    ]);
+  });
+
+  it('ngày không ai quẹt (cả tiệm nghỉ) thì bỏ qua', () => {
+    const result = run({ punched: new Map([['2026-10-18', set(1, 2)]]) });
+    expect(result.has('2026-10-21')).toBe(false);
+  });
+
+  it('hôm nay và tương lai chưa xét', () => {
+    const result = run({
+      days: ['2026-10-25', '2026-10-26'],
+      punched: new Map([
+        ['2026-10-25', set(1)],
+        ['2026-10-26', set(1)],
+      ]),
+    });
+    expect(result.size).toBe(0);
+  });
+});
 
 describe('leave.logic', () => {
   it('xác định thứ trong tuần', () => {

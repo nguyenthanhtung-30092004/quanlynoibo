@@ -6,11 +6,14 @@ export interface LeaveConfig {
 }
 
 export interface LeavePerson {
-  requestId: number;
+  /** null với người hệ thống tự ghi nhận nghỉ đột xuất (không có lượt đăng ký để hủy) */
+  requestId: number | null;
   userId: number;
   fullName: string;
-  /** Nghỉ đột xuất: Admin đăng ký hộ cho nhân viên báo nghỉ ngay trong ngày */
+  /** Nghỉ đột xuất: Admin đăng ký hộ cho nhân viên báo nghỉ ngay trong ngày, hoặc hệ thống tự ghi nhận */
   urgent: boolean;
+  /** Không quẹt máy chấm công và chưa đăng ký nghỉ nên hệ thống tự ghi nhận nghỉ đột xuất */
+  auto: boolean;
 }
 
 export interface LeaveDay {

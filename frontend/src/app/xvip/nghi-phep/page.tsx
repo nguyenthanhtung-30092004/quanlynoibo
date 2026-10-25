@@ -488,7 +488,8 @@ function StaffDayPanel({
   const [confirmOver, setConfirmOver] = useState(false);
   const full = day.count >= day.limit;
   const myRequest = day.mine ? day.people.find((p) => p.userId === meId) : undefined;
-  const canCancel = !!myRequest && day.day > today;
+  const myRequestId = myRequest?.requestId ?? null;
+  const canCancel = myRequestId !== null && day.day > today;
   const wouldExceed = myDays >= quota;
   let note: string | null = null;
   if (day.mine) note = canCancel ? 'Bạn đã đăng ký nghỉ ngày này.' : 'Bạn đã đăng ký nghỉ ngày này (ngày đã tới nên không hủy được).';
@@ -508,7 +509,7 @@ function StaffDayPanel({
         ) : (
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
             {day.people.map((p) => (
-              <li key={p.requestId} className="flex items-center gap-3 px-3 py-2">
+              <li key={p.requestId ?? `auto-${p.userId}`} className="flex items-center gap-3 px-3 py-2">
                 <Avatar name={p.fullName} />
                 <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
                   {p.fullName}
@@ -529,11 +530,11 @@ function StaffDayPanel({
         </div>
       )}
       <div className="flex justify-end gap-2">
-        {canCancel && myRequest && (
+        {canCancel && myRequestId !== null && (
           <button
             type="button"
             disabled={busy}
-            onClick={() => onCancel(myRequest.requestId)}
+            onClick={() => onCancel(myRequestId)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
           >
             <Trash size={15} weight="bold" />
@@ -612,31 +613,41 @@ function AdminDayPanel({
           <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
         ) : (
           <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-            {people.map((p) => (
-              <li key={p.requestId} className="flex items-center gap-3 px-3 py-2">
-                <Avatar name={p.fullName} />
-                <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
-                  {p.fullName}
-                </span>
-                {p.urgent && <UrgentBadge />}
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => {
-                    if (confirmId === p.requestId) {
-                      setConfirmId(null);
-                      onCancel(p.requestId);
-                    } else {
-                      setConfirmId(p.requestId);
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-                >
-                  <Trash size={14} weight="bold" />
-                  {confirmId === p.requestId ? 'Bấm lần nữa để hủy' : 'Hủy'}
-                </button>
-              </li>
-            ))}
+            {people.map((p) => {
+              const requestId = p.requestId;
+              return (
+                <li key={requestId ?? `auto-${p.userId}`} className="flex items-center gap-3 px-3 py-2">
+                  <Avatar name={p.fullName} />
+                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
+                    {p.fullName}
+                    {p.auto && (
+                      <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        Không quẹt máy chấm công, hệ thống tự ghi nhận
+                      </span>
+                    )}
+                  </span>
+                  {p.urgent && <UrgentBadge />}
+                  {requestId !== null && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        if (confirmId === requestId) {
+                          setConfirmId(null);
+                          onCancel(requestId);
+                        } else {
+                          setConfirmId(requestId);
+                        }
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+                    >
+                      <Trash size={14} weight="bold" />
+                      {confirmId === requestId ? 'Bấm lần nữa để hủy' : 'Hủy'}
+                    </button>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </div>

@@ -10,6 +10,7 @@ import { LeaveDayLimit } from './entities/leave-day-limit.entity.js';
 import { LeaveRequest } from './entities/leave-request.entity.js';
 import {
   DEFAULT_LEAVE_CONFIG,
+  findAutoUrgentAbsences,
   isRealDay,
   limitForDay,
   sanitizeLeaveConfig,
@@ -32,7 +33,15 @@ export interface LeaveDay {
   /** Người đang xem đã đăng ký nghỉ ngày này */
   mine: boolean;
   /** Ai đã đăng ký nghỉ ngày này (mọi người dùng đều xem được, chỉ Admin mới hủy được) */
-  people: Array<{ requestId: number; userId: number; fullName: string; urgent: boolean }>;
+  people: Array<{
+    /** null với người được hệ thống tự ghi nhận nghỉ đột xuất (không có lượt đăng ký để hủy) */
+    requestId: number | null;
+    userId: number;
+    fullName: string;
+    urgent: boolean;
+    /** Không quẹt máy chấm công và chưa đăng ký nghỉ nên hệ thống tự ghi nhận nghỉ đột xuất */
+    auto: boolean;
+  }>;
 }
 
 const addDays = (day: string, delta: number): string => {
@@ -93,6 +102,9 @@ export class LeaveService {
     const byDay = new Map<string, LeaveRequest[]>();
     for (const r of rows) byDay.set(r.day, [...(byDay.get(r.day) ?? []), r]);
 
+    const today = vietnamClock().day;
+    const autoUrgent = await this.autoUrgentAbsences(daysInMonth, today, byDay);
+
     const days: LeaveDay[] = daysInMonth.map((day) => {
       const list = byDay.get(day) ?? [];
       const override = overrideByDay.get(day);
@@ -102,16 +114,64 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
-        people: list.map((r) => ({
-          requestId: r.id,
-          userId: r.userId,
-          fullName: r.user?.fullName ?? '',
-          urgent: r.urgent,
-        })),
+        people: [
+          ...list.map((r) => ({
+            requestId: r.id,
+            userId: r.userId,
+            fullName: r.user?.fullName ?? '',
+            urgent: r.urgent,
+            auto: false,
+          })),
+          ...(autoUrgent.get(day) ?? []).map((a) => ({
+            requestId: null,
+            userId: a.userId,
+            fullName: a.fullName,
+            urgent: true,
+            auto: true,
+          })),
+        ],
       };
     });
 
-    return { month, today: vietnamClock().day, config, quota: MONTHLY_LEAVE_QUOTA, days };
+    return { month, today, config, quota: MONTHLY_LEAVE_QUOTA, days };
+  }
+
+  /**
+   * Ngày đã qua mà nhân viên không quẹt lần nào và chưa đăng ký nghỉ thì tính là nghỉ đột xuất (xem `findAutoUrgentAbsences`),
+   * khỏi phải Admin ghi tay.
+   */
+  private async autoUrgentAbsences(
+    daysInMonth: string[],
+    today: string,
+    registeredByDay: Map<string, LeaveRequest[]>,
+  ) {
+    const pastDays = daysInMonth.filter((d) => d < today);
+    if (pastDays.length === 0) return new Map<string, Array<{ userId: number; fullName: string }>>();
+
+    const [staff, punchRows] = await Promise.all([
+      this.dataSource.getRepository(User).find({
+        where: { role: UserRole.STAFF, isActive: true },
+        select: { id: true, fullName: true, createdAt: true },
+      }),
+      this.dataSource.query(
+        `SELECT DISTINCT to_char("day", 'YYYY-MM-DD') AS "day", "userId"
+           FROM "attendance_punches" WHERE "day" >= $1 AND "day" <= $2`,
+        [pastDays[0], pastDays[pastDays.length - 1]],
+      ) as Promise<Array<{ day: string; userId: number }>>,
+    ]);
+
+    const punched = new Map<string, Set<number>>();
+    for (const p of punchRows) punched.set(p.day, (punched.get(p.day) ?? new Set()).add(p.userId));
+    const registered = new Map<string, Set<number>>();
+    for (const [day, list] of registeredByDay) registered.set(day, new Set(list.map((r) => r.userId)));
+
+    return findAutoUrgentAbsences({
+      days: pastDays,
+      today,
+      staff: staff.map((u) => ({ id: u.id, fullName: u.fullName, since: vietnamClock(u.createdAt).day })),
+      punched,
+      registered,
+    });
   }
 
   /** Nhân viên tự đăng ký nghỉ: có hiệu lực ngay nếu ngày đó còn chỗ; không tự hủy được (Admin hủy) */

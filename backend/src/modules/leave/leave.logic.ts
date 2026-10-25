@@ -42,6 +42,37 @@ export function limitForDay(day: string, config: LeaveConfig, override?: number 
   return isLateWeek(day) ? config.lateMax : config.earlyMax;
 }
 
+export interface AutoUrgentInput {
+  /** Các ngày cần xét (YYYY-MM-DD) */
+  days: string[];
+  /** Hôm nay; chỉ xét ngày đã qua vì hôm nay nhân viên vẫn còn có thể đến */
+  today: string;
+  /** Nhân viên đang hoạt động; `since` là ngày tạo tài khoản, trước ngày đó không tính là nghỉ */
+  staff: Array<{ id: number; fullName: string; since: string }>;
+  /** Ngày -> những người có lượt quẹt trong ngày đó */
+  punched: Map<string, Set<number>>;
+  /** Ngày -> những người đã có đăng ký nghỉ (kể cả Admin đăng ký hộ) */
+  registered: Map<string, Set<number>>;
+}
+
+/**
+ * Nghỉ đột xuất tự ghi nhận: ngày đã qua, nhân viên không quẹt lượt nào và cũng chưa đăng ký nghỉ.
+ * Ngày mà không ai quẹt (cả tiệm nghỉ, hoặc máy chấm công chưa dùng) thì bỏ qua, tránh ghi nhận hàng loạt sai.
+ * Kết quả là tính ra từ dữ liệu chứ không lưu: sau này có lượt quẹt bù thì ngày đó tự hết bị tính nghỉ.
+ */
+export function findAutoUrgentAbsences(input: AutoUrgentInput): Map<string, Array<{ userId: number; fullName: string }>> {
+  const result = new Map<string, Array<{ userId: number; fullName: string }>>();
+  for (const day of input.days) {
+    if (day >= input.today) continue;
+    const punched = input.punched.get(day);
+    if (!punched || punched.size === 0) continue;
+    const registered = input.registered.get(day);
+    const absent = input.staff.filter((u) => u.since <= day && !punched.has(u.id) && !registered?.has(u.id));
+    if (absent.length > 0) result.set(day, absent.map((u) => ({ userId: u.id, fullName: u.fullName })));
+  }
+  return result;
+}
+
 /** Ngày YYYY-MM-DD có tồn tại thật trong lịch hay không (loại 2026-02-30...) */
 export function isRealDay(day: string): boolean {
   const [y, m, d] = day.split('-').map(Number);
