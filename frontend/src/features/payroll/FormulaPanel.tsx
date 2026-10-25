@@ -22,7 +22,7 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   ],
   monthlyBonus: { threshold: 30_000_000, bonus: 100_000 },
   overRate: { threshold: 30_000_000, percent: 10 },
-  latePenaltyPerMinute: 0,
+  latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
 };
 
