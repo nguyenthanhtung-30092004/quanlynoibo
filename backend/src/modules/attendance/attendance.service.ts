@@ -20,10 +20,17 @@ import {
   type ShiftSource,
 } from './attendance.logic.js';
 import { directionByOrder, directionFromStatus, type HikvisionPunch } from './hikvision-event.js';
+import {
+  DEFAULT_PAYROLL_CONFIG,
+  sanitizeConfig as sanitizePayrollConfig,
+  type PayrollConfig,
+} from '../payroll/payroll.config.js';
 
 export type PunchResult = 'recorded' | 'duplicate' | 'unknown_employee' | 'not_counted';
 
 const CONFIG_KEY = 'attendance_config';
+/** Khóa cấu hình lương, do module Bảng lương ghi; ở đây chỉ đọc */
+const PAYROLL_CONFIG_KEY = 'payroll_config';
 /** Ca mặc định của từng nhân viên: { "<userId>": giờ bắt đầu ca (phút trong ngày) } */
 const DEFAULT_SHIFT_KEY = 'attendance_shift_default';
 /** Ca Admin chọn tay cho từng ngày của một tháng: { "<userId>|<YYYY-MM-DD>": giờ bắt đầu ca } */
@@ -106,6 +113,17 @@ export class AttendanceService {
     }
     this.cachedConfig = { data: config, expiresAt: now + this.CONFIG_TTL_MS };
     return config;
+  }
+
+  /** Cấu hình lương (mức trừ vào muộn, mức tăng ca...) để bảng xuất Excel tính ra tiền; chỉ đọc, không đổi */
+  async loadPayrollConfig(): Promise<PayrollConfig> {
+    const row = await this.settings.findOne({ where: { key: PAYROLL_CONFIG_KEY } });
+    if (!row?.value) return DEFAULT_PAYROLL_CONFIG;
+    try {
+      return sanitizePayrollConfig(JSON.parse(row.value));
+    } catch {
+      return DEFAULT_PAYROLL_CONFIG;
+    }
   }
 
   async saveConfig(input: Record<string, unknown>): Promise<AttendanceConfig> {

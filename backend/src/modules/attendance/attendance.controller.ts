@@ -104,7 +104,11 @@ export class AttendanceController {
   @Get('export')
   @Roles(UserRole.ADMIN)
   async exportMonth(@Query() query: AttendanceMonthQueryDto, @CurrentUser() user: JwtPayload) {
-    const buffer = await buildAttendanceWorkbook(await this.attendanceService.month(query.month, user));
+    const [data, payroll] = await Promise.all([
+      this.attendanceService.month(query.month, user),
+      this.attendanceService.loadPayrollConfig(),
+    ]);
+    const buffer = await buildAttendanceWorkbook(data, payroll);
     return new StreamableFile(buffer, {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       disposition: `attachment; filename="cham-cong-${query.month}.xlsx"`,
