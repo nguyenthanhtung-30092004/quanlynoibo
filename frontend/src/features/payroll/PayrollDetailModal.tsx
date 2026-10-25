@@ -5,6 +5,7 @@ import { Warning } from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel } from '@/lib/month';
 import { attendanceApi } from '@/features/attendance/api';
+import { durationText } from '@/features/attendance/format';
 import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { Modal } from '@/features/xvip/Modal';
 import { money } from '@/features/xvip/data';
@@ -270,7 +271,7 @@ export function PayrollDetailModal({
                       {cell ? cell.cong : '—'}
                       {cell && cell.lateMinutes > 0 && cell.status === 'done' && (
                         <span className="block text-[11px] font-normal text-red-600 dark:text-red-400">
-                          muộn {cell.lateMinutes}p
+                          muộn {durationText(cell.lateMinutes)}
                         </span>
                       )}
                     </td>
@@ -287,12 +288,12 @@ export function PayrollDetailModal({
                             {hoursText(cell.overtimeHours)} · +{money(otPay)}đ
                           </span>
                           <span className="block text-[11px] text-slate-500 dark:text-slate-400">
-                            ở lại {cell.overtimeMinutes} phút
+                            ở lại {durationText(cell.overtimeMinutes)}
                           </span>
                         </>
                       ) : cell && cell.overtimeMinutes > 0 ? (
                         <span className="text-[11px] text-slate-400">
-                          ở lại {cell.overtimeMinutes}p (chưa đủ 1 giờ)
+                          ở lại {durationText(cell.overtimeMinutes)} (chưa đủ 1 giờ)
                         </span>
                       ) : (
                         <span className="text-slate-400">—</span>
