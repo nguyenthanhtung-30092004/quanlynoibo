@@ -264,6 +264,20 @@ describe('resolveShiftForDay', () => {
     expect(c.shift.label).toBe('8h - 17h30');
   });
 
+  it('ca mặc định 7h nhưng vào 8h03 ra 20h04 thì là ca 8h tăng ca, đánh dấu cách hiểu ca 7h', () => {
+    const c = resolveShiftForDay(hm(8, 3), hm(20, 4), { defaultStart: hm(7) });
+    expect(c.source).toBe('auto');
+    expect(c.shift.label).toBe('8h - 17h30');
+    expect(c.alternative?.shift.label).toBe('7h - 16h30');
+    expect(c.alternative?.overtimeHours).toBe(3);
+  });
+
+  it('ca mặc định 7h vào muộn 1 tiếng nhưng ra đúng 16h30 thì vẫn là ca 7h vào muộn', () => {
+    const c = resolveShiftForDay(hm(8, 3), hm(16, 30), { defaultStart: hm(7) });
+    expect(c.source).toBe('default');
+    expect(c.shift.label).toBe('7h - 16h30');
+  });
+
   it('ca mặc định quá xa giờ vào thì bỏ qua và tự đoán', () => {
     const c = resolveShiftForDay(hm(13, 30), hm(22), { defaultStart: hm(5) });
     expect(c.source).toBe('auto');

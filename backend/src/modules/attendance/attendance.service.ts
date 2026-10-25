@@ -263,9 +263,14 @@ export class AttendanceService {
       punchesBy.set(p.userId, list);
     }
     const overrideBy = new Map(overrides.map((o) => [o.userId, o.overrideCong]));
+    const [defaultShifts, shiftOverrides] = await Promise.all([
+      this.loadShiftMap(DEFAULT_SHIFT_KEY),
+      this.loadShiftMap(shiftOverrideKey(target.slice(0, 7))),
+    ]);
 
     return {
       day: target,
+      shifts: SHIFTS.map((sh) => ({ startMinute: sh.startMinute, label: sh.label })),
       staff: staff.map((u) => {
         const list = punchesBy.get(u.id) ?? [];
         const result = evaluateDay(
@@ -275,6 +280,8 @@ export class AttendanceService {
             punchCount: list.length,
             isToday: target === today,
             autoClosed: autoClosedBy.has(u.id),
+            forcedShiftStart: shiftOverrides[`${u.id}|${target}`],
+            defaultShiftStart: defaultShifts[String(u.id)],
           },
           config,
         );
@@ -284,6 +291,8 @@ export class AttendanceService {
           fullName: u.fullName,
           status: result.status,
           shift: result.shift?.label ?? null,
+          shiftStart: result.shift?.startMinute ?? null,
+          shiftSource: result.shiftSource,
           minutes: result.minutes,
           cong: override != null ? Number(override) : result.cong,
           lateMinutes: result.lateMinutes,
@@ -305,6 +314,10 @@ export class AttendanceService {
       [actor.sub, day],
     );
     const list = rows.filter((r) => !r.auto).map((r) => new Date(r.at));
+    const [defaultShifts, shiftOverrides] = await Promise.all([
+      this.loadShiftMap(DEFAULT_SHIFT_KEY),
+      this.loadShiftMap(shiftOverrideKey(day.slice(0, 7))),
+    ]);
     const result = evaluateDay(
       {
         firstAt: list[0] ?? null,
@@ -312,6 +325,8 @@ export class AttendanceService {
         punchCount: list.length,
         isToday: true,
         autoClosed: rows.some((r) => r.auto),
+        forcedShiftStart: shiftOverrides[`${actor.sub}|${day}`],
+        defaultShiftStart: defaultShifts[String(actor.sub)],
       },
       config,
     );

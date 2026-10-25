@@ -98,6 +98,9 @@ export interface DayLogStaff {
   fullName: string;
   status: DayStatus;
   shift: string | null;
+  /** Giờ bắt đầu ca đang áp dụng (phút trong ngày); null nếu chưa có ca */
+  shiftStart: number | null;
+  shiftSource: 'auto' | 'default' | 'forced' | null;
   minutes: number;
   cong: number;
   lateMinutes: number;
@@ -112,6 +115,7 @@ export interface DayLogStaff {
 
 export interface DayLog {
   day: string;
+  shifts: ShiftOption[];
   staff: DayLogStaff[];
 }
 

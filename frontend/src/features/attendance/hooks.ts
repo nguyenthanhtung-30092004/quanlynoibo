@@ -35,6 +35,16 @@ export function useSetAttendanceOverride() {
   });
 }
 
+/** Admin chọn lại ca cho một ngày của nhân viên; tải lại mọi số liệu chấm công để tính lại muộn / sớm / công */
+export function useSetShiftOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: number; day: string; shiftStart: number | null }) =>
+      attendanceApi.setShiftOverride(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  });
+}
+
 export function useDayLog() {
   return useQuery({
     queryKey: ['attendance', 'day-log'],

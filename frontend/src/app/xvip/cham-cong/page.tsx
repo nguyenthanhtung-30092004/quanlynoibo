@@ -7,9 +7,14 @@ import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { attendanceApi } from '@/features/attendance/api';
-import { useAttendanceMonth, useDayLog, useSetAttendanceOverride } from '@/features/attendance/hooks';
+import {
+  useAttendanceMonth,
+  useDayLog,
+  useSetAttendanceOverride,
+  useSetShiftOverride,
+} from '@/features/attendance/hooks';
 import { durationText } from '@/features/attendance/format';
-import type { AttendanceDayCell, AttendanceStaff } from '@/features/attendance/types';
+import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
@@ -85,6 +90,41 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
+/** Admin chọn ca thật của một ngày: hệ thống tính lại vào muộn / ra sớm / công theo ca này */
+function ShiftPicker({
+  shifts,
+  shiftStart,
+  source,
+  disabled,
+  onChange,
+}: {
+  shifts: ShiftOption[];
+  shiftStart: number | null;
+  source: 'auto' | 'default' | 'forced' | null;
+  disabled: boolean;
+  onChange: (shiftStart: number | null) => void;
+}) {
+  return (
+    <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+      Ca làm
+      <select
+        className="input-3d !h-8 !w-44 !px-2 !py-0 text-xs"
+        disabled={disabled}
+        value={source === 'forced' && shiftStart !== null ? String(shiftStart) : 'auto'}
+        onChange={(e) => onChange(e.target.value === 'auto' ? null : Number(e.target.value))}
+        aria-label="Chọn ca làm của ngày này"
+      >
+        <option value="auto">Tự đoán / ca mặc định</option>
+        {shifts.map((s) => (
+          <option key={s.startMinute} value={s.startMinute}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 export default function AttendancePage() {
   const showToast = useToast();
   const live = useRealtimeConnected();
@@ -109,6 +149,16 @@ export default function AttendancePage() {
   const workingCount = staffToday.filter((s) => s.status === 'working').length;
   const doneCount = staffToday.filter((s) => s.status === 'done').length;
   const setOverride = useSetAttendanceOverride();
+  const setShift = useSetShiftOverride();
+  const shiftOptions = data?.shifts ?? dayLog?.shifts ?? [];
+  const changeShift = async (userId: number, day: string, shiftStart: number | null) => {
+    try {
+      await setShift.mutateAsync({ userId, day, shiftStart });
+      showToast(shiftStart === null ? 'Đã bỏ chọn ca, quay về tự đoán.' : 'Đã đổi ca, hệ thống đã tính lại.');
+    } catch (err) {
+      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không đổi được ca.'}`);
+    }
+  };
 
   // Chỉnh tay một ô công
   const [editing, setEditing] = useState<{ staff: AttendanceStaff; day: string } | null>(null);
@@ -321,6 +371,15 @@ export default function AttendancePage() {
                   </div>
                   {late && (
                     <div className="mt-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">{late}</div>
+                  )}
+                  {isAdmin && u.status === 'done' && (
+                    <ShiftPicker
+                      shifts={shiftOptions}
+                      shiftStart={u.shiftStart}
+                      source={u.shiftSource}
+                      disabled={setShift.isPending}
+                      onChange={(v) => changeShift(u.userId, dayLog!.day, v)}
+                    />
                   )}
                   {u.punches.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-1 border-t border-slate-200 pt-2 text-[10px] font-bold dark:border-slate-800">
@@ -562,6 +621,15 @@ export default function AttendancePage() {
                     >
                       {late || 'Đúng giờ, không đi muộn'}
                     </div>
+                  )}
+                  {isAdmin && cell && cell.status === 'done' && cell.shift && (
+                    <ShiftPicker
+                      shifts={shiftOptions}
+                      shiftStart={cell.shiftStart}
+                      source={cell.shiftSource}
+                      disabled={setShift.isPending}
+                      onChange={(v) => changeShift(staff.id, dayDetail, v)}
+                    />
                   )}
                 </div>
               );

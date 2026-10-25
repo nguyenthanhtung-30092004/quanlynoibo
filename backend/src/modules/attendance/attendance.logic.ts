@@ -97,6 +97,8 @@ export function overtimeHoursFromMinutes(extraMinutes: number): number {
 const CLEAN_FINISH_MINUTES = 10;
 /** Ca mặc định của nhân viên chỉ được dùng khi giờ vào cách giờ bắt đầu ca không quá bấy nhiêu phút */
 const DEFAULT_SHIFT_MAX_GAP = 120;
+/** Vào cách giờ bắt đầu một ca không quá bấy nhiêu phút thì coi là đi ca đó (dùng khi bỏ ca mặc định) */
+const OTHER_SHIFT_START_TOLERANCE = 15;
 
 export type ShiftSource = 'auto' | 'default' | 'forced';
 
@@ -132,6 +134,11 @@ export function resolveShiftForDay(
 
   const byOut = resolveShift(inMinute, outMinute);
 
+  let byIn = SHIFTS[0];
+  for (const s of SHIFTS) {
+    if (Math.abs(s.startMinute - inMinute) < Math.abs(byIn.startMinute - inMinute)) byIn = s;
+  }
+
   const preferred = shiftByStart(hints.defaultStart);
   if (preferred && Math.abs(inMinute - preferred.startMinute) <= DEFAULT_SHIFT_MAX_GAP) {
     // Giờ quẹt khớp rõ ràng một ca khác (ra đúng giờ kết thúc ca đó, và vào gần giờ bắt đầu ca đó hơn
@@ -140,11 +147,24 @@ export function resolveShiftForDay(
       byOut !== preferred &&
       Math.abs(outMinute - byOut.endMinute) <= CLEAN_FINISH_MINUTES &&
       Math.abs(inMinute - byOut.startMinute) < Math.abs(inMinute - preferred.startMinute);
+    // Vào sát giờ bắt đầu một ca khác nhưng muộn hẳn so với ca mặc định, và cũng không ra đúng giờ ca mặc định,
+    // thì nhiều khả năng đi ca khác chứ không phải vào muộn cả tiếng, vd mặc định 7h nhưng vào 8h03 ra 20h04 là ca 8h.
+    const startsOtherShift =
+      byIn !== preferred &&
+      inMinute - preferred.startMinute > LATE_KEEP_FULL_CONG_MINUTES &&
+      Math.abs(inMinute - byIn.startMinute) <= OTHER_SHIFT_START_TOLERANCE &&
+      byIn.endMinute <= outMinute &&
+      outMinute - preferred.endMinute > CLEAN_FINISH_MINUTES;
+    if (startsOtherShift) {
+      const asDefault = overtimeOf(preferred, outMinute);
+      return {
+        shift: byIn,
+        source: 'auto',
+        alternative:
+          asDefault !== overtimeOf(byIn, outMinute) ? { shift: preferred, overtimeHours: asDefault } : null,
+      };
+    }
     if (!fitsOtherShift) return { shift: preferred, source: 'default', alternative: null };
-  }
-  let byIn = SHIFTS[0];
-  for (const s of SHIFTS) {
-    if (Math.abs(s.startMinute - inMinute) < Math.abs(byIn.startMinute - inMinute)) byIn = s;
   }
 
   const pastEnd = outMinute - byOut.endMinute;
