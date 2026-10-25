@@ -54,6 +54,12 @@ const data = {
 
 const pay = { latePenaltyPerMinute: 25_000, overtimePerHour: 25_000, standardDaysOffset: 4 };
 
+/** Giá trị ô dạng văn bản, kể cả ô nhiều dòng (rich text) */
+const textOf = (value: ExcelJS.CellValue): string =>
+  value !== null && typeof value === 'object' && 'richText' in value
+    ? value.richText.map((r) => r.text).join('')
+    : String(value);
+
 const load = async () => {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load((await buildAttendanceWorkbook(data, pay)) as never);
@@ -71,9 +77,10 @@ describe('buildAttendanceWorkbook', () => {
     expect(grid.getRow(3).getCell(2).value).toBe('NHÂN VIÊN');
     const row = grid.getRow(4);
     expect(row.getCell(2).value).toBe('Nguyễn Văn A');
-    expect(row.getCell(2 + 21).value).toBe(1); // ngày 21
-    expect(row.getCell(2 + 22).value).toBe('?'); // quên quẹt ra
-    expect(row.getCell(2 + 23).value).toBe(0.5); // chỉnh tay
+    // mỗi ô ba dòng: công, giờ vào, giờ ra
+    expect(textOf(row.getCell(2 + 21).value)).toBe('1\n07:53\n17:31'); // ngày 21
+    expect(textOf(row.getCell(2 + 22).value)).toBe('?\n07:53'); // quên quẹt ra, chưa có giờ ra
+    expect(textOf(row.getCell(2 + 23).value)).toBe('0.5\n07:53\n17:31'); // chỉnh tay
     expect(row.getCell(31 + 3).value).toBe(2.5); // tổng công
     expect(row.getCell(31 + 4).value).toBe(2.5); // tăng ca (giờ)
     expect(row.getCell(31 + 5).value).toBe(15); // phút muộn (10 + 5 của ngày Admin chỉnh tay)

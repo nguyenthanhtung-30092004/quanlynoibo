@@ -66,6 +66,19 @@ const lateChargeMinutes = (c: DayCell) =>
 const reviewText = (c: DayCell) =>
   c.alternative ? `Chưa chắc ca: nếu là ca ${c.alternative.shift} thì tăng ca ${c.alternative.overtimeHours} giờ` : '';
 
+const TIME_FONT = { size: 9, color: { argb: 'FF475569' } };
+
+/** Nội dung ô của bảng công gồm 3 dòng: số công (to, đậm), giờ vào, giờ ra (nhỏ); quên quẹt ra thì chỉ có giờ vào */
+function dayCellValue(label: string | number, c: DayCell, color: string): ExcelJS.CellRichTextValue {
+  return {
+    richText: [
+      { text: String(label), font: { bold: true, size: 12, color: { argb: color } } },
+      ...(c.firstAt ? [{ text: `\n${timeText(c.firstAt)}`, font: TIME_FONT }] : []),
+      ...(c.lastAt ? [{ text: `\n${timeText(c.lastAt)}`, font: TIME_FONT }] : []),
+    ],
+  };
+}
+
 /** Ghi chú hiện khi rê chuột vào ô của bảng công */
 function cellNote(c: DayCell): string {
   const lines: string[] = [];
@@ -187,7 +200,7 @@ export async function buildAttendanceWorkbook(
 ): Promise<Buffer> {
   const [year, month] = data.month.split('-').map(Number);
   const monthText = `Tháng ${String(month).padStart(2, '0')}/${year}`;
-  const subtitle = `${monthText}  •  Dấu ? là quên quẹt ra, chưa tính công  •  Rê chuột vào ô công để xem giờ vào ra, muộn, tăng ca`;
+  const subtitle = `${monthText}  •  Mỗi ô ghi công, giờ vào, giờ ra  •  Dấu ? là quên quẹt ra, chưa tính công  •  Ô đỏ là vào muộn  •  Rê chuột vào ô để xem muộn, tăng ca`;
   const shiftLabel = (startMinute: number | null) =>
     startMinute == null ? '' : (data.shifts.find((sh) => sh.startMinute === startMinute)?.label ?? '');
   const standard = Math.max(1, data.daysInMonth - payroll.standardDaysOffset);
@@ -209,7 +222,7 @@ export async function buildAttendanceWorkbook(
   addTitle(grid, 'BẢNG CHẤM CÔNG', subtitle, totalCols);
   grid.getColumn(1).width = 7;
   grid.getColumn(2).width = 28;
-  days.forEach((_, i) => (grid.getColumn(3 + i).width = 6));
+  days.forEach((_, i) => (grid.getColumn(3 + i).width = 8));
   extraHeads.forEach((_, i) => (grid.getColumn(days.length + 3 + i).width = i < 2 ? 13 : 16));
 
   const head = grid.getRow(3);
@@ -232,13 +245,12 @@ export async function buildAttendanceWorkbook(
       const cell = row.getCell(3 + i);
       const c = s.days[d.key];
       if (c && (c.cong > 0 || c.minutes > 0 || c.overridden)) {
-        cell.value = c.cong;
+        cell.value = dayCellValue(c.cong, c, c.overridden ? 'FF1D4ED8' : 'FF0F172A');
         if (c.cong > 0) cell.fill = XLSX_FILL('FFD1FAE5');
         if (c.lateMinutes > 0 && c.status === 'done') cell.fill = XLSX_FILL('FFFECACA');
-        if (c.overridden) cell.font = { bold: true, color: { argb: 'FF1D4ED8' } };
         cell.note = cellNote(c);
       } else if (c && noOut(c)) {
-        cell.value = '?';
+        cell.value = dayCellValue('?', c, 'FF0F172A');
         cell.fill = XLSX_FILL('FFFEF3C7');
         cell.note = cellNote(c);
       }
@@ -252,13 +264,13 @@ export async function buildAttendanceWorkbook(
     for (let i = 1; i <= totalCols; i++) {
       const cell = row.getCell(i);
       cell.border = BORDER;
-      cell.alignment = { horizontal: i === 2 ? 'left' : 'center', vertical: 'middle' };
+      cell.alignment = { horizontal: i === 2 ? 'left' : 'center', vertical: 'middle', wrapText: i > 2 && i < base };
       if (i >= base) {
         cell.numFmt = i >= base + 3 ? MONEY_FMT : NUM_FMT;
         cell.font = { bold: true };
       }
     }
-    row.height = 22;
+    row.height = 50; // đủ cho 3 dòng trong ô: công, giờ vào, giờ ra
   });
 
   // Sheet 2: tổng hợp từng người trong tháng
@@ -377,7 +389,7 @@ export async function buildAttendanceWorkbook(
   const detail = workbook.addWorksheet('Chi tiết', {
     views: [{ state: 'frozen', xSplit: 3, ySplit: 3, showGridLines: false }],
   });
-  addTitle(detail, 'CHI TIẾT CHẤM CÔNG THEO NGÀY', subtitle, cols.length);
+  addTitle(detail, 'CHI TIẾT CHẤM CÔNG THEO NGÀY', `${monthText}  •  Mỗi dòng là một ngày có dữ liệu của một nhân viên`, cols.length);
   cols.forEach((c, i) => (detail.getColumn(i + 1).width = c.width));
   const dhead = detail.getRow(3);
   cols.forEach((c, i) => (dhead.getCell(i + 1).value = c.header));
