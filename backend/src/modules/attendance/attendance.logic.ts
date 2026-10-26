@@ -99,6 +99,10 @@ const CLEAN_FINISH_MINUTES = 10;
 const DEFAULT_SHIFT_MAX_GAP = 120;
 /** Vào cách giờ bắt đầu một ca không quá bấy nhiêu phút thì coi là đi ca đó (dùng khi bỏ ca mặc định) */
 const OTHER_SHIFT_START_TOLERANCE = 15;
+/** Vào sớm hơn đầu ca đã đoán quá bấy nhiêu phút thì coi là bất thường và xem xét ca khác theo giờ vào */
+const EARLY_ARRIVAL_MAX_MINUTES = 60;
+/** Giờ vào cách đầu một ca không quá bấy nhiêu phút thì đủ sát để coi là đi ca đó (dùng khi vào sớm bất thường) */
+const SHIFT_START_MATCH_MINUTES = 30;
 
 export type ShiftSource = 'auto' | 'default' | 'forced';
 
@@ -168,7 +172,17 @@ export function resolveShiftForDay(
   }
 
   const pastEnd = outMinute - byOut.endMinute;
-  const chosen = pastEnd > CLEAN_FINISH_MINUTES && byIn.endMinute <= outMinute ? byIn : byOut;
+  let chosen = pastEnd > CLEAN_FINISH_MINUTES && byIn.endMinute <= outMinute ? byIn : byOut;
+  // Ra đúng giờ hết một ca nhưng vào sớm hơn đầu ca đó quá nhiều thì ít khả năng là vào sớm thật: nếu giờ vào
+  // sát đầu một ca khác thì nhiều khả năng đi ca khác và tăng ca, vd vào 11h45 ra 22h là ca 12h tăng ca 1 giờ (không phải ca 13h30)
+  if (
+    chosen !== byIn &&
+    chosen.startMinute - inMinute > EARLY_ARRIVAL_MAX_MINUTES &&
+    Math.abs(byIn.startMinute - inMinute) <= SHIFT_START_MATCH_MINUTES &&
+    byIn.endMinute <= outMinute
+  ) {
+    chosen = byIn;
+  }
   const other = chosen === byIn ? byOut : byIn;
   const alternative =
     other !== chosen && overtimeOf(other, outMinute) !== overtimeOf(chosen, outMinute)

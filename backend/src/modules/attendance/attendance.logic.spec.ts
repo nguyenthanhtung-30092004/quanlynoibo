@@ -304,6 +304,39 @@ describe('resolveShiftForDay', () => {
     expect(c.alternative?.shift.label).toBe('6h - 15h30');
     expect(c.alternative?.overtimeHours).toBe(1);
   });
+
+  describe('vào sớm bất thường so với ca đoán theo giờ ra', () => {
+    // Mỗi dòng: [giờ vào, giờ ra, ca đúng, tăng ca giờ, ca bị đoán nhầm nếu chỉ nhìn giờ ra]
+    it.each([
+      [hm(11, 45), hm(22), '12h - 21h', 1, '13h30 - 22h'],
+      [hm(12, 10), hm(22), '12h - 21h', 1, '13h30 - 22h'],
+      [hm(8, 45), hm(19, 30), '9h - 18h30', 1, '10h - 19h30'],
+      [hm(6, 50), hm(17, 30), '7h - 16h30', 1, '8h - 17h30'],
+      [hm(5, 45), hm(15, 30), '6h - 15h30', 0, '5h - 13h30'],
+    ])('vào %i ra %i là ca %s, tăng ca %s giờ, không phải ca %s', (inAt, outAt, label, overtime, wrong) => {
+      const c = resolveShiftForDay(inAt, outAt);
+      expect(c.shift.label).toBe(label);
+      expect(c.source).toBe('auto');
+      expect(overtimeHoursFromMinutes(outAt - c.shift.endMinute)).toBe(overtime);
+      expect(c.alternative?.shift.label ?? wrong).toBe(wrong);
+    });
+
+    it('vào 11h45 ra 22h: tính ca 12h tăng ca 1 giờ và đánh dấu cách hiểu ca 13h30 để Admin xem lại', () => {
+      const c = resolveShiftForDay(hm(11, 45), hm(22));
+      expect(c.shift.label).toBe('12h - 21h');
+      expect(c.alternative?.shift.label).toBe('13h30 - 22h');
+      expect(c.alternative?.overtimeHours).toBe(0);
+    });
+
+    it('vào sớm không quá 60 phút thì giữ ca đoán theo giờ ra', () => {
+      expect(resolveShiftForDay(hm(12, 40), hm(22)).shift.label).toBe('13h30 - 22h');
+      expect(resolveShiftForDay(hm(9, 10), hm(19, 30)).shift.label).toBe('10h - 19h30');
+    });
+
+    it('không ca nào sát giờ vào (lệch quá 30 phút) thì giữ ca đoán theo giờ ra', () => {
+      expect(resolveShiftForDay(hm(11), hm(22)).shift.label).toBe('13h30 - 22h');
+    });
+  });
 });
 
 describe('evaluateDay: tăng ca', () => {
