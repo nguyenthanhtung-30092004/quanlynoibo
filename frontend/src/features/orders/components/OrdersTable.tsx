@@ -23,7 +23,7 @@ import { getVnToday, isOrderingLocked } from '@/lib/time';
 import { useUiStore } from '@/stores/ui-store';
 import { ORDERS_PAGE_SIZE } from '../constants';
 import { useDeleteOrder, useOrders } from '../hooks';
-import { SEAT_ZONE_LABELS, type Order } from '../types';
+import { CUSTOMER_TYPE_LABELS, SEAT_ZONE_LABELS, type Order } from '../types';
 
 const DATE_FORMAT = 'YYYY-MM-DD';
 
@@ -174,6 +174,19 @@ export function OrdersTable() {
           <div className="leading-tight">
             <div className="font-semibold text-ink">{o.customerName || <span className="italic text-ink-3">Chưa có tên</span>}</div>
             <div className="tnum mt-0.5 text-xs font-semibold text-ink-2">{o.phone}</div>
+            {o.customerType && (
+              <span
+                className={`badge-3d mt-1 inline-block text-[11px] ${
+                  o.customerType === 'REGULAR'
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                    : 'bg-slate-100 text-ink-3'
+                }`}
+                title={`${o.orderCount ?? 0} đơn còn hiệu lực cùng số điện thoại`}
+              >
+                {CUSTOMER_TYPE_LABELS[o.customerType]}
+                {o.customerType === 'REGULAR' && ` · ${o.orderCount} chuyến`}
+              </span>
+            )}
           </div>
         ),
       },

@@ -17,7 +17,7 @@ import {
 import type { Route } from '@/features/routes/types';
 import type { Partner } from '@/features/partners/types';
 import type { User } from '@/features/users/types';
-import type { OrderFilters } from '../types';
+import { CUSTOMER_TYPE_LABELS, type CustomerType, type OrderFilters } from '../types';
 
 const ALL = 'all';
 
@@ -116,6 +116,13 @@ export function OrdersFiltersBar({
         key: 'customerNames',
         label: `Khách: ${localFilters.customerNames.join(', ')}`,
         onRemove: () => onUpdateFilters({ customerNames: undefined }),
+      });
+    }
+    if (localFilters.customerType) {
+      chips.push({
+        key: 'customerType',
+        label: `Loại khách: ${CUSTOMER_TYPE_LABELS[localFilters.customerType]}`,
+        onRemove: () => onUpdateFilters({ customerType: undefined }),
       });
     }
     if (localFilters.phones?.length) {
@@ -322,6 +329,21 @@ export function OrdersFiltersBar({
             searchPlaceholder="Tìm tuyến..."
           />
         </div>
+
+        <label className="block min-w-44 flex-1">
+          <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">
+            Loại khách
+          </span>
+          <OptionFilterInput
+            options={(Object.keys(CUSTOMER_TYPE_LABELS) as CustomerType[]).map((t) => ({
+              value: t,
+              label: CUSTOMER_TYPE_LABELS[t],
+            }))}
+            value={filters.customerType ?? ''}
+            allLabel="Tất cả khách"
+            onChange={(v) => onUpdateFilters({ customerType: (v || undefined) as CustomerType | undefined })}
+          />
+        </label>
 
         <label className="block min-w-44 flex-1">
           <span className="mb-1 block text-xs font-bold text-slate-700 dark:text-slate-300">

@@ -139,6 +139,14 @@ export class OrderFilterDto {
   @Matches(DATE_RE, { message: 'departureTo phải có dạng YYYY-MM-DD' })
   departureTo?: string;
 
+  @ApiPropertyOptional({
+    enum: ['REGULAR', 'NEW'],
+    description: 'Khách quen (REGULAR) hoặc khách lạ (NEW), tính theo số đơn còn hiệu lực cùng số điện thoại',
+  })
+  @IsOptional()
+  @IsIn(['REGULAR', 'NEW'], { message: 'customerType phải là REGULAR hoặc NEW' })
+  customerType?: 'REGULAR' | 'NEW';
+
   @ApiPropertyOptional({ description: 'Lọc nhiều tên khách hàng, cách nhau bằng dấu phẩy' })
   @IsOptional()
   @Transform(({ value }) =>

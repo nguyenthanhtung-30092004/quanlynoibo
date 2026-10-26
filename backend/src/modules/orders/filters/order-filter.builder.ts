@@ -3,6 +3,7 @@ import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js
 import { UserRole } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import type { OrderFilterDto } from '../dto/query-orders.dto.js';
+import { REGULAR_CUSTOMER_MIN_ORDERS } from '../customer-type.util.js';
 import { escapeLike, seatColumnExpr } from '../mappers/order.mapper.js';
 
 export class OrderFilterBuilder {
@@ -79,6 +80,15 @@ export class OrderFilterBuilder {
           partners: realPartners,
         });
       }
+    }
+
+    // Khách quen = số điện thoại (đã chuẩn hóa) có từ REGULAR_CUSTOMER_MIN_ORDERS đơn còn hiệu lực trở lên
+    if (filter.customerType) {
+      const op = filter.customerType === 'REGULAR' ? 'IN' : 'NOT IN';
+      qb.andWhere(
+        `order.phoneKey ${op} (SELECT o2."phoneKey" FROM "orders" o2 WHERE o2."cancelledAt" IS NULL GROUP BY o2."phoneKey" HAVING COUNT(*) >= :regularMin)`,
+        { regularMin: REGULAR_CUSTOMER_MIN_ORDERS },
+      );
     }
 
     // Bộ lọc cột Excel

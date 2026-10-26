@@ -40,6 +40,7 @@ import { DeviceEmployeeNoFromUserId1710000000018 } from './migrations/1710000000
 import { OrderGoods1710000000019 } from './migrations/1710000000019-OrderGoods.js';
 import { AttendancePunchAuto1710000000020 } from './migrations/1710000000020-AttendancePunchAuto.js';
 import { LatePenalty25k1710000000021 } from './migrations/1710000000021-LatePenalty25k.js';
+import { OrderPhoneKey1710000000022 } from './migrations/1710000000022-OrderPhoneKey.js';
 
 @Module({
   imports: [
@@ -81,6 +82,7 @@ import { LatePenalty25k1710000000021 } from './migrations/1710000000021-LatePena
           OrderGoods1710000000019,
           AttendancePunchAuto1710000000020,
           LatePenalty25k1710000000021,
+          OrderPhoneKey1710000000022,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

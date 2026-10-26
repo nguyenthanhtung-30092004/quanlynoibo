@@ -227,4 +227,8 @@ export class Order {
   /** Cột sinh sẵn chuẩn hóa tên khách: lower(trim(coalesce(customerName, 'khách lẻ'))) */
   @Column({ name: 'customerKey', type: 'text', insert: false, update: false, select: false, nullable: true })
   customerKey?: string;
+
+  /** Cột sinh sẵn: số điện thoại chỉ còn chữ số, đầu số 84 / 0084 quy về 0 (khóa nhận diện khách quen) */
+  @Column({ name: 'phoneKey', type: 'text', insert: false, update: false, select: false, nullable: true })
+  phoneKey?: string;
 }

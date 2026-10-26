@@ -35,6 +35,7 @@ export function filterParams(filters: OrderFilters) {
     // Bộ lọc cột
     staffIds: filters.staffIds?.length ? filters.staffIds.join(',') : undefined,
     customerNames: filters.customerNames?.length ? filters.customerNames.join(',') : undefined,
+    customerType: filters.customerType || undefined,
     phones: filters.phones?.length ? filters.phones.join(',') : undefined,
     departureTimes: filters.departureTimes?.length ? filters.departureTimes.join(',') : undefined,
     smsStatus: filters.smsStatus || undefined,

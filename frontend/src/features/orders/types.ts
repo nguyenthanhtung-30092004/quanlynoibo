@@ -23,12 +23,23 @@ export const SEAT_ZONE_LABELS: Record<SeatZone, string> = {
   [SeatZone.BACK]: 'Cuối',
 };
 
+export type CustomerType = 'REGULAR' | 'NEW';
+
+export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
+  REGULAR: 'Khách quen',
+  NEW: 'Khách lạ',
+};
+
 export interface Order {
   id: number;
   entryDate: string;
   staff: { id: number; fullName: string };
   customerName: string | null;
   phone: string;
+  /** Số đơn còn hiệu lực cùng số điện thoại; null = chưa tra (vd phản hồi sau khi tạo/sửa đơn) */
+  orderCount?: number | null;
+  /** Khách quen (từ 3 đơn trở lên) hoặc khách lạ; null = chưa phân loại */
+  customerType?: CustomerType | null;
   route: { id: number; name: string };
   /** HH:mm */
   departureTime: string;
@@ -99,6 +110,8 @@ export interface OrderFilters {
   /** Bộ lọc cột kiểu Excel */
   staffIds?: number[];
   customerNames?: string[];
+  /** Lọc khách quen / khách lạ; bỏ trống = tất cả */
+  customerType?: CustomerType;
   phones?: string[];
   departureTimes?: string[];
   smsStatus?: 'sent' | 'unsent';

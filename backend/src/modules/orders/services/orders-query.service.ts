@@ -68,7 +68,7 @@ export class OrdersQueryService {
     // Các join đều là nhiều-một nên dùng offset/limit (không bị TypeORM chèn thêm DISTINCT id như skip/take)
     // Tìm kiếm: xếp theo ngày xe chạy từ gần nhất (mới) đến xa nhất (cũ); xem thường: theo thời điểm tạo đơn
     const searching = !!query.search?.trim();
-    const listQb = this.buildListQuery(query, actor);
+    const listQb = this.buildListQuery(query, actor).addSelect('order.phoneKey');
     if (searching) {
       listQb
         .orderBy('order.departureDate', 'DESC')
@@ -87,7 +87,33 @@ export class OrdersQueryService {
         : this.buildListQuery(query, actor).getCount(),
     ]);
 
-    return { items: items.map((o) => toOrderView(o)), total, page, limit };
+    const counts = await this.countOrdersByPhoneKey(items.map((o) => o.phoneKey));
+    return {
+      items: items.map((o) => toOrderView(o, counts.get(o.phoneKey ?? '') ?? 0)),
+      total,
+      page,
+      limit,
+    };
+  }
+
+  /**
+   * Số đơn còn hiệu lực theo từng số điện thoại đã chuẩn hóa, để phân loại khách quen / khách lạ.
+   * Chỉ tra các số có trên trang hiện tại (có index "phoneKey" một phần) chứ không đếm cả bảng.
+   */
+  private async countOrdersByPhoneKey(
+    keys: Array<string | undefined>,
+  ): Promise<Map<string, number>> {
+    const unique = [...new Set(keys.filter((k): k is string => !!k))];
+    if (unique.length === 0) return new Map();
+    const rows = await this.orderRepository
+      .createQueryBuilder('o')
+      .select('o.phoneKey', 'phoneKey')
+      .addSelect('COUNT(*)', 'orders')
+      .where('o.cancelledAt IS NULL')
+      .andWhere('o.phoneKey IN (:...unique)', { unique })
+      .groupBy('o.phoneKey')
+      .getRawMany<{ phoneKey: string; orders: string }>();
+    return new Map(rows.map((r) => [r.phoneKey, Number(r.orders)]));
   }
 
   /** Khi tìm kiếm, chỉ đếm tối đa SEARCH_COUNT_CAP đơn để từ khóa quá rộng không phải đếm hết cả bảng */

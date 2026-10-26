@@ -1,4 +1,5 @@
 import { CABIN_LABELS, CabinKind, CabinLine, GoodsDetail, Order, SeatZone } from '../entities/order.entity.js';
+import { customerTypeOf } from '../customer-type.util.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 
 /** Viết hoa chữ cái đầu mỗi từ của tên khách (nguyễn văn a -> Nguyễn Văn A) */
@@ -171,7 +172,8 @@ export const TRACKED_FIELDS: Array<{ key: string; label: string }> = [
   { key: 'note', label: 'Ghi chú' },
 ];
 
-export function toOrderView(order: Order) {
+/** `orderCount`: số đơn còn hiệu lực của khách này (cùng số điện thoại); bỏ trống khi chưa tra thì chưa phân loại khách */
+export function toOrderView(order: Order, orderCount?: number) {
   return {
     id: order.id,
     entryDate: order.entryDate,
@@ -180,6 +182,8 @@ export function toOrderView(order: Order) {
       : { id: order.createdById, fullName: '' },
     customerName: order.customerName,
     phone: order.phone,
+    orderCount: orderCount ?? null,
+    customerType: orderCount === undefined ? null : customerTypeOf(orderCount),
     route: order.route
       ? { id: order.route.id, name: order.route.name }
       : { id: order.routeId, name: '' },
