@@ -396,8 +396,11 @@ export default function StaffReportPage() {
 
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
   const podium = kpiData?.leaderboard ?? [];
-  // Cần cố gắng: chỉ hiện khi bảng vinh danh hiện (cả kỳ có người bán được vé), nên hai mục luôn đi cùng nhau
-  const needsEffort = podium.length > 0 && podium[0].seats > 0 ? (kpiData?.needsEffort ?? []) : [];
+  // Cần cố gắng: server tính cả THÁNG (không theo bộ lọc ngày của trang); tháng chưa ai bán được vé thì để trống
+  const needsEffort = kpiData?.needsEffort ?? [];
+  const needsEffortMonth = kpiData?.needsEffortMonth
+    ? `tháng ${kpiData.needsEffortMonth.slice(5)}/${kpiData.needsEffortMonth.slice(0, 4)}`
+    : '';
 
   // Xuất Excel đúng theo bộ lọc đang chọn (chỉ Admin; server cũng chặn nhân viên)
   const handleExportExcel = async () => {
@@ -766,7 +769,7 @@ export default function StaffReportPage() {
 
       {/* Cần cố gắng: cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
-        <Card title="Nhân viên cần cố gắng thêm" className="mt-5">
+        <Card title={`Nhân viên cần cố gắng thêm${needsEffortMonth ? ` · ${needsEffortMonth}` : ''}`} className="mt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
             {/* Top 2 */}
             {needsEffort[1] && (
@@ -780,7 +783,7 @@ export default function StaffReportPage() {
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
                   <div className="text-xs text-slate-500">
                     {needsEffort[1].total === 0 && needsEffort[1].seats === 0 ? (
-                      <strong>Chưa có đơn nào</strong>
+                      <strong>Chưa có đơn nào trong tháng</strong>
                     ) : (
                       <>
                         Số lượng:{' '}
@@ -807,7 +810,7 @@ export default function StaffReportPage() {
               <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-rose-300 dark:border-rose-800 shadow-inner">
                 <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
                   {needsEffort[0].total === 0 && needsEffort[0].seats === 0 ? (
-                    <strong>Chưa có đơn nào</strong>
+                    <strong>Chưa có đơn nào trong tháng</strong>
                   ) : (
                     <>
                       Mới có:{' '}
@@ -832,7 +835,7 @@ export default function StaffReportPage() {
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
                   <div className="text-xs text-slate-500">
                     {needsEffort[2].total === 0 && needsEffort[2].seats === 0 ? (
-                      <strong>Chưa có đơn nào</strong>
+                      <strong>Chưa có đơn nào trong tháng</strong>
                     ) : (
                       <>
                         Số lượng:{' '}
@@ -847,7 +850,8 @@ export default function StaffReportPage() {
             )}
           </div>
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
-            Xếp theo số vé ít nhất (bằng vé thì theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
+            Tính cả {needsEffortMonth} theo ngày vào sổ, không phụ thuộc bộ lọc ngày phía trên. Xếp theo số vé ít nhất
+            (bằng vé thì theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
           </p>
         </Card>
       )}
