@@ -10,7 +10,61 @@ import type { KpiQueryDto } from '../dto/query-orders.dto.js';
 import { MessageChannel } from '../messaging/message.types.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
-import { neutralizeFormula, ticketsOf } from '../mappers/order.mapper.js';
+import { neutralizeFormula } from '../mappers/order.mapper.js';
+
+/** Biểu thức SQL số vé của đơn, khớp `ticketsOf` ở order.mapper (ưu tiên số ghế, không thì tổng đầu/giữa/cuối) */
+const TICKETS_SQL = `(CASE
+  WHEN order.seatCount > 0 THEN order.seatCount
+  WHEN (order.seatFront + order.seatMiddle + order.seatBack) > 0 THEN (order.seatFront + order.seatMiddle + order.seatBack)
+  WHEN order.seatZone IS NOT NULL THEN order.seatCount
+  ELSE 0 END)`;
+
+/** Một dòng kết quả GROUP BY (nhân viên, tuyến, đối tác); Postgres trả số dạng chuỗi */
+interface KpiRow {
+  staffId: number | string;
+  fullName: string | null;
+  routeId: number | string;
+  partnerKey: string;
+  partnerName: string | null;
+  total: string;
+  seats: string;
+  smsSent: string;
+  zaloSent: string;
+  revenue: string;
+  cost: string;
+  deposit: string;
+  collectOnDelivery: string;
+  commission: string;
+}
+
+interface Group {
+  staffId: number;
+  fullName: string;
+  routeId: number;
+  partnerKey: string;
+  partnerName: string;
+  total: number;
+  seats: number;
+  smsSent: number;
+  zaloSent: number;
+  revenue: number;
+  cost: number;
+  deposit: number;
+  collectOnDelivery: number;
+  commission: number;
+}
+
+const sumOf = (list: Group[], pick: (g: Group) => number) => list.reduce((t, g) => t + pick(g), 0);
+
+function groupByStaff(groups: Group[]): Map<number, Group[]> {
+  const map = new Map<number, Group[]>();
+  for (const g of groups) {
+    const list = map.get(g.staffId);
+    if (list) list.push(g);
+    else map.set(g.staffId, [g]);
+  }
+  return map;
+}
 
 @Injectable()
 export class OrdersReportService {
@@ -46,13 +100,15 @@ export class OrdersReportService {
     return data;
   }
 
-  /** Đơn còn hiệu lực khớp bộ lọc KPI (ngày vào sổ / ngày khởi hành, nhân viên, tuyến, đối tác) */
-  async kpiOrders(query: KpiQueryDto, actor: JwtPayload, allStaff = false) {
+  /**
+   * Truy vấn đơn còn hiệu lực khớp bộ lọc KPI (ngày vào sổ / ngày khởi hành, nhân viên, tuyến, đối tác).
+   * Chỉ dựng điều kiện lọc: các hàm bên dưới tự gom nhóm bằng GROUP BY ở Postgres, tuyệt đối không
+   * tải từng đơn lên Node (lọc cả tháng / cả năm là hàng chục đến hàng trăm nghìn đơn, chặn luồng xử lý
+   * làm mọi yêu cầu khác bị đứng).
+   */
+  private kpiFilteredQuery(query: KpiQueryDto, actor: JwtPayload, allStaff = false) {
     const date = query.date ?? getBusinessDate();
-    const qb = this.orderRepository
-      .createQueryBuilder('order')
-      .leftJoin('order.createdBy', 'staff')
-      .addSelect(['staff.id', 'staff.fullName']);
+    const qb = this.orderRepository.createQueryBuilder('order');
     const byDeparture = !!(query.departureFrom || query.departureTo);
     const byEntryRange = !!(query.dateFrom || query.dateTo);
     if (byDeparture || byEntryRange) {
@@ -99,28 +155,7 @@ export class OrdersReportService {
     }
     // Vé đã hủy không tính vào doanh thu
     qb.andWhere('order.cancelledAt IS NULL');
-    qb.select([
-      'order.id',
-      'order.createdById',
-      'order.routeId',
-      'order.partner',
-      'order.seatCount',
-      'order.seatFront',
-      'order.seatMiddle',
-      'order.seatBack',
-      'order.seatZone',
-      'order.sellPrice',
-      'order.costPrice',
-      'order.deposit',
-      'order.collectOnDelivery',
-      'order.commission',
-      'order.smsSent',
-      'order.messageChannel',
-      'staff.id',
-      'staff.fullName',
-    ]);
-    const orders = await qb.getMany();
-    return { date, orders };
+    return { date, qb };
   }
 
   /** KPI theo ngày vào sổ (mặc định) hoặc theo ngày khởi hành. Có single-flight và cache ngắn (3s) */
@@ -149,25 +184,69 @@ export class OrdersReportService {
 
   private async computeKpi(query: KpiQueryDto, actor: JwtPayload) {
     const isAdmin = actor.role === UserRole.ADMIN;
-    // Nhân viên cũng cần bảng vinh danh toàn hệ thống nên lấy đơn của mọi người rồi tách phần của mình
-    const { date, orders: scoped } = await this.kpiOrders(query, actor, !isAdmin);
-    const orders = isAdmin ? scoped : scoped.filter((o) => o.createdById === actor.sub);
+    // Nhân viên cũng cần bảng vinh danh toàn hệ thống nên lấy nhóm của mọi người rồi tách phần của mình
+    const { date, qb } = this.kpiFilteredQuery(query, actor, !isAdmin);
 
-    const sum = (list: Order[], pick: (o: Order) => number) =>
-      list.reduce((total, o) => total + pick(o), 0);
-    const summarize = (list: Order[]) => ({
-      total: list.length,
-      seats: sum(list, (o) => ticketsOf(o)),
-      smsSent: list.filter((o) => o.smsSent).length,
-      // Đơn gửi trước khi có cột kênh (messageChannel null) đều là SMS
-      zaloSent: list.filter((o) => o.smsSent && o.messageChannel === MessageChannel.ZALO).length,
-      smsOnlySent: list.filter((o) => o.smsSent && o.messageChannel !== MessageChannel.ZALO).length,
-      revenue: sum(list, (o) => o.sellPrice),
-      cost: sum(list, (o) => o.costPrice),
-      deposit: sum(list, (o) => o.deposit),
-      collectOnDelivery: sum(list, (o) => o.collectOnDelivery),
-      commission: sum(list, (o) => o.commission),
-    });
+    // Một truy vấn duy nhất gom theo (nhân viên, tuyến, đối tác): chỉ vài chục dòng dù lọc cả năm
+    const partnerExpr = `LOWER(TRIM(COALESCE(order.partner, '')))`;
+    const rows = await qb
+      .leftJoin('order.createdBy', 'staff')
+      .select('order.createdById', 'staffId')
+      .addSelect('staff.fullName', 'fullName')
+      .addSelect('order.routeId', 'routeId')
+      .addSelect(partnerExpr, 'partnerKey')
+      .addSelect(`MIN(NULLIF(TRIM(order.partner), ''))`, 'partnerName')
+      .addSelect('COUNT(*)', 'total')
+      .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'seats')
+      .addSelect('COUNT(*) FILTER (WHERE order.smsSent)', 'smsSent')
+      .addSelect('COUNT(*) FILTER (WHERE order.smsSent AND order.messageChannel = :zalo)', 'zaloSent')
+      .addSelect('COALESCE(SUM(order.sellPrice), 0)', 'revenue')
+      .addSelect('COALESCE(SUM(order.costPrice), 0)', 'cost')
+      .addSelect('COALESCE(SUM(order.deposit), 0)', 'deposit')
+      .addSelect('COALESCE(SUM(order.collectOnDelivery), 0)', 'collectOnDelivery')
+      .addSelect('COALESCE(SUM(order.commission), 0)', 'commission')
+      .setParameter('zalo', MessageChannel.ZALO)
+      .groupBy('order.createdById')
+      .addGroupBy('staff.fullName')
+      .addGroupBy('order.routeId')
+      .addGroupBy(partnerExpr)
+      .getRawMany<KpiRow>();
+
+    const groups: Group[] = rows.map((r) => ({
+      staffId: Number(r.staffId),
+      fullName: r.fullName ?? '',
+      routeId: Number(r.routeId),
+      partnerKey: r.partnerKey,
+      partnerName: r.partnerName ?? 'XVIP',
+      total: Number(r.total),
+      seats: Number(r.seats),
+      smsSent: Number(r.smsSent),
+      zaloSent: Number(r.zaloSent),
+      revenue: Number(r.revenue),
+      cost: Number(r.cost),
+      deposit: Number(r.deposit),
+      collectOnDelivery: Number(r.collectOnDelivery),
+      commission: Number(r.commission),
+    }));
+    const mine = isAdmin ? groups : groups.filter((g) => g.staffId === actor.sub);
+
+    const summarize = (list: Group[]) => {
+      const smsSent = sumOf(list, (g) => g.smsSent);
+      const zaloSent = sumOf(list, (g) => g.zaloSent);
+      return {
+        total: sumOf(list, (g) => g.total),
+        seats: sumOf(list, (g) => g.seats),
+        smsSent,
+        zaloSent,
+        // Đơn gửi trước khi có cột kênh (messageChannel null) đều là SMS
+        smsOnlySent: smsSent - zaloSent,
+        revenue: sumOf(list, (g) => g.revenue),
+        cost: sumOf(list, (g) => g.cost),
+        deposit: sumOf(list, (g) => g.deposit),
+        collectOnDelivery: sumOf(list, (g) => g.collectOnDelivery),
+        commission: sumOf(list, (g) => g.commission),
+      };
+    };
 
     const result: Partial<ReturnType<typeof summarize>> &
       Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent' | 'zaloSent' | 'smsOnlySent'> & {
@@ -179,18 +258,17 @@ export class OrdersReportService {
         >;
         byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission: number }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
-      } = { date, ...summarize(orders), byRoute: [] };
+      } = { date, ...summarize(mine), byRoute: [] };
 
     // Số đơn, số vé (ghế) và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
     if (isAdmin) {
       const partnerGroups = new Map<string, { partner: string; total: number; seats: number; commission: number }>();
-      for (const o of orders) {
-        const name = o.partner?.trim() || 'XVIP';
-        const key = name.toLowerCase();
-        const row = partnerGroups.get(key) ?? { partner: name, total: 0, seats: 0, commission: 0 };
-        row.total += 1;
-        row.seats += ticketsOf(o);
-        row.commission += o.commission;
+      for (const g of mine) {
+        const key = g.partnerKey || 'xvip';
+        const row = partnerGroups.get(key) ?? { partner: g.partnerName, total: 0, seats: 0, commission: 0 };
+        row.total += g.total;
+        row.seats += g.seats;
+        row.commission += g.commission;
         partnerGroups.set(key, row);
       }
       result.byPartner = [...partnerGroups.values()].sort(
@@ -200,13 +278,13 @@ export class OrdersReportService {
 
     // Số đơn, số vé (ghế) và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
     const routeMap = new Map<number, { total: number; seats: number; revenue: number; commission: number }>();
-    for (const o of orders) {
-      const cur = routeMap.get(o.routeId) ?? { total: 0, seats: 0, revenue: 0, commission: 0 };
-      cur.total += 1;
-      cur.seats += ticketsOf(o);
-      cur.revenue += o.sellPrice || 0;
-      cur.commission += o.commission || 0;
-      routeMap.set(o.routeId, cur);
+    for (const g of mine) {
+      const cur = routeMap.get(g.routeId) ?? { total: 0, seats: 0, revenue: 0, commission: 0 };
+      cur.total += g.total;
+      cur.seats += g.seats;
+      cur.revenue += g.revenue;
+      cur.commission += g.commission;
+      routeMap.set(g.routeId, cur);
     }
     result.byRoute = [...routeMap.entries()]
       .map(([routeId, stat]) => ({
@@ -225,30 +303,23 @@ export class OrdersReportService {
     }
 
     // Vinh danh toàn hệ thống: chỉ số đơn / vé, không lộ doanh thu hay hoa hồng của người khác
-    const ranking = new Map<number, Order[]>();
-    for (const o of scoped) {
-      ranking.set(o.createdById, [...(ranking.get(o.createdById) ?? []), o]);
-    }
+    const byStaffGroups = groupByStaff(groups);
     // Xếp hạng đầy đủ mọi nhân viên (chỉ số đơn / vé) để nhân viên biết vị trí của mình
-    result.ranking = [...ranking.entries()]
+    result.ranking = [...byStaffGroups.entries()]
       .map(([staffId, list]) => ({
         staffId,
-        fullName: list[0].createdBy?.fullName ?? '',
-        total: list.length,
-        seats: sum(list, (o) => ticketsOf(o)),
+        fullName: list[0].fullName,
+        total: sumOf(list, (g) => g.total),
+        seats: sumOf(list, (g) => g.seats),
       }))
       .sort((a, b) => b.seats - a.seats || b.total - a.total);
     result.leaderboard = result.ranking.slice(0, 3);
 
     if (isAdmin) {
-      const groups = new Map<number, Order[]>();
-      for (const o of orders) {
-        groups.set(o.createdById, [...(groups.get(o.createdById) ?? []), o]);
-      }
-      result.byStaff = [...groups.entries()]
+      result.byStaff = [...byStaffGroups.entries()]
         .map(([staffId, list]) => ({
           staffId,
-          fullName: list[0].createdBy?.fullName ?? '',
+          fullName: list[0].fullName,
           ...summarize(list),
         }))
         .sort((a, b) => b.total - a.total);
@@ -273,7 +344,7 @@ export class OrdersReportService {
   }
 
   private async computeKpiFilterOptions(query: KpiQueryDto, actor: JwtPayload) {
-    const { orders } = await this.kpiOrders(
+    const { qb } = this.kpiFilteredQuery(
       {
         ...query,
         staffId: undefined,
@@ -284,20 +355,52 @@ export class OrdersReportService {
       },
       actor,
     );
+    // Chỉ lấy các bộ (nhân viên, tuyến, đối tác) khác nhau, không tải từng đơn
+    const rows = await qb
+      .select('order.createdById', 'staffId')
+      .addSelect('order.routeId', 'routeId')
+      .addSelect(`NULLIF(TRIM(order.partner), '')`, 'partner')
+      .groupBy('order.createdById')
+      .addGroupBy('order.routeId')
+      .addGroupBy(`NULLIF(TRIM(order.partner), '')`)
+      .getRawMany<{ staffId: number | string; routeId: number | string; partner: string | null }>();
+
     const ofStaff =
       actor.role === UserRole.ADMIN && query.staffId !== undefined
-        ? orders.filter((o) => o.createdById === query.staffId)
-        : orders;
+        ? rows.filter((r) => Number(r.staffId) === query.staffId)
+        : rows;
     return {
-      staffIds: [...new Set(orders.map((o) => o.createdById))],
-      routeIds: [...new Set(ofStaff.map((o) => o.routeId))],
-      partners: [...new Set(ofStaff.map((o) => o.partner?.trim()).filter((p): p is string => !!p))],
+      staffIds: [...new Set(rows.map((r) => Number(r.staffId)))],
+      routeIds: [...new Set(ofStaff.map((r) => Number(r.routeId)))],
+      partners: [...new Set(ofStaff.map((r) => r.partner).filter((p): p is string => !!p))],
     };
   }
 
   /** Công nợ theo đối tác trong khoảng lọc: số đơn, vé, thu hộ, hoa hồng giữ, giá nhập phải trả. Vé hủy không tính */
   async debts(query: KpiQueryDto, actor: JwtPayload) {
-    const { orders } = await this.kpiOrders(query, actor);
+    const { qb } = this.kpiFilteredQuery(query, actor);
+    // Gom theo tên đối tác ngay ở SQL (chỉ vài chục tên), rồi đối chiếu với danh sách đối tác chuẩn.
+    // Giá nhập chưa nhập (0) thì lấy giá bán trừ hoa hồng
+    const rows = await qb
+      .select('order.partner', 'partner')
+      .addSelect('COUNT(*)', 'orders')
+      .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'tickets')
+      .addSelect('COALESCE(SUM(order.sellPrice), 0)', 'revenue')
+      .addSelect('COALESCE(SUM(order.commission), 0)', 'commission')
+      .addSelect(
+        'COALESCE(SUM(CASE WHEN order.costPrice <> 0 THEN order.costPrice ELSE order.sellPrice - order.commission END), 0)',
+        'cost',
+      )
+      .groupBy('order.partner')
+      .orderBy('MIN(order.id)', 'ASC')
+      .getRawMany<{
+        partner: string | null;
+        orders: string;
+        tickets: string;
+        revenue: string;
+        commission: string;
+        cost: string;
+      }>();
     const partners = await this.getCachedPartners();
     const groups = new Map<
       string,
@@ -306,16 +409,16 @@ export class OrdersReportService {
     let excludedOrders = 0;
     const excludedPartnersMap = new Map<string, string>();
 
-    for (const o of orders) {
-      const canonical = matchCanonicalPartner(o.partner, partners);
+    for (const r of rows) {
+      const canonical = matchCanonicalPartner(r.partner, partners);
       if (canonical === null) {
         // Đơn không có đối tác (rỗng) -> không thuộc công nợ đối tác nào, không tính vào excluded
         continue;
       }
       if (canonical === undefined) {
         // Đối tác lạ (ngoài danh sách) -> loại khỏi công nợ, ghi nhận vào excluded
-        excludedOrders += 1;
-        const raw = o.partner?.trim();
+        excludedOrders += Number(r.orders);
+        const raw = r.partner?.trim();
         if (raw && !excludedPartnersMap.has(raw.toLowerCase())) {
           excludedPartnersMap.set(raw.toLowerCase(), raw);
         }
@@ -323,12 +426,11 @@ export class OrdersReportService {
       }
       const key = canonical.toLowerCase();
       const g = groups.get(key) ?? { partner: canonical, orders: 0, tickets: 0, revenue: 0, commission: 0, cost: 0 };
-      g.orders += 1;
-      g.tickets += ticketsOf(o);
-      g.revenue += o.sellPrice;
-      g.commission += o.commission;
-      // Giá nhập chưa nhập thì lấy giá bán trừ hoa hồng
-      g.cost += o.costPrice || o.sellPrice - o.commission || 0;
+      g.orders += Number(r.orders);
+      g.tickets += Number(r.tickets);
+      g.revenue += Number(r.revenue);
+      g.commission += Number(r.commission);
+      g.cost += Number(r.cost);
       groups.set(key, g);
     }
     return {
