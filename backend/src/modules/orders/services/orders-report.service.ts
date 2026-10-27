@@ -21,11 +21,15 @@ interface CustomerTypeStats {
   new: { customers: number; orders: number };
 }
 
-/** Biểu thức SQL số vé của đơn, khớp `ticketsOf` ở order.mapper (ưu tiên số ghế, không thì tổng đầu/giữa/cuối) */
+/**
+ * Biểu thức SQL số vé của đơn, khớp `ticketsOf` ở order.mapper (ưu tiên số ghế, không thì tổng đầu/giữa/cuối).
+ * Viết sẵn tên cột có dấu nháy vì TypeORM chỉ đổi `order.cột` khi sau nó là dấu cách, `)` hoặc `,`;
+ * gặp xuống dòng thì để nguyên `order.cột`, mà `order` là từ khóa của Postgres nên truy vấn lỗi.
+ */
 const TICKETS_SQL = `(CASE
-  WHEN order.seatCount > 0 THEN order.seatCount
-  WHEN (order.seatFront + order.seatMiddle + order.seatBack) > 0 THEN (order.seatFront + order.seatMiddle + order.seatBack)
-  WHEN order.seatZone IS NOT NULL THEN order.seatCount
+  WHEN "order"."seatCount" > 0 THEN "order"."seatCount"
+  WHEN ("order"."seatFront" + "order"."seatMiddle" + "order"."seatBack") > 0 THEN ("order"."seatFront" + "order"."seatMiddle" + "order"."seatBack")
+  WHEN "order"."seatZone" IS NOT NULL THEN "order"."seatCount"
   ELSE 0 END)`;
 
 /** Một dòng kết quả GROUP BY (nhân viên, tuyến, đối tác); Postgres trả số dạng chuỗi */
