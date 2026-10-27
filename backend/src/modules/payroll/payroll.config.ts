@@ -50,6 +50,8 @@ export interface PayrollEntry {
   note: string;
   /** Bảo hiểm trừ vào lương tháng này; null = chưa chốt, dùng `config.insuranceDefault` hiện hành */
   insurance: number | null;
+  /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ nhập cho từng tháng, không có mức mặc định */
+  advance: number;
 }
 
 export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
@@ -78,6 +80,7 @@ export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
   adjustment: 0,
   note: '',
   insurance: null,
+  advance: 0,
 };
 
 const MAX_MONEY = 100_000_000_000;
@@ -164,5 +167,6 @@ export function sanitizeEntry(input: unknown, levelCount: number): PayrollEntry 
       raw.insurance === null || raw.insurance === undefined || raw.insurance === ''
         ? null
         : num(raw.insurance, 0),
+    advance: num(raw.advance, 0),
   };
 }

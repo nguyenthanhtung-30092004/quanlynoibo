@@ -39,6 +39,8 @@ export interface PayrollEntry {
   note: string;
   /** Bảo hiểm của tháng này; null = chưa chốt, dùng `config.insuranceDefault`. Lưu bảng lương thì server chốt thành số */
   insurance: number | null;
+  /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ có ở từng tháng, không có mức mặc định */
+  advance: number;
 }
 
 export interface PayrollDay {

@@ -35,6 +35,8 @@ export interface PayrollResult {
   overtimePay: number;
   /** Bảo hiểm trừ vào lương tháng này (số dương, đã trừ khỏi tổng lương) */
   insurance: number;
+  /** Tiền ứng lương đã trả trước trong tháng (số dương, đã trừ khỏi tổng lương) */
+  advance: number;
   adjustment: number;
   total: number;
 }
@@ -133,8 +135,18 @@ export function computePayroll(input: {
   // Số riêng của tháng nếu đã có, chưa có thì dùng mức mặc định hiện hành
   const insurance = Math.max(0, entry.insurance ?? config.insuranceDefault);
 
+  const advance = Math.max(0, entry.advance);
+
   const total =
-    baseSalary + dailyBonus + monthlyBonus + overBonus - latePenalty + overtimePay - insurance + entry.adjustment;
+    baseSalary +
+    dailyBonus +
+    monthlyBonus +
+    overBonus -
+    latePenalty +
+    overtimePay -
+    insurance -
+    advance +
+    entry.adjustment;
 
   return {
     standardDays: std,
@@ -152,6 +164,7 @@ export function computePayroll(input: {
     overtimeHours,
     overtimePay,
     insurance,
+    advance,
     adjustment: entry.adjustment,
     total,
   };

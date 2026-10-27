@@ -16,6 +16,18 @@ describe('sanitizeEntry: bảo hiểm', () => {
   });
 });
 
+describe('sanitizeEntry: ứng lương', () => {
+  it('phần nhập tay lưu từ trước (chưa có trường này) coi là chưa ứng', () => {
+    expect(sanitizeEntry({}, 4).advance).toBe(0);
+  });
+
+  it('giữ số Admin nhập, số âm hoặc không hợp lệ đưa về 0', () => {
+    expect(sanitizeEntry({ advance: 1_500_000 }, 4).advance).toBe(1_500_000);
+    expect(sanitizeEntry({ advance: -1 }, 4).advance).toBe(0);
+    expect(sanitizeEntry({ advance: 'abc' }, 4).advance).toBe(0);
+  });
+});
+
 describe('sanitizeConfig: bảo hiểm mặc định', () => {
   it('công thức đã lưu từ trước (chưa có trường này) lấy mức mặc định của hệ thống', () => {
     expect(sanitizeConfig({}).insuranceDefault).toBe(DEFAULT_PAYROLL_CONFIG.insuranceDefault);

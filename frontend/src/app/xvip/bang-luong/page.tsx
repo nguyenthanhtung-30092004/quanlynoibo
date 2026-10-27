@@ -165,6 +165,7 @@ export default function PayrollPage() {
       latePenalty: rows.reduce((sum, r) => sum + r.result.latePenalty, 0),
       overtimePay: rows.reduce((sum, r) => sum + r.result.overtimePay, 0),
       insurance: rows.reduce((sum, r) => sum + r.result.insurance, 0),
+      advance: rows.reduce((sum, r) => sum + r.result.advance, 0),
       adjustment: rows.reduce((sum, r) => sum + r.result.adjustment, 0),
       total: rows.reduce((sum, r) => sum + r.result.total, 0),
     }),
@@ -326,6 +327,10 @@ export default function PayrollPage() {
                   Bảo hiểm
                   <span className="block text-[10px] font-normal normal-case text-slate-400">Riêng từng tháng</span>
                 </th>
+                <th className={`${TH} text-right`}>
+                  Ứng lương
+                  <span className="block text-[10px] font-normal normal-case text-slate-400">Đã ứng trong tháng</span>
+                </th>
                 <th className={`${TH} text-right`}>Điều chỉnh (+/−)</th>
                 <th className={TH}>Ghi chú</th>
                 <th className={`${TH} text-right`}>Tổng lương</th>
@@ -334,13 +339,13 @@ export default function PayrollPage() {
             <tbody>
               {isLoading || !config ? (
                 <tr>
-                  <td colSpan={15} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={16} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải bảng lương...
                   </td>
                 </tr>
               ) : visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={15} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={16} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {rows.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
                   </td>
                 </tr>
@@ -464,6 +469,15 @@ export default function PayrollPage() {
                       </td>
                       <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
                         <MoneyInput
+                          align="right"
+                          ariaLabel={`Ứng lương của ${staff.fullName}`}
+                          className="!h-9 !w-28 !py-1 !px-2 text-sm"
+                          value={entry.advance}
+                          onChange={(advance) => patchEntry(staff.id, { advance })}
+                        />
+                      </td>
+                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
+                        <MoneyInput
                           allowNegative
                           align="right"
                           ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
@@ -511,6 +525,9 @@ export default function PayrollPage() {
                   </td>
                   <td className={`${TD} text-right tnum font-black text-red-600 dark:text-red-400`}>
                     {totals.insurance > 0 ? `−${vnd(totals.insurance)}` : vnd(0)}
+                  </td>
+                  <td className={`${TD} text-right tnum font-black text-red-600 dark:text-red-400`}>
+                    {totals.advance > 0 ? `−${vnd(totals.advance)}` : vnd(0)}
                   </td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.adjustment)}</td>
                   <td className={TD} />
@@ -649,6 +666,12 @@ export default function PayrollPage() {
                           <span className="text-red-600 dark:text-red-400">−{vnd(result.insurance)}</span>
                         </Line>
                       )}
+                      {/* Chưa ứng thì bỏ dòng này (ô nhập bên dưới vẫn còn) */}
+                      {result.advance > 0 && (
+                        <Line label="Ứng lương" note="đã ứng trong tháng">
+                          <span className="text-red-600 dark:text-red-400">−{vnd(result.advance)}</span>
+                        </Line>
+                      )}
                     </div>
 
                     {/* Ô nhập: cao 44px và chữ 16px để dễ chạm, iPhone không tự phóng to khi nhập */}
@@ -678,6 +701,18 @@ export default function PayrollPage() {
                           className="!h-11 !w-full !py-1 !px-2 !text-base"
                           value={result.insurance}
                           onChange={(insurance) => patchEntry(staff.id, { insurance })}
+                        />
+                      </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          Ứng lương (tháng này)
+                        </span>
+                        <MoneyInput
+                          align="right"
+                          ariaLabel={`Ứng lương của ${staff.fullName}`}
+                          className="!h-11 !w-full !py-1 !px-2 !text-base"
+                          value={entry.advance}
+                          onChange={(advance) => patchEntry(staff.id, { advance })}
                         />
                       </label>
                       <label className="block min-w-0">
@@ -735,6 +770,11 @@ export default function PayrollPage() {
                       {totals.insurance > 0 ? `−${vnd(totals.insurance)}` : vnd(0)}
                     </span>
                   </Line>
+                  <Line label="Ứng lương">
+                    <span className="text-red-600 dark:text-red-400">
+                      {totals.advance > 0 ? `−${vnd(totals.advance)}` : vnd(0)}
+                    </span>
+                  </Line>
                   <Line label="Điều chỉnh">{vnd(totals.adjustment)}</Line>
                   <Line label="Tổng lương">
                     <span className="text-base font-black text-emerald-700 dark:text-emerald-400">
@@ -782,7 +822,7 @@ export default function PayrollPage() {
             <>
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
                 <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) − Bảo hiểm (9) ± Điều chỉnh tay
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) − Bảo hiểm (9) − Ứng lương (nhập từng tháng) ± Điều chỉnh tay
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương

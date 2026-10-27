@@ -154,6 +154,8 @@ export default function MyPayrollPage() {
             />
             {/* Bảo hiểm bằng 0 (Admin đã bỏ cho người này) thì không hiện dòng này */}
             {result.insurance > 0 && <Line label="Bảo hiểm" value={`−${vnd(result.insurance)}`} tone="minus" />}
+            {/* Chưa ứng lương thì không hiện dòng này */}
+            {result.advance > 0 && <Line label="Ứng lương" value={`−${vnd(result.advance)}`} tone="minus" />}
             <div className="flex items-center justify-between border-t-2 border-slate-200 pt-3 dark:border-slate-700">
               <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">Tổng lương</span>
               <span className="tnum text-lg font-black text-emerald-700 dark:text-emerald-400">{vnd(result.total)}</span>

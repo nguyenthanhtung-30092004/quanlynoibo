@@ -27,6 +27,7 @@ const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
   adjustment: 0,
   note: '',
   insurance: null,
+  advance: 0,
   ...over,
 });
 
@@ -46,6 +47,26 @@ describe('dayBonus', () => {
     expect(dayBonus(2_499_999, config.dailyBonuses)).toBe(50_000);
     expect(dayBonus(2_500_000, config.dailyBonuses)).toBe(100_000);
     expect(dayBonus(9_000_000, config.dailyBonuses)).toBe(100_000);
+  });
+});
+
+describe('ứng lương', () => {
+  it('trừ vào tổng lương', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ advance: 1_000_000 }) });
+    expect(r.advance).toBe(1_000_000);
+    expect(r.total).toBe(4_200_000 - 1_000_000);
+  });
+
+  it('không ứng thì không trừ', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry() });
+    expect(r.advance).toBe(0);
+    expect(r.total).toBe(4_200_000);
+  });
+
+  it('số âm không biến thành cộng thêm tiền', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ advance: -500_000 }) });
+    expect(r.advance).toBe(0);
+    expect(r.total).toBe(4_200_000);
   });
 });
 

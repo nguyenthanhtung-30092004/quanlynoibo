@@ -16,7 +16,7 @@ export class SavePayrollDto {
   @IsObject({ message: 'Công thức tính lương không hợp lệ' })
   config?: Record<string, unknown>;
 
-  /** Phần nhập tay theo từng nhân viên: { [userId]: { level, workDays, adjustment, note } } */
+  /** Phần nhập tay theo từng nhân viên: { [userId]: { level, workDays, adjustment, note, insurance, advance } } */
   @IsOptional()
   @IsObject({ message: 'Dữ liệu nhập tay không hợp lệ' })
   entries?: Record<string, unknown>;
