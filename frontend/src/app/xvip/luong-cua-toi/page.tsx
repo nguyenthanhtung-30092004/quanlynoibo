@@ -152,12 +152,6 @@ export default function MyPayrollPage() {
               value={result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
               tone={result.latePenalty > 0 ? 'minus' : undefined}
             />
-            <Line
-              label="Điều chỉnh của Admin"
-              note={me.entry.note || undefined}
-              value={result.adjustment > 0 ? `+${vnd(result.adjustment)}` : vnd(result.adjustment)}
-              tone={result.adjustment > 0 ? 'plus' : result.adjustment < 0 ? 'minus' : undefined}
-            />
             <div className="flex items-center justify-between border-t-2 border-slate-200 pt-3 dark:border-slate-700">
               <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">Tổng lương</span>
               <span className="tnum text-lg font-black text-emerald-700 dark:text-emerald-400">{vnd(result.total)}</span>
