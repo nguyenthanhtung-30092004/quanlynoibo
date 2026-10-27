@@ -85,6 +85,46 @@ const formatTime = (isoString: string) => {
   }
 };
 
+/** Một dòng "nhãn ... giá trị" trong khung chi tiết ô công */
+function InfoRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</span>
+      <span className="tnum text-right text-sm font-bold text-slate-900 dark:text-white">{children}</span>
+    </div>
+  );
+}
+
+/** Chi tiết một ô công trong form chỉnh tay: mỗi thông tin một dòng, kết quả tự tính nằm riêng ở cuối */
+function CellDetail({ cell }: { cell: AttendanceDayCell }) {
+  const noShiftData = ['auto_out', 'missing_out', 'working', 'not_in'].includes(cell.status);
+  const detailed = !noShiftData && !!cell.shift && !!cell.firstAt && !!cell.lastAt;
+  const late = lateText(cell.lateMinutes, cell.earlyLeaveMinutes);
+  return (
+    <div className="rounded-xl bg-slate-50 px-3.5 py-1 dark:bg-slate-800/50">
+      {detailed ? (
+        <div className="divide-y divide-slate-200 dark:divide-slate-700">
+          <InfoRow label="Giờ vào">{formatTime(cell.firstAt!)}</InfoRow>
+          <InfoRow label="Giờ ra">{formatTime(cell.lastAt!)}</InfoRow>
+          <InfoRow label="Ca làm">{cell.shift}</InfoRow>
+          <InfoRow label="Thời gian tính">{durationText(cell.minutes)}</InfoRow>
+          {late && (
+            <div className="py-2 text-sm font-bold text-amber-600 dark:text-amber-400">{late}</div>
+          )}
+        </div>
+      ) : (
+        <p className="py-2.5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">{cellSummary(cell)}</p>
+      )}
+      <div className="flex items-center justify-between gap-3 border-t border-slate-200 py-2.5 dark:border-slate-700">
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Hệ thống tự tính</span>
+        <span className="rounded-lg bg-emerald-100 px-2.5 py-1 text-sm font-black text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
+          {congText(cell.autoCong)} công
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <label className="block min-w-0">
@@ -261,7 +301,11 @@ export default function AttendancePage() {
           cell.overridden ? `\nĐã chỉnh tay: ${cell.cong} công${cell.note ? ` (${cell.note})` : ''}` : ''
         }`
       : `${head}\nChưa có dữ liệu`;
-    return { cell, noOut, has, tone, title };
+    // Giờ vào luôn có khi đã quẹt; giờ ra chỉ có khi thật sự quẹt ra (quên quẹt ra thì hệ thống tự chấm 23:59, không phải giờ thật)
+    const inTime = cell?.firstAt ? formatTime(cell.firstAt) : null;
+    const hasRealOut = !!cell?.lastAt && !['auto_out', 'missing_out', 'working'].includes(cell.status);
+    const outTime = cell && hasRealOut && cell.lastAt ? formatTime(cell.lastAt) : null;
+    return { cell, noOut, has, tone, title, inTime, outTime };
   };
 
   return (
@@ -334,9 +378,195 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* Bảng công cả tháng */}
+      <Card
+        className="mt-5 !p-0 overflow-hidden"
+        title={`Bảng chấm công ${monthLabel(month).toLowerCase()}`}
+        action={
+          <>
+            <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:inline">
+              {isAdmin
+                ? 'Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra'
+                : 'Rê chuột vào một ô để xem giờ vào ra · ô viền xanh là công Admin đã chỉnh · dấu ? là quên quẹt ra'}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 md:hidden">
+              {isAdmin ? 'Chạm vào ngày để chỉnh công' : 'Chạm vào ngày để xem chi tiết'} · trong ô: giờ vào ở trên, giờ ra
+              ở dưới · viền xanh là công đã chỉnh · ? là quên quẹt ra
+            </span>
+          </>
+        }
+      >
+        {/* Máy tính: bảng 31 cột ngày */}
+        <div className="hidden overflow-x-auto md:block">
+          <table className="border-collapse text-center">
+            <thead>
+              <tr>
+                <th className="sticky left-0 z-10 min-w-48 bg-slate-100 px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                  Nhân viên
+                </th>
+                {days.map((d) => (
+                  <th
+                    key={d.key}
+                    className={`min-w-16 border-l border-slate-200 px-1 py-1 text-[11px] font-bold dark:border-slate-700 ${
+                      d.weekday === 0
+                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                    } ${d.key === today ? 'underline decoration-blue-500 decoration-2 underline-offset-2' : ''}`}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setDayDetail(d.key)}
+                      title="Bấm để xem chi tiết cả ngày"
+                      className="w-full cursor-pointer rounded-md py-0.5 hover:bg-blue-100 dark:hover:bg-blue-950/50"
+                    >
+                      <div>{d.d}</div>
+                      <div className="font-medium opacity-70">{WEEKDAY[d.weekday]}</div>
+                    </button>
+                  </th>
+                ))}
+                <th className="min-w-20 border-l-2 border-slate-300 bg-emerald-50 px-3 py-2 text-xs font-black uppercase text-emerald-800 dark:border-slate-600 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  Tổng công
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={days.length + 2} className="p-8 text-center text-sm font-bold text-blue-600 animate-pulse">
+                    Đang tải bảng chấm công...
+                  </td>
+                </tr>
+              ) : !data || visibleMonthStaff.length === 0 ? (
+                <tr>
+                  <td colSpan={days.length + 2} className="p-8 text-center text-sm font-semibold text-slate-500">
+                    {!data || monthStaff.length === 0
+                      ? 'Chưa có nhân viên nào.'
+                      : `Không tìm thấy nhân viên "${search.trim()}".`}
+                  </td>
+                </tr>
+              ) : (
+                visibleMonthStaff.map((s) => (
+                  <tr key={s.id} className="border-t border-slate-200 dark:border-slate-700">
+                    <td className="sticky left-0 z-10 bg-white px-4 py-2 text-left dark:bg-[#111d35]">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={s.fullName} />
+                        <span className="whitespace-nowrap text-sm font-extrabold text-slate-900 dark:text-white">
+                          {s.fullName}
+                        </span>
+                      </div>
+                    </td>
+                    {days.map((d) => {
+                      const { cell, noOut, has, tone, title, inTime, outTime } = cellInfo(s, d.key, d.d);
+                      return (
+                        <td key={d.key} className="border-l border-slate-100 p-0.5 dark:border-slate-800">
+                          <button
+                            type="button"
+                            title={title}
+                            onClick={isAdmin ? () => openEdit(s, d.key) : undefined}
+                            className={`tnum flex h-14 w-full min-w-16 flex-col items-center justify-center gap-0.5 rounded-md text-xs font-black leading-none transition-colors ${
+                              isAdmin ? 'hover:ring-2 hover:ring-blue-400' : 'cursor-default'
+                            } ${tone} ${
+                              cell?.overridden ? 'ring-2 ring-blue-500' : ''
+                            }`}
+                          >
+                            <span className="text-sm">{cell && has ? congText(cell.cong) : noOut ? '?' : '·'}</span>
+                            {inTime && <span className="text-[10px] font-semibold opacity-80">vào {inTime}</span>}
+                            {outTime && <span className="text-[10px] font-semibold opacity-80">ra {outTime}</span>}
+                          </button>
+                        </td>
+                      );
+                    })}
+                    <td className="tnum border-l-2 border-slate-300 bg-emerald-50/60 px-3 py-2 text-base font-black text-emerald-800 dark:border-slate-600 dark:bg-emerald-950/20 dark:text-emerald-300">
+                      {s.totalCong}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Điện thoại: mỗi nhân viên một lịch tháng 7 cột, chạm vào ngày để xem hoặc chỉnh */}
+        <div className="space-y-3 p-3 md:hidden">
+          {isLoading ? (
+            <p className="p-6 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải bảng chấm công...</p>
+          ) : !data || visibleMonthStaff.length === 0 ? (
+            <p className="p-6 text-center text-sm font-semibold text-slate-500">
+              {!data || monthStaff.length === 0
+                ? 'Chưa có nhân viên nào.'
+                : `Không tìm thấy nhân viên "${search.trim()}".`}
+            </p>
+          ) : (
+            visibleMonthStaff.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60"
+              >
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Avatar name={s.fullName} />
+                    <span className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{s.fullName}</span>
+                  </div>
+                  <div className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                    <span className="tnum text-base font-black">{s.totalCong}</span>
+                    <span className="ml-1 text-[10px] font-bold uppercase">công</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {WEEKDAY_MON_FIRST.map((w) => (
+                    <div
+                      key={w}
+                      className={`pb-0.5 text-[10px] font-bold ${w === 'CN' ? 'text-rose-500' : 'text-slate-400'}`}
+                    >
+                      {w}
+                    </div>
+                  ))}
+                  {Array.from({ length: leadingBlanks }, (_, i) => (
+                    <div key={`blank-${i}`} />
+                  ))}
+                  {days.map((d) => {
+                    const { cell, noOut, has, tone, inTime, outTime } = cellInfo(s, d.key, d.d);
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => (isAdmin ? openEdit(s, d.key) : setDayDetail(d.key))}
+                        aria-label={`${s.fullName} ngày ${d.d}`}
+                        className={`flex ${
+                          inTime ? 'h-[4.5rem]' : 'h-11'
+                        } flex-col items-center justify-center rounded-lg leading-none ${
+                          tone.includes('bg-') ? '' : 'bg-slate-50 dark:bg-slate-800/40'
+                        } ${tone} ${cell?.overridden ? 'ring-2 ring-blue-500' : ''} ${
+                          d.key === today ? 'outline outline-2 outline-offset-1 outline-blue-500' : ''
+                        }`}
+                      >
+                        <span className={`text-[9px] font-semibold ${d.weekday === 0 ? 'text-rose-500' : 'opacity-60'}`}>
+                          {d.d}
+                        </span>
+                        <span className="tnum mt-0.5 text-sm font-black">
+                          {cell && has ? congText(cell.cong) : noOut ? '?' : '·'}
+                        </span>
+                        {/* Giờ vào ở trên, giờ ra ở dưới */}
+                        {inTime && <span className="tnum mt-1 text-[9px] font-bold opacity-80">{inTime}</span>}
+                        {outTime && <span className="tnum mt-0.5 text-[9px] font-bold opacity-80">{outTime}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        {isAdmin && (
+          <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương cho nhân viên chưa có công đã lưu.
+          </p>
+        )}
+      </Card>
+
       {/* Tình hình đi làm hôm nay theo lượt quẹt máy chấm công: chưa quẹt, đang làm, đã quẹt ra */}
       <Card
-        className="mb-5"
+        className="mt-5"
         title={`Hôm nay · đang làm ${workingCount} · đã ra ca ${doneCount} · ${staffToday.length} nhân viên`}
         action={
           <div
@@ -458,7 +688,7 @@ export default function AttendancePage() {
       </Card>
 
       {/* Quy tắc chấm công */}
-      <Card title="Quy tắc tính công theo ca">
+      <Card className="mt-5" title="Quy tắc tính công theo ca">
         <div className="space-y-4">
             <div className="space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               <p>
@@ -507,185 +737,6 @@ export default function AttendancePage() {
               </div>
             </div>
           </div>
-      </Card>
-
-      {/* Bảng công cả tháng */}
-      <Card
-        className="mt-5 !p-0 overflow-hidden"
-        title={`Bảng chấm công ${monthLabel(month).toLowerCase()}`}
-        action={
-          <>
-            <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:inline">
-              {isAdmin
-                ? 'Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra'
-                : 'Rê chuột vào một ô để xem giờ vào ra · ô viền xanh là công Admin đã chỉnh · dấu ? là quên quẹt ra'}
-            </span>
-            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 md:hidden">
-              {isAdmin ? 'Chạm vào ngày để chỉnh công' : 'Chạm vào ngày để xem giờ vào ra'} · viền xanh là công đã chỉnh ·
-              ? là quên quẹt ra
-            </span>
-          </>
-        }
-      >
-        {/* Máy tính: bảng 31 cột ngày */}
-        <div className="hidden overflow-x-auto md:block">
-          <table className="border-collapse text-center">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-10 min-w-48 bg-slate-100 px-4 py-2 text-left text-xs font-bold uppercase tracking-wider text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  Nhân viên
-                </th>
-                {days.map((d) => (
-                  <th
-                    key={d.key}
-                    className={`min-w-9 border-l border-slate-200 px-1 py-1 text-[11px] font-bold dark:border-slate-700 ${
-                      d.weekday === 0
-                        ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300'
-                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                    } ${d.key === today ? 'underline decoration-blue-500 decoration-2 underline-offset-2' : ''}`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => setDayDetail(d.key)}
-                      title="Bấm để xem chi tiết cả ngày"
-                      className="w-full cursor-pointer rounded-md py-0.5 hover:bg-blue-100 dark:hover:bg-blue-950/50"
-                    >
-                      <div>{d.d}</div>
-                      <div className="font-medium opacity-70">{WEEKDAY[d.weekday]}</div>
-                    </button>
-                  </th>
-                ))}
-                <th className="min-w-20 border-l-2 border-slate-300 bg-emerald-50 px-3 py-2 text-xs font-black uppercase text-emerald-800 dark:border-slate-600 dark:bg-emerald-950/30 dark:text-emerald-300">
-                  Tổng công
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
-                <tr>
-                  <td colSpan={days.length + 2} className="p-8 text-center text-sm font-bold text-blue-600 animate-pulse">
-                    Đang tải bảng chấm công...
-                  </td>
-                </tr>
-              ) : !data || visibleMonthStaff.length === 0 ? (
-                <tr>
-                  <td colSpan={days.length + 2} className="p-8 text-center text-sm font-semibold text-slate-500">
-                    {!data || monthStaff.length === 0
-                      ? 'Chưa có nhân viên nào.'
-                      : `Không tìm thấy nhân viên "${search.trim()}".`}
-                  </td>
-                </tr>
-              ) : (
-                visibleMonthStaff.map((s) => (
-                  <tr key={s.id} className="border-t border-slate-200 dark:border-slate-700">
-                    <td className="sticky left-0 z-10 bg-white px-4 py-2 text-left dark:bg-[#111d35]">
-                      <div className="flex items-center gap-2.5">
-                        <Avatar name={s.fullName} />
-                        <span className="whitespace-nowrap text-sm font-extrabold text-slate-900 dark:text-white">
-                          {s.fullName}
-                        </span>
-                      </div>
-                    </td>
-                    {days.map((d) => {
-                      const { cell, noOut, has, tone, title } = cellInfo(s, d.key, d.d);
-                      return (
-                        <td key={d.key} className="border-l border-slate-100 p-0.5 dark:border-slate-800">
-                          <button
-                            type="button"
-                            title={title}
-                            onClick={isAdmin ? () => openEdit(s, d.key) : undefined}
-                            className={`tnum flex h-8 w-full min-w-8 items-center justify-center rounded-md text-xs font-black transition-colors ${
-                              isAdmin ? 'hover:ring-2 hover:ring-blue-400' : 'cursor-default'
-                            } ${tone} ${
-                              cell?.overridden ? 'ring-2 ring-blue-500' : ''
-                            }`}
-                          >
-                            {cell && has ? congText(cell.cong) : noOut ? '?' : '·'}
-                          </button>
-                        </td>
-                      );
-                    })}
-                    <td className="tnum border-l-2 border-slate-300 bg-emerald-50/60 px-3 py-2 text-base font-black text-emerald-800 dark:border-slate-600 dark:bg-emerald-950/20 dark:text-emerald-300">
-                      {s.totalCong}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Điện thoại: mỗi nhân viên một lịch tháng 7 cột, chạm vào ngày để xem hoặc chỉnh */}
-        <div className="space-y-3 p-3 md:hidden">
-          {isLoading ? (
-            <p className="p-6 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải bảng chấm công...</p>
-          ) : !data || visibleMonthStaff.length === 0 ? (
-            <p className="p-6 text-center text-sm font-semibold text-slate-500">
-              {!data || monthStaff.length === 0
-                ? 'Chưa có nhân viên nào.'
-                : `Không tìm thấy nhân viên "${search.trim()}".`}
-            </p>
-          ) : (
-            visibleMonthStaff.map((s) => (
-              <div
-                key={s.id}
-                className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60"
-              >
-                <div className="mb-2.5 flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <Avatar name={s.fullName} />
-                    <span className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{s.fullName}</span>
-                  </div>
-                  <div className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
-                    <span className="tnum text-base font-black">{s.totalCong}</span>
-                    <span className="ml-1 text-[10px] font-bold uppercase">công</span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {WEEKDAY_MON_FIRST.map((w) => (
-                    <div
-                      key={w}
-                      className={`pb-0.5 text-[10px] font-bold ${w === 'CN' ? 'text-rose-500' : 'text-slate-400'}`}
-                    >
-                      {w}
-                    </div>
-                  ))}
-                  {Array.from({ length: leadingBlanks }, (_, i) => (
-                    <div key={`blank-${i}`} />
-                  ))}
-                  {days.map((d) => {
-                    const { cell, noOut, has, tone } = cellInfo(s, d.key, d.d);
-                    return (
-                      <button
-                        key={d.key}
-                        type="button"
-                        onClick={() => (isAdmin ? openEdit(s, d.key) : setDayDetail(d.key))}
-                        aria-label={`${s.fullName} ngày ${d.d}`}
-                        className={`flex h-11 flex-col items-center justify-center rounded-lg leading-none ${
-                          tone.includes('bg-') ? '' : 'bg-slate-50 dark:bg-slate-800/40'
-                        } ${tone} ${cell?.overridden ? 'ring-2 ring-blue-500' : ''} ${
-                          d.key === today ? 'outline outline-2 outline-offset-1 outline-blue-500' : ''
-                        }`}
-                      >
-                        <span className={`text-[9px] font-semibold ${d.weekday === 0 ? 'text-rose-500' : 'opacity-60'}`}>
-                          {d.d}
-                        </span>
-                        <span className="tnum mt-0.5 text-sm font-black">
-                          {cell && has ? congText(cell.cong) : noOut ? '?' : '·'}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-        {isAdmin && (
-          <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương cho nhân viên chưa có công đã lưu.
-          </p>
-        )}
       </Card>
 
       {dayDetail && (
@@ -751,15 +802,13 @@ export default function AttendancePage() {
           onClose={() => setEditing(null)}
         >
           <div className="space-y-4">
-            <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-800/50">
-              {editingCell ? (
-                <>
-                  {cellSummary(editingCell)} → hệ thống tự tính <b>{congText(editingCell.autoCong)} công</b>.
-                </>
-              ) : (
-                'Ngày này chưa có dữ liệu chấm công.'
-              )}
-            </div>
+            {editingCell ? (
+              <CellDetail cell={editingCell} />
+            ) : (
+              <div className="rounded-xl bg-slate-50 px-3.5 py-3 text-sm dark:bg-slate-800/50">
+                Ngày này chưa có dữ liệu chấm công.
+              </div>
+            )}
             <Field label="Số công của ngày này">
               <select className="input-3d !h-10" value={editCong} onChange={(e) => setEditCong(e.target.value)}>
                 <option value="auto">Tự tính theo giờ làm (không chỉnh tay)</option>
