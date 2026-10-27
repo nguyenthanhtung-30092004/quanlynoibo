@@ -270,6 +270,13 @@ export interface Kpi extends KpiSummary {
   byRoute?: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission?: number }>;
   /** Chỉ có với Admin: số vé và hoa hồng theo đối tác, nhiều hoa hồng nhất trước */
   byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
+  /** Chỉ có với Admin: khách quen / khách lạ trong khoảng lọc, tính theo số điện thoại */
+  byCustomerType?: {
+    /** Từ bấy nhiêu đơn trở lên là khách quen */
+    minOrders: number;
+    regular: { customers: number; orders: number };
+    new: { customers: number; orders: number };
+  };
 }
 
 export type OrderHistoryAction = 'CREATE' | 'UPDATE' | 'CANCEL' | 'SEND_MESSAGE';

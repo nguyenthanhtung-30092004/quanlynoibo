@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import ExcelJS from 'exceljs';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { Partner } from '../../partners/entities/partner.entity.js';
@@ -8,9 +8,18 @@ import { UserRole } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import type { KpiQueryDto } from '../dto/query-orders.dto.js';
 import { MessageChannel } from '../messaging/message.types.js';
+import { REGULAR_CUSTOMER_MIN_ORDERS } from '../customer-type.util.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula } from '../mappers/order.mapper.js';
+
+/** Khách quen / khách lạ: số khách (số điện thoại khác nhau) và số đơn của mỗi nhóm */
+interface CustomerTypeStats {
+  /** Từ bấy nhiêu đơn trở lên là khách quen */
+  minOrders: number;
+  regular: { customers: number; orders: number };
+  new: { customers: number; orders: number };
+}
 
 /** Biểu thức SQL số vé của đơn, khớp `ticketsOf` ở order.mapper (ưu tiên số ghế, không thì tổng đầu/giữa/cuối) */
 const TICKETS_SQL = `(CASE
@@ -186,6 +195,8 @@ export class OrdersReportService {
     const isAdmin = actor.role === UserRole.ADMIN;
     // Nhân viên cũng cần bảng vinh danh toàn hệ thống nên lấy nhóm của mọi người rồi tách phần của mình
     const { date, qb } = this.kpiFilteredQuery(query, actor, !isAdmin);
+    // Truy vấn khách quen / khách lạ dùng chung bộ lọc nhưng chạy riêng (chỉ Admin xem), nên dựng trước khi qb bị thêm select
+    const customerQb = isAdmin ? qb.clone() : null;
 
     // Một truy vấn duy nhất gom theo (nhân viên, tuyến, đối tác): chỉ vài chục dòng dù lọc cả năm
     const partnerExpr = `LOWER(TRIM(COALESCE(order.partner, '')))`;
@@ -258,6 +269,7 @@ export class OrdersReportService {
         >;
         byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission: number }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
+        byCustomerType?: CustomerTypeStats;
       } = { date, ...summarize(mine), byRoute: [] };
 
     // Số đơn, số vé (ghế) và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
@@ -274,6 +286,7 @@ export class OrdersReportService {
       result.byPartner = [...partnerGroups.values()].sort(
         (a, b) => b.commission - a.commission || b.total - a.total,
       );
+      result.byCustomerType = await this.customerTypeStats(customerQb!);
     }
 
     // Số đơn, số vé (ghế) và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
@@ -325,6 +338,35 @@ export class OrdersReportService {
         .sort((a, b) => b.total - a.total);
     }
     return result;
+  }
+
+  /**
+   * Khách quen / khách lạ trong khoảng lọc, tính theo số điện thoại đã chuẩn hóa (phoneKey).
+   * Khách quen = số điện thoại có từ REGULAR_CUSTOMER_MIN_ORDERS đơn còn hiệu lực trở lên (đếm trên toàn bộ
+   * lịch sử, cùng quy tắc với cột loại khách ở danh sách vé). Đơn không có số điện thoại thì không phân loại.
+   * Gom ở SQL, chỉ trả về 2 dòng.
+   */
+  private async customerTypeStats(qb: SelectQueryBuilder<Order>): Promise<CustomerTypeStats> {
+    // Hằng số trong code (không phải dữ liệu người dùng) nên nhúng thẳng vào SQL: nếu dùng tham số thì
+    // Postgres coi biểu thức SELECT và GROUP BY là hai biểu thức khác nhau
+    const min = Math.trunc(REGULAR_CUSTOMER_MIN_ORDERS);
+    const rows = await qb
+      .innerJoin(
+        `(SELECT o2."phoneKey" AS "phoneKey", COUNT(*) AS "cnt" FROM "orders" o2 WHERE o2."cancelledAt" IS NULL AND o2."phoneKey" IS NOT NULL GROUP BY o2."phoneKey")`,
+        'pc',
+        'pc."phoneKey" = order.phoneKey',
+      )
+      .select(`(pc."cnt" >= ${min})`, 'regular')
+      .addSelect('COUNT(DISTINCT order.phoneKey)', 'customers')
+      .addSelect('COUNT(*)', 'orders')
+      .groupBy(`(pc."cnt" >= ${min})`)
+      .getRawMany<{ regular: boolean; customers: string; orders: string }>();
+
+    const pick = (regular: boolean) => {
+      const row = rows.find((r) => r.regular === regular);
+      return { customers: Number(row?.customers ?? 0), orders: Number(row?.orders ?? 0) };
+    };
+    return { minOrders: min, regular: pick(true), new: pick(false) };
   }
 
   /**

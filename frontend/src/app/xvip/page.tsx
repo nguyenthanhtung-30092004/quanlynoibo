@@ -10,6 +10,7 @@ import { useActiveStaff, useUsers } from '@/features/users/hooks';
 import { Modal } from '@/features/xvip/Modal';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
+import { CustomerTypeChart } from '@/features/xvip/customer-type-chart';
 import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
@@ -325,6 +326,11 @@ function OverviewContent() {
               </ul>
             </div>
           )}
+        </Card>
+
+        {/* Khách quen / khách lạ theo số điện thoại */}
+        <Card title="Khách quen & khách lạ">
+          <CustomerTypeChart data={kpiData?.byCustomerType} />
         </Card>
 
         {/* Nhân viên tổng đài */}
