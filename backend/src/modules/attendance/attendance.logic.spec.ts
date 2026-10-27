@@ -308,8 +308,8 @@ describe('resolveShiftForDay', () => {
   describe('vào sớm bất thường so với ca đoán theo giờ ra', () => {
     // Mỗi dòng: [giờ vào, giờ ra, ca đúng, tăng ca giờ, ca bị đoán nhầm nếu chỉ nhìn giờ ra]
     it.each([
-      [hm(11, 45), hm(22), '12h - 21h', 1, '13h30 - 22h'],
-      [hm(12, 10), hm(22), '12h - 21h', 1, '13h30 - 22h'],
+      [hm(11, 45), hm(22), '12h - 21h', 1.5, '13h30 - 22h'],
+      [hm(12, 10), hm(22), '12h - 21h', 1.5, '13h30 - 22h'],
       [hm(8, 45), hm(19, 30), '9h - 18h30', 1, '10h - 19h30'],
       [hm(6, 50), hm(17, 30), '7h - 16h30', 1, '8h - 17h30'],
       [hm(5, 45), hm(15, 30), '6h - 15h30', 0, '5h - 13h30'],
@@ -317,11 +317,11 @@ describe('resolveShiftForDay', () => {
       const c = resolveShiftForDay(inAt, outAt);
       expect(c.shift.label).toBe(label);
       expect(c.source).toBe('auto');
-      expect(overtimeHoursFromMinutes(outAt - c.shift.endMinute)).toBe(overtime);
+      expect(overtimeHoursFromMinutes(outAt - c.shift.overtimeFromMinute)).toBe(overtime);
       expect(c.alternative?.shift.label ?? wrong).toBe(wrong);
     });
 
-    it('vào 11h45 ra 22h: tính ca 12h tăng ca 1 giờ và đánh dấu cách hiểu ca 13h30 để Admin xem lại', () => {
+    it('vào 11h45 ra 22h: tính ca 12h tăng ca 1,5 giờ và đánh dấu cách hiểu ca 13h30 để Admin xem lại', () => {
       const c = resolveShiftForDay(hm(11, 45), hm(22));
       expect(c.shift.label).toBe('12h - 21h');
       expect(c.alternative?.shift.label).toBe('13h30 - 22h');
@@ -345,6 +345,21 @@ describe('evaluateDay: tăng ca', () => {
       { firstAt: vn(inAt), lastAt: vn(outAt), punchCount: 2, isToday: false },
       DEFAULT_ATTENDANCE_CONFIG,
     );
+
+  it('ca 12h - 21h ra 22h: tăng ca 1,5 giờ (ca 12h tính tăng ca từ 20h30), công vẫn 1', () => {
+    const r = day('12:00', '22:00');
+    expect(r).toMatchObject({ cong: 1, overtimeMinutes: 90, overtimeHours: 1.5, earlyLeaveMinutes: 0 });
+    expect(r.shift?.label).toBe('12h - 21h');
+  });
+
+  it('ca 12h: ra 21h chưa đủ 1 giờ tính từ 20h30 nên chưa có tăng ca; ra 21h30 được 1 giờ', () => {
+    expect(day('12:00', '21:00')).toMatchObject({ overtimeHours: 0 });
+    expect(day('12:00', '21:30')).toMatchObject({ overtimeHours: 1 });
+  });
+
+  it('các ca khác vẫn tính tăng ca từ giờ kết thúc ca', () => {
+    expect(day('13:30', '23:30')).toMatchObject({ overtimeMinutes: 90, overtimeHours: 1.5 });
+  });
 
   it('ca 6h - 15h30 ra 17h: ở lại 90 phút, tăng ca 1,5 giờ, công vẫn tối đa 1', () => {
     const r = day('06:00', '17:00');

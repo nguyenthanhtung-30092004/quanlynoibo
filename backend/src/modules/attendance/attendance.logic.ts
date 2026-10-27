@@ -40,6 +40,8 @@ export interface Shift {
   startMinute: number;
   /** Phút trong ngày kết thúc ca */
   endMinute: number;
+  /** Phút trong ngày bắt đầu tính tăng ca; thường bằng giờ kết thúc ca, riêng ca 12h tính sớm hơn */
+  overtimeFromMinute: number;
   /** Nhãn hiển thị, vd "6h - 15h30" */
   label: string;
 }
@@ -50,9 +52,10 @@ const hm = (minuteOfDay: number) => {
   const m = minuteOfDay % 60;
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
 };
-const shift = (startMinute: number, endMinute: number): Shift => ({
+const shift = (startMinute: number, endMinute: number, overtimeFromMinute = endMinute): Shift => ({
   startMinute,
   endMinute,
+  overtimeFromMinute,
   label: `${hm(startMinute)} - ${hm(endMinute)}`,
 });
 
@@ -63,7 +66,8 @@ export const SHIFTS: readonly Shift[] = [
   shift(at(8), at(17, 30)),
   shift(at(9), at(18, 30)),
   shift(at(10), at(19, 30)),
-  shift(at(12), at(21)),
+  // Ca 12h tính tăng ca từ 20h30: ra 22h được 1,5 giờ tăng ca
+  shift(at(12), at(21), at(20, 30)),
   shift(at(13, 30), at(22)),
 ];
 
@@ -134,7 +138,7 @@ const shiftByStart = (startMinute: number | null | undefined): Shift | null =>
   startMinute == null ? null : (SHIFTS.find((s) => s.startMinute === startMinute) ?? null);
 
 const overtimeOf = (shift: Shift, outMinute: number) =>
-  overtimeHoursFromMinutes(outMinute - shift.endMinute);
+  overtimeHoursFromMinutes(outMinute - shift.overtimeFromMinute);
 
 /**
  * Xác định ca của một ngày, ưu tiên: Admin chọn tay cho ngày đó > ca mặc định của nhân viên > tự đoán.
@@ -347,7 +351,7 @@ export function evaluateDay(
     cong: congForShift(congMinutes, s),
     lateMinutes,
     earlyLeaveMinutes: Math.max(0, s.endMinute - outMinute),
-    overtimeMinutes: Math.max(0, outMinute - s.endMinute),
+    overtimeMinutes: Math.max(0, outMinute - s.overtimeFromMinute),
     overtimeHours: overtimeOf(s, outMinute),
     shiftSource: choice.source,
     alternative: choice.alternative,
