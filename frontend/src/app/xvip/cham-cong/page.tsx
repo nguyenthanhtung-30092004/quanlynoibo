@@ -14,6 +14,7 @@ import {
   useSetShiftOverride,
 } from '@/features/attendance/hooks';
 import { durationText } from '@/features/attendance/format';
+import { ShiftSelect } from '@/features/attendance/ShiftSelect';
 import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { Modal } from '@/features/xvip/Modal';
@@ -90,7 +91,7 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   );
 }
 
-/** Admin chọn ca thật của một ngày: hệ thống tính lại vào muộn / ra sớm / công theo ca này */
+/** Admin chọn ca thật của một ngày: bấm Lưu thì hệ thống mới tính lại vào muộn / ra sớm / công theo ca này */
 function ShiftPicker({
   shifts,
   shiftStart,
@@ -102,26 +103,25 @@ function ShiftPicker({
   shiftStart: number | null;
   source: 'auto' | 'default' | 'forced' | null;
   disabled: boolean;
-  onChange: (shiftStart: number | null) => void;
+  onChange: (shiftStart: number | null) => Promise<void>;
 }) {
   return (
-    <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
-      Ca làm
-      <select
-        className="input-3d !h-8 !w-44 !px-2 !py-0 text-xs"
-        disabled={disabled}
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+      <span>Ca làm</span>
+      <ShiftSelect
+        shifts={shifts}
         value={source === 'forced' && shiftStart !== null ? String(shiftStart) : 'auto'}
-        onChange={(e) => onChange(e.target.value === 'auto' ? null : Number(e.target.value))}
-        aria-label="Chọn ca làm của ngày này"
-      >
-        <option value="auto">Tự đoán / ca mặc định</option>
-        {shifts.map((s) => (
-          <option key={s.startMinute} value={s.startMinute}>
-            {s.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        autoLabel="Tự đoán / ca mặc định"
+        ariaLabel="Chọn ca làm của ngày này"
+        disabled={disabled}
+        onSave={(v) => onChange(v === 'auto' ? null : Number(v))}
+      />
+      {source === 'forced' && (
+        <span className="rounded bg-blue-50 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-950/40 dark:text-blue-300">
+          Admin đã chọn tay, chọn &ldquo;Tự đoán&rdquo; rồi Lưu để về như máy tính
+        </span>
+      )}
+    </div>
   );
 }
 

@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api-client';
 import { monthLabel } from '@/lib/month';
 import { attendanceApi } from '@/features/attendance/api';
 import { durationText } from '@/features/attendance/format';
+import { ShiftSelect } from '@/features/attendance/ShiftSelect';
 import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { Modal } from '@/features/xvip/Modal';
 import { money } from '@/features/xvip/data';
@@ -99,6 +100,7 @@ export function PayrollDetailModal({
     try {
       await action();
       await onShiftChanged();
+      showToast('Đã lưu ca làm việc, hệ thống đã tính lại.');
     } catch (err) {
       showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không lưu được ca làm việc.'}`);
     } finally {
@@ -131,20 +133,15 @@ export function PayrollDetailModal({
         </div>
         <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
           Ca mặc định
-          <select
-            className="input-3d !h-9 !w-40 !py-1 !px-2 text-sm"
+          <ShiftSelect
+            className="!h-9 !w-40 !py-1 text-sm"
             disabled={busy || !attendance}
             value={attendance?.defaultShift != null ? String(attendance.defaultShift) : 'auto'}
-            onChange={(e) => changeDefault(e.target.value)}
-            aria-label="Ca mặc định của nhân viên"
-          >
-            <option value="auto">Tự đoán</option>
-            {shifts.map((s) => (
-              <option key={s.startMinute} value={s.startMinute}>
-                {s.label}
-              </option>
-            ))}
-          </select>
+            shifts={shifts}
+            autoLabel="Tự đoán"
+            ariaLabel="Ca mặc định của nhân viên"
+            onSave={changeDefault}
+          />
         </label>
       </div>
 
@@ -227,20 +224,15 @@ export function PayrollDetailModal({
                       {cell && cell.status === 'done' && cell.shift ? (
                         <div>
                           <div className="flex items-center gap-1.5">
-                            <select
-                              className="input-3d !h-8 !w-40 !py-0 !px-2 text-xs"
+                            <ShiftSelect
+                              className="!w-40"
                               disabled={busy}
                               value={dayShiftValue(cell)}
-                              onChange={(e) => changeDay(day, e.target.value)}
-                              aria-label={`Ca làm ngày ${day}`}
-                            >
-                              <option value="auto">Tự động ({cell.shift})</option>
-                              {shifts.map((s) => (
-                                <option key={s.startMinute} value={s.startMinute}>
-                                  {s.label}
-                                </option>
-                              ))}
-                            </select>
+                              shifts={shifts}
+                              autoLabel={`Tự động (${cell.shift})`}
+                              ariaLabel={`Ca làm ngày ${day}`}
+                              onSave={(v) => changeDay(day, v)}
+                            />
                             {cell.alternative && (
                               <Warning size={16} weight="fill" className="shrink-0 text-amber-500" aria-hidden />
                             )}

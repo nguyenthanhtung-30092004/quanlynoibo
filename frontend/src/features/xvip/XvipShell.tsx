@@ -37,6 +37,8 @@ interface NavItem {
   icon: Icon;
   /** Chỉ Admin thấy mục này */
   adminOnly?: boolean;
+  /** Chỉ nhân viên thấy mục này (Admin đã có trang riêng) */
+  staffOnly?: boolean;
 }
 
 const NAV: NavItem[] = [
@@ -50,6 +52,7 @@ const NAV: NavItem[] = [
   { href: '/xvip/cham-cong', label: 'Chấm công', icon: CalendarCheck },
   { href: '/xvip/nghi-phep', label: 'Đăng ký nghỉ', icon: CalendarX },
   { href: '/xvip/bang-luong', label: 'Bảng lương', icon: Money, adminOnly: true },
+  { href: '/xvip/luong-cua-toi', label: 'Lương của tôi', icon: Money, staffOnly: true },
   { href: '/xvip/bao-cao', label: 'Báo cáo', icon: ChartBar },
   { href: '/xvip/cai-dat', label: 'Cài đặt', icon: Gear, adminOnly: true },
 ];
@@ -182,7 +185,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Nav List with Bright, Crisp Text in Light Mode & Glowing Depth in Dark Mode */}
       <nav aria-label="Menu chính" className="flex-1 overflow-y-auto px-3.5 py-4">
         <ul className="flex flex-col gap-2">
-          {NAV.filter((item) => !item.adminOnly || isAdmin).map(({ href, label, icon: Icon }) => {
+          {NAV.filter((item) => (!item.adminOnly || isAdmin) && (!item.staffOnly || me?.role === 'STAFF')).map(({ href, label, icon: Icon }) => {
             const active = href === '/xvip' ? pathname === '/xvip' : pathname.startsWith(href);
             return (
               <li key={label}>

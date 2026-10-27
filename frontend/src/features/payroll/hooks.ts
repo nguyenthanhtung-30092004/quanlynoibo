@@ -21,3 +21,10 @@ export function useSavePayroll() {
     onSuccess: (data) => queryClient.setQueryData(key(data.month), data),
   });
 }
+
+export function useMyPayroll(month: string) {
+  return useQuery({
+    queryKey: ['payroll', 'me', month],
+    queryFn: ({ signal }) => payrollApi.mine(month, signal),
+  });
+}

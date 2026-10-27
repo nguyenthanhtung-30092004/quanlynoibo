@@ -34,7 +34,23 @@ export class PayrollService {
     @InjectRepository(Order) private readonly orders: Repository<Order>,
   ) {}
 
-  async get(month: string) {
+  /**
+   * Lương của chính nhân viên đang đăng nhập (chỉ xem). Chỉ trả đúng một người; bảng bậc lương cũng chỉ
+   * giữ bậc của người đó để nhân viên không thấy mức lương cứng của bậc khác.
+   */
+  async getMine(month: string, userId: number) {
+    const data = await this.get(month, userId);
+    const me = data.staff[0];
+    if (!me) return { ...data, staff: [] };
+    const level = Math.min(me.entry.level, data.config.levels.length - 1);
+    return {
+      ...data,
+      config: { ...data.config, levels: [data.config.levels[level]] },
+      staff: [{ ...me, entry: { ...me.entry, level: 0 } }],
+    };
+  }
+
+  async get(month: string, onlyUserId?: number) {
     const config = await this.loadConfig();
     const entries = await this.loadEntries(month, config);
     const [yearStr, monthStr] = month.split('-');
@@ -43,7 +59,11 @@ export class PayrollService {
     const to = `${month}-${String(daysInMonth).padStart(2, '0')}`;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull() },
+      where: {
+        role: UserRole.STAFF,
+        deletedAt: IsNull(),
+        ...(onlyUserId !== undefined ? { id: onlyUserId } : {}),
+      },
       select: { id: true, fullName: true, isActive: true },
       order: { fullName: 'ASC' },
     });
@@ -61,6 +81,7 @@ export class PayrollService {
         { from, to },
       )
       .andWhere('"order"."cancelledAt" IS NULL')
+      .andWhere(onlyUserId !== undefined ? '"order"."createdById" = :onlyUserId' : '1=1', { onlyUserId })
       .groupBy('"order"."createdById"')
       .addGroupBy(effectiveDayExpr)
       .getRawMany<{ staffId: number; day: string; commission: string; tickets: string }>();
