@@ -445,7 +445,7 @@ export async function buildAttendanceWorkbook(
   addTitle(rules, 'QUY TẮC TÍNH CÔNG', monthText, 2);
   const money = (n: number) => `${n.toLocaleString('vi-VN')}đ`;
   const ruleRows: Array<[string, string]> = [
-    ['Lượt quẹt', 'Giờ vào là lượt quẹt đầu tiên trong ngày, giờ ra là lượt quẹt cuối cùng. Quẹt lại trong 2 phút bị coi là quẹt trùng và bỏ qua.'],
+    ['Lượt quẹt', 'Giờ vào là lượt quẹt đầu tiên trong ngày, giờ ra là lượt quẹt tiếp theo (cách lượt trước ít nhất 15 phút; quẹt lại trong 15 phút bị coi là quẹt trùng và bỏ qua). Đã chấm ra rồi thì quẹt thêm không tính nữa, hôm sau mới tính lại.'],
     ['Quên quẹt ra', 'Ngày chỉ có một lượt quẹt thì đến 23:59 hệ thống tự chấm ra và ngày đó không tính công (Admin vẫn chỉnh tay được).'],
     ['Ca làm việc', 'Ưu tiên: Admin chọn tay cho ngày đó, rồi ca mặc định của nhân viên, rồi tự đoán từ giờ vào và giờ ra. Cột "Cảnh báo ca" cho biết ngày nào hệ thống chưa chắc ca và số giờ tăng ca sẽ khác nếu chọn ca kia.'],
     ['Công mỗi ngày', 'Chỉ tính phần giờ nằm trong ca, không trừ nghỉ trưa. Đủ cả ca là 1 công, có mặt từ nửa ca là 0,5 công, ít hơn là 0. Mỗi ngày tối đa 1 công.'],

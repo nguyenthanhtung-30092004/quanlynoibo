@@ -693,8 +693,9 @@ export default function AttendancePage() {
             <div className="space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
               <p>
                 Công tính theo lượt quẹt trên máy chấm công, không dựa vào đăng nhập. Lượt quẹt đầu trong ngày là giờ
-                vào, lượt cuối là giờ ra; quẹt lại trong vòng 2 phút chỉ tính một lượt. Hết ngày lúc 23:59, ai quên
-                quẹt ra sẽ được hệ thống tự chấm ra và <b>không tính công</b> ngày đó (Admin vẫn chỉnh tay được).
+                vào, lượt quẹt tiếp theo là giờ ra; quẹt lại trong vòng 15 phút chỉ tính một lượt. <b>Đã chấm ra rồi
+                thì quẹt thêm không tính nữa</b>, hôm sau mới tính lại. Hết ngày lúc 23:59, ai quên quẹt ra sẽ được hệ
+                thống tự chấm ra và <b>không tính công</b> ngày đó (Admin vẫn chỉnh tay được).
               </p>
               <p>
                 Ca được đoán từ giờ ra: chọn ca có giờ kết thúc gần giờ ra nhất. Chỉ tính phần giờ nằm trong ca, vào

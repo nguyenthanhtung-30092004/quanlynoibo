@@ -16,7 +16,24 @@ export const DEFAULT_ATTENDANCE_CONFIG: AttendanceConfig = {
 };
 
 /** Quẹt lần nữa trong khoảng này (trước hoặc sau lượt đã ghi) bị coi là quẹt trùng và bỏ qua */
-export const PUNCH_COOLDOWN_SECONDS = 120;
+export const PUNCH_COOLDOWN_SECONDS = 15 * 60;
+
+/** Mỗi ngày chỉ ghi tối đa bấy nhiêu lượt quẹt: lượt đầu là vào, lượt thứ hai là ra, sau đó quẹt thêm không tính nữa */
+export const MAX_PUNCHES_PER_DAY = 2;
+
+export type PunchDecision = 'recorded' | 'duplicate' | 'after_out';
+
+/**
+ * Quyết định ghi hay bỏ một lượt quẹt mới của nhân viên.
+ * `recordedToday`: số lượt đã ghi trong ngày (không tính lượt tự chấm ra 23:59).
+ * `recordedNearby`: số lượt đã ghi trong khoảng `PUNCH_COOLDOWN_SECONDS` quanh lượt mới (cả trước lẫn sau).
+ * Đã chấm ra rồi thì bỏ hết, kể cả quẹt trong khoảng chờ; ngày hôm sau đếm lại từ đầu.
+ */
+export function decidePunch(recordedToday: number, recordedNearby: number): PunchDecision {
+  if (recordedToday >= MAX_PUNCHES_PER_DAY) return 'after_out';
+  if (recordedNearby > 0) return 'duplicate';
+  return 'recorded';
+}
 
 export interface Shift {
   /** Phút trong ngày (0-1439) bắt đầu ca */

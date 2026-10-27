@@ -9,6 +9,7 @@ import {
   AUTO_CLOSE_MINUTE,
   DEFAULT_ATTENDANCE_CONFIG,
   PUNCH_COOLDOWN_SECONDS,
+  decidePunch,
   SHIFTS,
   congFromMinutes,
   evaluateDay,
@@ -26,7 +27,7 @@ import {
   type PayrollConfig,
 } from '../payroll/payroll.config.js';
 
-export type PunchResult = 'recorded' | 'duplicate' | 'unknown_employee' | 'not_counted';
+export type PunchResult = 'recorded' | 'duplicate' | 'after_out' | 'unknown_employee' | 'not_counted';
 
 const CONFIG_KEY = 'attendance_config';
 /** Khóa cấu hình lương, do module Bảng lương ghi; ở đây chỉ đọc */
@@ -183,6 +184,7 @@ export class AttendanceService {
   /**
    * Ghi một lượt quẹt từ máy chấm công Hikvision. Giờ lấy theo giờ của máy (máy gửi lại khi mất mạng vẫn đúng giờ).
    * Quẹt lại trong vòng PUNCH_COOLDOWN_SECONDS của một lượt đã ghi thì bỏ qua, nên quẹt liền hai lần chỉ tính lượt vào.
+   * Mỗi ngày chỉ ghi tối đa MAX_PUNCHES_PER_DAY lượt (vào, ra): đã chấm ra rồi thì quẹt thêm không tính, hôm sau mới tính lại.
    * Công của ngày tính từ lượt quẹt đầu (vào) đến lượt quẹt cuối (ra), xem `evaluateDay`.
    */
   async recordPunch(punch: HikvisionPunch): Promise<PunchResult> {
@@ -195,13 +197,17 @@ export class AttendanceService {
 
     const { day } = vietnamClock(punch.at);
 
-    const near: Array<{ n: string }> = await this.dataSource.query(
-      `SELECT count(*) AS "n" FROM "attendance_punches"
-        WHERE "userId" = $1 AND NOT "auto"
-          AND "at" BETWEEN $2::timestamptz - make_interval(secs => $3::int) AND $2::timestamptz + make_interval(secs => $3::int)`,
-      [user.id, punch.at, PUNCH_COOLDOWN_SECONDS],
+    const counts: Array<{ nearby: string; today: string }> = await this.dataSource.query(
+      `SELECT
+         (SELECT count(*) FROM "attendance_punches"
+           WHERE "userId" = $1 AND NOT "auto"
+             AND "at" BETWEEN $2::timestamptz - make_interval(secs => $3::int) AND $2::timestamptz + make_interval(secs => $3::int)) AS "nearby",
+         (SELECT count(*) FROM "attendance_punches"
+           WHERE "userId" = $1 AND NOT "auto" AND "day" = $4::date) AS "today"`,
+      [user.id, punch.at, PUNCH_COOLDOWN_SECONDS, day],
     );
-    if (Number(near[0].n) > 0) return 'duplicate';
+    const decision = decidePunch(Number(counts[0].today), Number(counts[0].nearby));
+    if (decision !== 'recorded') return decision;
 
     // `kind` chỉ để đối chiếu nhật ký; công không dựa vào nó mà dựa vào lượt đầu và lượt cuối trong ngày
     let kind = directionFromStatus(punch.status);
