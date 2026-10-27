@@ -152,11 +152,8 @@ export default function MyPayrollPage() {
               value={result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
               tone={result.latePenalty > 0 ? 'minus' : undefined}
             />
-            <Line
-              label="Bảo hiểm"
-              value={result.insurance > 0 ? `−${vnd(result.insurance)}` : vnd(0)}
-              tone={result.insurance > 0 ? 'minus' : undefined}
-            />
+            {/* Bảo hiểm bằng 0 (Admin đã bỏ cho người này) thì không hiện dòng này */}
+            {result.insurance > 0 && <Line label="Bảo hiểm" value={`−${vnd(result.insurance)}`} tone="minus" />}
             <div className="flex items-center justify-between border-t-2 border-slate-200 pt-3 dark:border-slate-700">
               <span className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">Tổng lương</span>
               <span className="tnum text-lg font-black text-emerald-700 dark:text-emerald-400">{vnd(result.total)}</span>

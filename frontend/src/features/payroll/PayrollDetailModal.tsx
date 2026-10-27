@@ -145,7 +145,7 @@ export function PayrollDetailModal({
         </label>
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2.5 lg:grid-cols-5">
+      <div className={`mb-4 grid grid-cols-2 gap-2.5 ${result.insurance > 0 ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
         <Stat label="Công thực tế" value={`${result.workDays} / ${result.standardDays}`} note="công" />
         <Stat
           label="Thưởng ngày"
@@ -165,12 +165,15 @@ export function PayrollDetailModal({
           note={`${result.lateMinutes} phút muộn`}
           tone={result.latePenalty > 0 ? 'red' : undefined}
         />
-        <Stat
-          label="Bảo hiểm"
-          value={result.insurance > 0 ? `−${money(result.insurance)}đ` : '0đ'}
-          note="trừ vào lương tháng này"
-          tone={result.insurance > 0 ? 'red' : undefined}
-        />
+        {/* Bảo hiểm bằng 0 thì bỏ hẳn ô này */}
+        {result.insurance > 0 && (
+          <Stat
+            label="Bảo hiểm"
+            value={`−${money(result.insurance)}đ`}
+            note="trừ vào lương tháng này"
+            tone="red"
+          />
+        )}
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">

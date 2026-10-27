@@ -636,18 +636,19 @@ export default function PayrollPage() {
                           {result.overtimePay > 0 ? `+${vnd(result.overtimePay)}` : vnd(0)}
                         </span>
                       </Line>
-                      <Line
-                        label="Bảo hiểm"
-                        note={
-                          result.insurance !== config.insuranceDefault
-                            ? `khác mặc định (${money(config.insuranceDefault)})`
-                            : 'mặc định'
-                        }
-                      >
-                        <span className={result.insurance > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}>
-                          {result.insurance > 0 ? `−${vnd(result.insurance)}` : vnd(0)}
-                        </span>
-                      </Line>
+                      {/* Bảo hiểm bằng 0 thì bỏ dòng này (ô nhập bên dưới vẫn còn để đặt lại) */}
+                      {result.insurance > 0 && (
+                        <Line
+                          label="Bảo hiểm"
+                          note={
+                            result.insurance !== config.insuranceDefault
+                              ? `khác mặc định (${money(config.insuranceDefault)})`
+                              : 'mặc định'
+                          }
+                        >
+                          <span className="text-red-600 dark:text-red-400">−{vnd(result.insurance)}</span>
+                        </Line>
+                      )}
                     </div>
 
                     {/* Ô nhập: cao 44px và chữ 16px để dễ chạm, iPhone không tự phóng to khi nhập */}
