@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   CaretDown,
   CaretLeft,
@@ -30,6 +30,19 @@ const entriesOf = (data: PayrollData): Entries =>
   Object.fromEntries(data.staff.map((s) => [s.id, s.entry]));
 
 const vnd = (n: number) => `${n < 0 ? '-' : ''}${money(Math.abs(n))}đ`;
+
+/** Một dòng "nhãn ... giá trị" trong thẻ nhân viên trên điện thoại */
+function Line({ label, note, children }: { label: string; note?: ReactNode; children: ReactNode }) {
+  return (
+    <div className="flex items-start justify-between gap-3 py-2">
+      <div className="min-w-0">
+        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">{label}</div>
+        {note && <div className="text-[11px] leading-snug text-slate-400">{note}</div>}
+      </div>
+      <div className="tnum shrink-0 text-right text-sm font-bold text-slate-900 dark:text-white">{children}</div>
+    </div>
+  );
+}
 
 export default function PayrollPage() {
   const showToast = useToast();
@@ -179,10 +192,10 @@ export default function PayrollPage() {
 
   return (
     <>
-      {/* Thanh chọn tháng dính ngay dưới header, cuộn xuống vẫn thấy */}
+      {/* Thanh chọn tháng dính ngay dưới header khi dùng máy tính; điện thoại không dính để nhường chỗ cho nội dung */}
       <div
         ref={barRef}
-        className="sticky z-10 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90 sm:-mx-6 sm:px-6"
+        className="z-10 -mx-4 md:sticky mb-5 border-b border-slate-200 bg-slate-50/95 px-4 pt-3 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/90 sm:-mx-6 sm:px-6"
         style={{ top: headerHeight }}
       >
       <PageTitle
@@ -265,6 +278,8 @@ export default function PayrollPage() {
         className="mt-5 !p-0 overflow-clip"
         title={`Bảng lương ${monthLabel(month).toLowerCase()}`}
       >
+        {/* Máy tính: bảng đầy đủ các cột */}
+        <div className="hidden md:block">
         <ScrollTable pinOffset={barHeight}>
           <table className="w-full">
             <thead>
@@ -468,6 +483,200 @@ export default function PayrollPage() {
             )}
           </table>
         </ScrollTable>
+        </div>
+
+        {/* Điện thoại: mỗi nhân viên một thẻ, tổng lương nằm ngay đầu thẻ */}
+        <div className="space-y-3 p-3 md:hidden">
+          {isLoading || !config ? (
+            <p className="p-6 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+              Đang tải bảng lương...
+            </p>
+          ) : rows.length === 0 ? (
+            <p className="p-6 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+              Chưa có nhân viên nào.
+            </p>
+          ) : (
+            <>
+              {rows.map(({ staff, entry, result }, index) => {
+                const daysWithSales = Object.values(staff.daily).filter((d) => d.commission > 0).length;
+                return (
+                  <div
+                    key={staff.id}
+                    className="rounded-2xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-900/60"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setDetailId(staff.id)}
+                      aria-label={`Xem chi tiết lương của ${staff.fullName}`}
+                      className="flex w-full items-center justify-between gap-3 text-left"
+                    >
+                      <span className="flex min-w-0 items-center gap-2.5">
+                        <Avatar name={staff.fullName} />
+                        <span className="min-w-0">
+                          <span className="block truncate font-extrabold text-slate-900 dark:text-white">
+                            {index + 1}. {staff.fullName}
+                          </span>
+                          <span className="text-[11px] font-medium text-slate-400">
+                            {daysWithSales} ngày có doanh số
+                            {!staff.isActive && (
+                              <span className="ml-1 rounded bg-red-100 px-1 text-red-700">Đã khóa</span>
+                            )}
+                          </span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                          Tổng lương
+                        </span>
+                        <span className="tnum block text-lg font-black text-emerald-700 dark:text-emerald-400">
+                          {vnd(result.total)}
+                        </span>
+                      </span>
+                    </button>
+
+                    <div className="mt-2 divide-y divide-slate-100 border-t border-slate-100 dark:divide-slate-800 dark:border-slate-800">
+                      <Line
+                        label="Công thực tế"
+                        note={`từ chấm công${month === getVnToday().slice(0, 7) ? ' (đang tính đến hôm nay)' : ''}`}
+                      >
+                        {att ? String(result.workDays).replace('.', ',') : attError ? '—' : '…'}
+                        <span className="font-medium text-slate-400"> / {std} công</span>
+                      </Line>
+                      <Line label="Doanh số" note="Theo ngày vào sổ">
+                        {vnd(result.commission)}
+                      </Line>
+                      <Line
+                        label="Lương cứng"
+                        note={
+                          <>
+                            {result.baseSource === 'top' && (
+                              <b className="mr-1 rounded bg-amber-100 px-1 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                                đạt mốc
+                              </b>
+                            )}
+                            {money(result.base)} ÷ {result.standardDays} × {result.workDays}
+                          </>
+                        }
+                      >
+                        {vnd(result.baseSalary)}
+                      </Line>
+                      <Line label="Thưởng ngày" note={`${result.bonusDays.length} ngày đạt`}>
+                        <span className="text-teal-700 dark:text-teal-400">{vnd(result.dailyBonus)}</span>
+                      </Line>
+                      <Line label="Thưởng tháng">
+                        <span className="text-teal-700 dark:text-teal-400">{vnd(result.monthlyBonus)}</span>
+                      </Line>
+                      <Line label="Vượt mốc">
+                        <span className="text-teal-700 dark:text-teal-400">{vnd(result.overBonus)}</span>
+                      </Line>
+                      <Line
+                        label="Trừ vào muộn"
+                        note={
+                          result.lateMinutes > 0
+                            ? `muộn ${result.lateMinutes} phút${
+                                config.latePenaltyPerMinute > 0 ? '' : ' (chưa đặt mức trừ)'
+                              }`
+                            : 'không muộn'
+                        }
+                      >
+                        <span className={result.latePenalty > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}>
+                          {result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
+                        </span>
+                      </Line>
+                      <Line
+                        label="Tăng ca"
+                        note={
+                          result.overtimeHours > 0
+                            ? `${String(result.overtimeHours).replace('.', ',')} giờ${
+                                config.overtimePerHour > 0 ? '' : ' (chưa đặt mức tiền)'
+                              }`
+                            : 'không tăng ca'
+                        }
+                      >
+                        <span className={result.overtimePay > 0 ? 'text-teal-700 dark:text-teal-400' : 'text-slate-400'}>
+                          {result.overtimePay > 0 ? `+${vnd(result.overtimePay)}` : vnd(0)}
+                        </span>
+                      </Line>
+                    </div>
+
+                    {/* Ô nhập: cao 44px và chữ 16px để dễ chạm, iPhone không tự phóng to khi nhập */}
+                    <div className="mt-2 grid grid-cols-2 gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Bậc</span>
+                        <select
+                          className="input-3d !h-11 !w-full !py-1 !px-2 !text-base"
+                          aria-label={`Bậc lương của ${staff.fullName}`}
+                          value={Math.min(entry.level, config.levels.length - 1)}
+                          onChange={(e) => patchEntry(staff.id, { level: Number(e.target.value) })}
+                        >
+                          {config.levels.map((l, i) => (
+                            <option key={i} value={i}>
+                              {l.label}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          Điều chỉnh (+/−)
+                        </span>
+                        <MoneyInput
+                          allowNegative
+                          align="right"
+                          ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
+                          className="!h-11 !w-full !py-1 !px-2 !text-base"
+                          value={entry.adjustment}
+                          onChange={(adjustment) => patchEntry(staff.id, { adjustment })}
+                        />
+                      </label>
+                      <label className="col-span-2 block min-w-0">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Ghi chú</span>
+                        <input
+                          className="input-3d !h-11 !w-full !py-1 !px-2 !text-base"
+                          aria-label={`Ghi chú lương của ${staff.fullName}`}
+                          placeholder="Ghi chú..."
+                          maxLength={200}
+                          value={entry.note}
+                          onChange={(e) => patchEntry(staff.id, { note: e.target.value })}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Tổng cộng cả tháng */}
+              <div className="rounded-2xl border border-slate-300 bg-slate-100/80 p-3.5 dark:border-slate-600 dark:bg-slate-800/80">
+                <div className="mb-1 text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">
+                  Tổng cộng
+                </div>
+                <div className="divide-y divide-slate-200 dark:divide-slate-700">
+                  <Line label="Doanh số">{vnd(totals.commission)}</Line>
+                  <Line label="Lương cứng">{vnd(totals.baseSalary)}</Line>
+                  <Line label="Thưởng ngày">{vnd(totals.dailyBonus)}</Line>
+                  <Line label="Thưởng tháng">{vnd(totals.monthlyBonus)}</Line>
+                  <Line label="Vượt mốc">{vnd(totals.overBonus)}</Line>
+                  <Line label="Trừ vào muộn">
+                    <span className="text-red-600 dark:text-red-400">
+                      {totals.latePenalty > 0 ? `−${vnd(totals.latePenalty)}` : vnd(0)}
+                    </span>
+                  </Line>
+                  <Line label="Tăng ca">
+                    <span className="text-teal-700 dark:text-teal-400">
+                      {totals.overtimePay > 0 ? `+${vnd(totals.overtimePay)}` : vnd(0)}
+                    </span>
+                  </Line>
+                  <Line label="Điều chỉnh">{vnd(totals.adjustment)}</Line>
+                  <Line label="Tổng lương">
+                    <span className="text-base font-black text-emerald-700 dark:text-emerald-400">
+                      {vnd(totals.total)}
+                    </span>
+                  </Line>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </Card>
 
       {detailRow && config && (

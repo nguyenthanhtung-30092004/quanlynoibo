@@ -67,6 +67,8 @@ const lateText = (lateMinutes: number, earlyLeaveMinutes: number) =>
 /** Các ca làm việc (khớp SHIFTS ở backend/attendance.logic.ts) để hiển thị cho Admin */
 const SHIFT_LABELS = ['5h - 13h30', '6h - 15h30', '7h - 16h30', '8h - 17h30', '9h - 18h30', '10h - 19h30', '12h - 21h', '13h30 - 22h'];
 const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+/** Lịch trên điện thoại bắt đầu từ thứ Hai */
+const WEEKDAY_MON_FIRST = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
 const formatTime = (isoString: string) => {
   try {
@@ -230,6 +232,30 @@ export default function AttendancePage() {
 
   const today = getVnToday();
   const editingCell = editing ? editing.staff.days[editing.day] : undefined;
+  // Ngày 1 rơi vào thứ mấy (thứ Hai = 0) để lịch trên điện thoại chừa đúng số ô trống đầu tháng
+  const leadingBlanks = days[0] ? (days[0].weekday + 6) % 7 : 0;
+
+  /** Màu, nhãn và chú thích của một ô công; dùng chung cho bảng (máy tính) và lịch (điện thoại) */
+  const cellInfo = (s: AttendanceStaff, key: string, day: number) => {
+    const cell = s.days[key] as AttendanceDayCell | undefined;
+    // Quên quẹt ra: hiện "?" để Admin thấy và chỉnh tay
+    const noOut = !!cell && (cell.status === 'missing_out' || cell.status === 'auto_out') && !cell.overridden;
+    const has = !!cell && (cell.cong > 0 || cell.minutes > 0 || cell.overridden);
+    const tone = !cell
+      ? 'text-slate-300 dark:text-slate-600'
+      : cell.cong > 0
+        ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
+        : cell.minutes > 0 || cell.overridden || noOut
+          ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
+          : 'text-slate-300 dark:text-slate-600';
+    const head = `${s.fullName} · ${String(day).padStart(2, '0')}/${data?.month.slice(5) ?? ''}`;
+    const title = cell
+      ? `${head}\n${cellSummary(cell)}${
+          cell.overridden ? `\nĐã chỉnh tay: ${cell.cong} công${cell.note ? ` (${cell.note})` : ''}` : ''
+        }`
+      : `${head}\nChưa có dữ liệu`;
+    return { cell, noOut, has, tone, title };
+  };
 
   return (
     <>
@@ -467,14 +493,21 @@ export default function AttendancePage() {
         className="mt-5 !p-0 overflow-hidden"
         title={`Bảng chấm công ${monthLabel(month).toLowerCase()}`}
         action={
-          <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
-            {isAdmin
-              ? 'Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra'
-              : 'Rê chuột vào một ô để xem giờ vào ra · ô viền xanh là công Admin đã chỉnh · dấu ? là quên quẹt ra'}
-          </span>
+          <>
+            <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 md:inline">
+              {isAdmin
+                ? 'Bấm vào một ô để xem giờ vào ra hoặc chỉnh tay · ô viền xanh là công đã chỉnh tay · dấu ? là quên quẹt ra'
+                : 'Rê chuột vào một ô để xem giờ vào ra · ô viền xanh là công Admin đã chỉnh · dấu ? là quên quẹt ra'}
+            </span>
+            <span className="text-xs font-medium text-slate-500 dark:text-slate-400 md:hidden">
+              {isAdmin ? 'Chạm vào ngày để chỉnh công' : 'Chạm vào ngày để xem giờ vào ra'} · viền xanh là công đã chỉnh ·
+              ? là quên quẹt ra
+            </span>
+          </>
         }
       >
-        <div className="overflow-x-auto">
+        {/* Máy tính: bảng 31 cột ngày */}
+        <div className="hidden overflow-x-auto md:block">
           <table className="border-collapse text-center">
             <thead>
               <tr>
@@ -531,23 +564,7 @@ export default function AttendancePage() {
                       </div>
                     </td>
                     {days.map((d) => {
-                      const cell = s.days[d.key];
-                      // Quên quẹt ra: hiện "?" để Admin thấy và chỉnh tay
-                      const noOut =
-                        !!cell && (cell.status === 'missing_out' || cell.status === 'auto_out') && !cell.overridden;
-                      const has = !!cell && (cell.cong > 0 || cell.minutes > 0 || cell.overridden);
-                      const tone = !cell
-                        ? 'text-slate-300 dark:text-slate-600'
-                        : cell.cong > 0
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300'
-                          : cell.minutes > 0 || cell.overridden || noOut
-                            ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300'
-                            : 'text-slate-300 dark:text-slate-600';
-                      const title = cell
-                        ? `${s.fullName} · ${String(d.d).padStart(2, '0')}/${data.month.slice(5)}\n${cellSummary(cell)}${
-                            cell.overridden ? `\nĐã chỉnh tay: ${cell.cong} công${cell.note ? ` (${cell.note})` : ''}` : ''
-                          }`
-                        :`${s.fullName} · ${String(d.d).padStart(2, '0')}/${data.month.slice(5)}\nChưa có dữ liệu`;
+                      const { cell, noOut, has, tone, title } = cellInfo(s, d.key, d.d);
                       return (
                         <td key={d.key} className="border-l border-slate-100 p-0.5 dark:border-slate-800">
                           <button
@@ -560,7 +577,7 @@ export default function AttendancePage() {
                               cell?.overridden ? 'ring-2 ring-blue-500' : ''
                             }`}
                           >
-                            {has ? congText(cell.cong) : noOut ? '?' : '·'}
+                            {cell && has ? congText(cell.cong) : noOut ? '?' : '·'}
                           </button>
                         </td>
                       );
@@ -573,6 +590,69 @@ export default function AttendancePage() {
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Điện thoại: mỗi nhân viên một lịch tháng 7 cột, chạm vào ngày để xem hoặc chỉnh */}
+        <div className="space-y-3 p-3 md:hidden">
+          {isLoading ? (
+            <p className="p-6 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải bảng chấm công...</p>
+          ) : !data || monthStaff.length === 0 ? (
+            <p className="p-6 text-center text-sm font-semibold text-slate-500">Chưa có nhân viên nào.</p>
+          ) : (
+            monthStaff.map((s) => (
+              <div
+                key={s.id}
+                className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60"
+              >
+                <div className="mb-2.5 flex items-center justify-between gap-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <Avatar name={s.fullName} />
+                    <span className="truncate text-sm font-extrabold text-slate-900 dark:text-white">{s.fullName}</span>
+                  </div>
+                  <div className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1 text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-300">
+                    <span className="tnum text-base font-black">{s.totalCong}</span>
+                    <span className="ml-1 text-[10px] font-bold uppercase">công</span>
+                  </div>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {WEEKDAY_MON_FIRST.map((w) => (
+                    <div
+                      key={w}
+                      className={`pb-0.5 text-[10px] font-bold ${w === 'CN' ? 'text-rose-500' : 'text-slate-400'}`}
+                    >
+                      {w}
+                    </div>
+                  ))}
+                  {Array.from({ length: leadingBlanks }, (_, i) => (
+                    <div key={`blank-${i}`} />
+                  ))}
+                  {days.map((d) => {
+                    const { cell, noOut, has, tone } = cellInfo(s, d.key, d.d);
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => (isAdmin ? openEdit(s, d.key) : setDayDetail(d.key))}
+                        aria-label={`${s.fullName} ngày ${d.d}`}
+                        className={`flex h-11 flex-col items-center justify-center rounded-lg leading-none ${
+                          tone.includes('bg-') ? '' : 'bg-slate-50 dark:bg-slate-800/40'
+                        } ${tone} ${cell?.overridden ? 'ring-2 ring-blue-500' : ''} ${
+                          d.key === today ? 'outline outline-2 outline-offset-1 outline-blue-500' : ''
+                        }`}
+                      >
+                        <span className={`text-[9px] font-semibold ${d.weekday === 0 ? 'text-rose-500' : 'opacity-60'}`}>
+                          {d.d}
+                        </span>
+                        <span className="tnum mt-0.5 text-sm font-black">
+                          {cell && has ? congText(cell.cong) : noOut ? '?' : '·'}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
         </div>
         {isAdmin && (
           <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
