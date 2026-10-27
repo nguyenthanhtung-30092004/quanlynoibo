@@ -21,6 +21,8 @@ import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
 import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
 import { ScrollTable } from '@/features/xvip/ScrollTable';
+import { matchesAllWords } from '@/features/xvip/search-rank';
+import { StaffSearch } from '@/features/xvip/StaffSearch';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle, TD, TH } from '@/features/xvip/ui';
 
@@ -50,6 +52,8 @@ export default function PayrollPage() {
   const [formulaOpen, setFormulaOpen] = useState(true);
   // Nhân viên đang mở form xem chi tiết (null = đóng)
   const [detailId, setDetailId] = useState<number | null>(null);
+  // Ô tìm nhân viên theo tên: chỉ lọc phần hiển thị, tổng tiền vẫn tính trên mọi nhân viên
+  const [search, setSearch] = useState('');
 
   // Header của trang cũng dính và cao không cố định (xuống dòng khi hẹp): đo để thanh tháng dính ngay bên dưới
   const [headerHeight, setHeaderHeight] = useState(0);
@@ -141,6 +145,15 @@ export default function PayrollPage() {
         return a.staff.fullName.localeCompare(b.staff.fullName, 'vi');
       });
   }, [data, config, entries, att, congById, lateById, overtimeById]);
+
+  // Giữ số thứ tự gốc (theo bảng đầy đủ) để lọc xong STT không bị đánh lại từ 1
+  const visibleRows = useMemo(
+    () =>
+      rows
+        .map((r, i) => ({ ...r, no: i + 1 }))
+        .filter((r) => !search.trim() || matchesAllWords(r.staff.fullName, search)),
+    [rows, search],
+  );
 
   const totals = useMemo(
     () => ({
@@ -273,6 +286,10 @@ export default function PayrollPage() {
         ))}
       </div>
 
+      <div className="mt-5">
+        <StaffSearch value={search} onChange={setSearch} shown={visibleRows.length} total={rows.length} />
+      </div>
+
       {/* Bảng lương */}
       <Card
         className="mt-5 !p-0 overflow-clip"
@@ -316,14 +333,14 @@ export default function PayrollPage() {
                     Đang tải bảng lương...
                   </td>
                 </tr>
-              ) : rows.length === 0 ? (
+              ) : visibleRows.length === 0 ? (
                 <tr>
                   <td colSpan={14} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
-                    Chưa có nhân viên nào.
+                    {rows.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
                   </td>
                 </tr>
               ) : (
-                rows.map(({ staff, entry, result }, index) => {
+                visibleRows.map(({ staff, entry, result, no }) => {
                   const days = Object.entries(staff.daily)
                     .filter(([, d]) => d.commission > 0)
                     .sort(([a], [b]) => a.localeCompare(b));
@@ -334,7 +351,7 @@ export default function PayrollPage() {
                       title="Bấm để xem chi tiết"
                       className="cursor-pointer transition-colors hover:bg-blue-50/25 dark:hover:bg-slate-800/50"
                     >
-                      <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{index + 1}</td>
+                      <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{no}</td>
                       <td className={TD}>
                         <div className="flex items-center gap-2.5 text-left">
                           <Avatar name={staff.fullName} />
@@ -460,7 +477,7 @@ export default function PayrollPage() {
               <tfoot>
                 <tr className="bg-slate-100/80 dark:bg-slate-800/80">
                   <td colSpan={4} className={`${TD} font-black uppercase text-slate-700 dark:text-slate-200`}>
-                    Tổng cộng
+                    Tổng cộng{search.trim() && ' (tất cả nhân viên)'}
                   </td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.commission)}</td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.baseSalary)}</td>
@@ -491,13 +508,13 @@ export default function PayrollPage() {
             <p className="p-6 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
               Đang tải bảng lương...
             </p>
-          ) : rows.length === 0 ? (
+          ) : visibleRows.length === 0 ? (
             <p className="p-6 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
-              Chưa có nhân viên nào.
+              {rows.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
             </p>
           ) : (
             <>
-              {rows.map(({ staff, entry, result }, index) => {
+              {visibleRows.map(({ staff, entry, result, no }) => {
                 const daysWithSales = Object.values(staff.daily).filter((d) => d.commission > 0).length;
                 return (
                   <div
@@ -514,7 +531,7 @@ export default function PayrollPage() {
                         <Avatar name={staff.fullName} />
                         <span className="min-w-0">
                           <span className="block truncate font-extrabold text-slate-900 dark:text-white">
-                            {index + 1}. {staff.fullName}
+                            {no}. {staff.fullName}
                           </span>
                           <span className="text-[11px] font-medium text-slate-400">
                             {daysWithSales} ngày có doanh số
@@ -648,7 +665,7 @@ export default function PayrollPage() {
               {/* Tổng cộng cả tháng */}
               <div className="rounded-2xl border border-slate-300 bg-slate-100/80 p-3.5 dark:border-slate-600 dark:bg-slate-800/80">
                 <div className="mb-1 text-xs font-black uppercase tracking-wide text-slate-700 dark:text-slate-200">
-                  Tổng cộng
+                  Tổng cộng{search.trim() && ' (tất cả nhân viên)'}
                 </div>
                 <div className="divide-y divide-slate-200 dark:divide-slate-700">
                   <Line label="Doanh số">{vnd(totals.commission)}</Line>

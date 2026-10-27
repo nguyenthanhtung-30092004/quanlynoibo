@@ -18,6 +18,8 @@ import { ShiftSelect } from '@/features/attendance/ShiftSelect';
 import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { Modal } from '@/features/xvip/Modal';
+import { matchesAllWords } from '@/features/xvip/search-rank';
+import { StaffSearch } from '@/features/xvip/StaffSearch';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 
@@ -148,6 +150,11 @@ export default function AttendancePage() {
     () => sortWorkingFirst(data?.staff ?? [], (s) => workingIds.has(s.id), (s) => s.fullName),
     [data, workingIds],
   );
+  // Ô tìm nhân viên theo tên: lọc cả thẻ "Hôm nay" lẫn bảng tháng; số liệu tổng vẫn tính trên mọi người
+  const [search, setSearch] = useState('');
+  const matchesSearch = (name: string) => !search.trim() || matchesAllWords(name, search);
+  const visibleToday = staffToday.filter((u) => matchesSearch(u.fullName));
+  const visibleMonthStaff = monthStaff.filter((s) => matchesSearch(s.fullName));
   const workingCount = staffToday.filter((s) => s.status === 'working').length;
   const doneCount = staffToday.filter((s) => s.status === 'done').length;
   const setOverride = useSetAttendanceOverride();
@@ -315,6 +322,18 @@ export default function AttendancePage() {
         </Card>
       )}
 
+      {/* Nhân viên thường chỉ thấy công của chính mình nên không cần ô tìm */}
+      {isAdmin && (
+        <div className="mb-5">
+          <StaffSearch
+            value={search}
+            onChange={setSearch}
+            shown={visibleMonthStaff.length}
+            total={monthStaff.length}
+          />
+        </div>
+      )}
+
       {/* Tình hình đi làm hôm nay theo lượt quẹt máy chấm công: chưa quẹt, đang làm, đã quẹt ra */}
       <Card
         className="mb-5"
@@ -330,11 +349,13 @@ export default function AttendancePage() {
           </div>
         }
       >
-        {staffToday.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có nhân viên nào.</p>
+        {visibleToday.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {staffToday.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
+          </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {staffToday.map((u) => {
+            {visibleToday.map((u) => {
               const dot =
                 u.status === 'working'
                   ? 'bg-emerald-500'
@@ -546,14 +567,16 @@ export default function AttendancePage() {
                     Đang tải bảng chấm công...
                   </td>
                 </tr>
-              ) : !data || data.staff.length === 0 ? (
+              ) : !data || visibleMonthStaff.length === 0 ? (
                 <tr>
                   <td colSpan={days.length + 2} className="p-8 text-center text-sm font-semibold text-slate-500">
-                    Chưa có nhân viên nào.
+                    {!data || monthStaff.length === 0
+                      ? 'Chưa có nhân viên nào.'
+                      : `Không tìm thấy nhân viên "${search.trim()}".`}
                   </td>
                 </tr>
               ) : (
-                monthStaff.map((s) => (
+                visibleMonthStaff.map((s) => (
                   <tr key={s.id} className="border-t border-slate-200 dark:border-slate-700">
                     <td className="sticky left-0 z-10 bg-white px-4 py-2 text-left dark:bg-[#111d35]">
                       <div className="flex items-center gap-2.5">
@@ -596,10 +619,14 @@ export default function AttendancePage() {
         <div className="space-y-3 p-3 md:hidden">
           {isLoading ? (
             <p className="p-6 text-center text-sm font-bold text-blue-600 animate-pulse">Đang tải bảng chấm công...</p>
-          ) : !data || monthStaff.length === 0 ? (
-            <p className="p-6 text-center text-sm font-semibold text-slate-500">Chưa có nhân viên nào.</p>
+          ) : !data || visibleMonthStaff.length === 0 ? (
+            <p className="p-6 text-center text-sm font-semibold text-slate-500">
+              {!data || monthStaff.length === 0
+                ? 'Chưa có nhân viên nào.'
+                : `Không tìm thấy nhân viên "${search.trim()}".`}
+            </p>
           ) : (
-            monthStaff.map((s) => (
+            visibleMonthStaff.map((s) => (
               <div
                 key={s.id}
                 className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900/60"
