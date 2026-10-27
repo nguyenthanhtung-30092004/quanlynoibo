@@ -10,6 +10,7 @@ import {
   Medal,
   Percent,
   Ticket,
+  TrendUp,
   Trophy,
   X,
 } from '@phosphor-icons/react';
@@ -393,6 +394,8 @@ export default function StaffReportPage() {
 
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
   const podium = kpiData?.leaderboard ?? [];
+  // Cần cố gắng: chỉ hiện khi bảng vinh danh hiện (cả kỳ có người bán được vé), nên hai mục luôn đi cùng nhau
+  const needsEffort = podium.length > 0 && podium[0].seats > 0 ? (kpiData?.needsEffort ?? []) : [];
 
   // Xuất Excel đúng theo bộ lọc đang chọn (chỉ Admin; server cũng chặn nhân viên)
   const handleExportExcel = async () => {
@@ -756,6 +759,68 @@ export default function StaffReportPage() {
               </div>
             )}
           </div>
+        </Card>
+      )}
+
+      {/* Top nhân viên cần cố gắng: nằm ngay dưới bảng vinh danh, top 1 là người ít vé nhất */}
+      {needsEffort.length > 0 && (
+        <Card title="Nhân viên cần cố gắng thêm" className="mt-5">
+          <div className="grid grid-cols-1 gap-3 pt-2 md:grid-cols-3">
+            {needsEffort.map((p, i) => {
+              const tone = [
+                {
+                  box: 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30',
+                  badge: 'bg-rose-500 text-white',
+                  text: 'text-rose-700 dark:text-rose-300',
+                  label: 'Cần cố gắng nhất',
+                },
+                {
+                  box: 'border-orange-300 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/30',
+                  badge: 'bg-orange-500 text-white',
+                  text: 'text-orange-700 dark:text-orange-300',
+                  label: 'Cần cố gắng thứ hai',
+                },
+                {
+                  box: 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
+                  badge: 'bg-amber-500 text-white',
+                  text: 'text-amber-700 dark:text-amber-300',
+                  label: 'Cần cố gắng thứ ba',
+                },
+              ][i];
+              return (
+                <div
+                  key={p.staffId}
+                  className={`flex items-center gap-3 rounded-2xl border p-3.5 shadow-sm ${tone.box}`}
+                >
+                  <span
+                    className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-black ${tone.badge}`}
+                    aria-label={`Top ${i + 1}`}
+                  >
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-base font-black text-slate-900 dark:text-white">{p.fullName}</div>
+                    <div className={`text-xs font-bold ${tone.text}`}>
+                      Top {i + 1} · {tone.label}
+                    </div>
+                    <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                      {p.total === 0 && p.seats === 0 ? (
+                        <strong>Chưa có đơn nào</strong>
+                      ) : (
+                        <strong>
+                          {p.total} đơn · {p.seats} vé
+                        </strong>
+                      )}
+                    </div>
+                  </div>
+                  <TrendUp size={22} weight="bold" className={`shrink-0 ${tone.text}`} />
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Cố lên! Bán thêm vé là sẽ rời khỏi danh sách này. Danh sách xếp theo số vé ít nhất (bằng vé thì theo số đơn).
+          </p>
         </Card>
       )}
 

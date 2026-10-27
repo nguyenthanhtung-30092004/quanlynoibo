@@ -264,6 +264,8 @@ export interface Kpi extends KpiSummary {
   leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Xếp hạng đầy đủ mọi nhân viên, chỉ gồm số đơn / vé (không lộ doanh thu hay hoa hồng) */
   ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+  /** Tối đa 3 nhân viên cần cố gắng: ít vé nhất trước, kể cả người chưa có đơn nào; không trùng bục vinh danh */
+  needsEffort?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
   /** Số đơn (total), số vé (seats) và doanh thu theo tuyến, nhiều đơn nhất trước */

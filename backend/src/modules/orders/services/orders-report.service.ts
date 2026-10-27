@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, SelectQueryBuilder } from 'typeorm';
+import { IsNull, Repository, SelectQueryBuilder } from 'typeorm';
 import ExcelJS from 'exceljs';
 import type { JwtPayload } from '../../auth/decorators/current-user.decorator.js';
 import { Partner } from '../../partners/entities/partner.entity.js';
-import { UserRole } from '../../users/entities/user.entity.js';
+import { User, UserRole } from '../../users/entities/user.entity.js';
 import { Order } from '../entities/order.entity.js';
 import type { KpiQueryDto } from '../dto/query-orders.dto.js';
 import { MessageChannel } from '../messaging/message.types.js';
@@ -12,6 +12,7 @@ import { REGULAR_CUSTOMER_MIN_ORDERS } from '../customer-type.util.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula } from '../mappers/order.mapper.js';
+import { pickNeedsEffort } from '../kpi-needs-effort.util.js';
 
 /** Khách quen / khách lạ: số khách (số điện thoại khác nhau) và số đơn của mỗi nhóm */
 interface CustomerTypeStats {
@@ -268,6 +269,7 @@ export class OrdersReportService {
         date: string;
         leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+        needsEffort?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
@@ -331,6 +333,22 @@ export class OrdersReportService {
       }))
       .sort((a, b) => b.seats - a.seats || b.total - a.total);
     result.leaderboard = result.ranking.slice(0, 3);
+
+    // Cần cố gắng: nhân viên ít vé nhất, tính trên mọi nhân viên đang hoạt động (kể cả người chưa có đơn nào nên
+    // không lấy từ `ranking`), bỏ những người đã lên bục vinh danh. Cũng chỉ có số đơn / vé như bảng vinh danh
+    const roster = await this.orderRepository.manager.find(User, {
+      where: { role: UserRole.STAFF, isActive: true, deletedAt: IsNull() },
+      select: { id: true, fullName: true },
+    });
+    const onlyIds = new Set<number>(
+      isAdmin ? [...(query.staffId !== undefined ? [query.staffId] : []), ...(query.staffIds ?? [])] : [],
+    );
+    result.needsEffort = pickNeedsEffort(
+      roster,
+      result.ranking,
+      new Set(result.leaderboard.map((r) => r.staffId)),
+      onlyIds,
+    );
 
     if (isAdmin) {
       result.byStaff = [...byStaffGroups.entries()]
