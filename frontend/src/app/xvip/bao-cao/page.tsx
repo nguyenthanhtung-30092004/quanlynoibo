@@ -3,14 +3,16 @@
 import { useToast } from '@/features/xvip/toast';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Bed,
   CheckCircle,
   ClipboardText,
+  Coffee,
   FileXls,
   HandCoins,
   Medal,
+  Moon,
   Percent,
   Ticket,
-  TrendUp,
   Trophy,
   X,
 } from '@phosphor-icons/react';
@@ -762,64 +764,90 @@ export default function StaffReportPage() {
         </Card>
       )}
 
-      {/* Top nhân viên cần cố gắng: nằm ngay dưới bảng vinh danh, top 1 là người ít vé nhất */}
+      {/* Cần cố gắng: cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
         <Card title="Nhân viên cần cố gắng thêm" className="mt-5">
-          <div className="grid grid-cols-1 gap-3 pt-2 md:grid-cols-3">
-            {needsEffort.map((p, i) => {
-              const tone = [
-                {
-                  box: 'border-rose-300 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/30',
-                  badge: 'bg-rose-500 text-white',
-                  text: 'text-rose-700 dark:text-rose-300',
-                  label: 'Cần cố gắng nhất',
-                },
-                {
-                  box: 'border-orange-300 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/30',
-                  badge: 'bg-orange-500 text-white',
-                  text: 'text-orange-700 dark:text-orange-300',
-                  label: 'Cần cố gắng thứ hai',
-                },
-                {
-                  box: 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30',
-                  badge: 'bg-amber-500 text-white',
-                  text: 'text-amber-700 dark:text-amber-300',
-                  label: 'Cần cố gắng thứ ba',
-                },
-              ][i];
-              return (
-                <div
-                  key={p.staffId}
-                  className={`flex items-center gap-3 rounded-2xl border p-3.5 shadow-sm ${tone.box}`}
-                >
-                  <span
-                    className={`flex size-9 shrink-0 items-center justify-center rounded-full text-xs font-black ${tone.badge}`}
-                    aria-label={`Top ${i + 1}`}
-                  >
-                    {i + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-base font-black text-slate-900 dark:text-white">{p.fullName}</div>
-                    <div className={`text-xs font-bold ${tone.text}`}>
-                      Top {i + 1} · {tone.label}
-                    </div>
-                    <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                      {p.total === 0 && p.seats === 0 ? (
-                        <strong>Chưa có đơn nào</strong>
-                      ) : (
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
+            {/* Top 2 */}
+            {needsEffort[1] && (
+              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-2 md:order-1">
+                <Coffee size={28} weight="fill" className="text-orange-400 mb-2" />
+                <Avatar name={needsEffort[1].fullName} />
+                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
+                  {needsEffort[1].fullName}
+                </span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 2 cần cố gắng</span>
+                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
+                  <div className="text-xs text-slate-500">
+                    {needsEffort[1].total === 0 && needsEffort[1].seats === 0 ? (
+                      <strong>Chưa có đơn nào</strong>
+                    ) : (
+                      <>
+                        Số lượng:{' '}
                         <strong>
-                          {p.total} đơn · {p.seats} vé
+                          {needsEffort[1].total} đơn · {needsEffort[1].seats} vé
                         </strong>
-                      )}
-                    </div>
+                      </>
+                    )}
                   </div>
-                  <TrendUp size={22} weight="bold" className={`shrink-0 ${tone.text}`} />
                 </div>
-              );
-            })}
+              </div>
+            )}
+
+            {/* Top 1: ít vé nhất */}
+            <div className="flex flex-col items-center justify-end rounded-2xl bg-gradient-to-b from-rose-50 to-rose-100/60 dark:from-rose-950/40 dark:to-rose-900/20 p-5 border-2 border-rose-400 shadow-[0_8px_20px_rgba(244,63,94,0.2)] text-center order-1 md:order-2">
+              <Bed size={36} weight="fill" className="text-rose-500 mb-2" />
+              <Avatar name={needsEffort[0].fullName} />
+              <span className="mt-2 font-black text-slate-900 dark:text-white text-lg">
+                {needsEffort[0].fullName}
+              </span>
+              <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
+                Top 1 · Siêu lười
+              </span>
+              <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-rose-300 dark:border-rose-800 shadow-inner">
+                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                  {needsEffort[0].total === 0 && needsEffort[0].seats === 0 ? (
+                    <strong>Chưa có đơn nào</strong>
+                  ) : (
+                    <>
+                      Mới có:{' '}
+                      <strong>
+                        {needsEffort[0].total} đơn · {needsEffort[0].seats} vé
+                      </strong>
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Top 3 */}
+            {needsEffort[2] && (
+              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-3">
+                <Moon size={28} weight="fill" className="text-amber-500 mb-2" />
+                <Avatar name={needsEffort[2].fullName} />
+                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
+                  {needsEffort[2].fullName}
+                </span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 3 cần cố gắng</span>
+                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
+                  <div className="text-xs text-slate-500">
+                    {needsEffort[2].total === 0 && needsEffort[2].seats === 0 ? (
+                      <strong>Chưa có đơn nào</strong>
+                    ) : (
+                      <>
+                        Số lượng:{' '}
+                        <strong>
+                          {needsEffort[2].total} đơn · {needsEffort[2].seats} vé
+                        </strong>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            Cố lên! Bán thêm vé là sẽ rời khỏi danh sách này. Danh sách xếp theo số vé ít nhất (bằng vé thì theo số đơn).
+          <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
+            Xếp theo số vé ít nhất (bằng vé thì theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
           </p>
         </Card>
       )}
