@@ -31,6 +31,12 @@ export interface PayrollConfig {
   latePenaltyPerMinute: number;
   /** Tăng ca: mỗi giờ tăng ca được bấy nhiêu đồng (0 = không tính) */
   overtimePerHour: number;
+  /**
+   * Bảo hiểm trừ vào lương mỗi tháng: mức mặc định áp cho mọi nhân viên chưa có số riêng.
+   * Khi lưu bảng lương của một tháng, mức này được chốt thẳng vào từng nhân viên của tháng đó
+   * (xem `PayrollService.save`), nên đổi mức mặc định sau này không làm đổi các tháng đã lưu.
+   */
+  insuranceDefault: number;
 }
 
 /** Phần nhập tay của từng nhân viên trong một tháng */
@@ -42,6 +48,8 @@ export interface PayrollEntry {
   /** Cộng / trừ thêm bằng tay (âm = trừ) */
   adjustment: number;
   note: string;
+  /** Bảo hiểm trừ vào lương tháng này; null = chưa chốt, dùng `config.insuranceDefault` hiện hành */
+  insurance: number | null;
 }
 
 export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
@@ -61,6 +69,7 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   overRate: { threshold: 30_000_000, percent: 10 },
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
+  insuranceDefault: 567_000,
 };
 
 export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
@@ -68,6 +77,7 @@ export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
   workDays: null,
   adjustment: 0,
   note: '',
+  insurance: null,
 };
 
 const MAX_MONEY = 100_000_000_000;
@@ -130,6 +140,7 @@ export function sanitizeConfig(input: unknown): PayrollConfig {
     },
     latePenaltyPerMinute: num(raw.latePenaltyPerMinute, def.latePenaltyPerMinute, 0, 10_000_000),
     overtimePerHour: num(raw.overtimePerHour, def.overtimePerHour, 0, 10_000_000),
+    insuranceDefault: num(raw.insuranceDefault, def.insuranceDefault),
   };
 }
 
@@ -148,5 +159,10 @@ export function sanitizeEntry(input: unknown, levelCount: number): PayrollEntry 
     workDays,
     adjustment: num(raw.adjustment, 0, -MAX_MONEY, MAX_MONEY),
     note: text(raw.note, '', 200),
+    // Thiếu / rỗng = chưa chốt (dùng mức mặc định); phần nhập tay lưu trước khi có cột bảo hiểm cũng rơi vào đây
+    insurance:
+      raw.insurance === null || raw.insurance === undefined || raw.insurance === ''
+        ? null
+        : num(raw.insurance, 0),
   };
 }

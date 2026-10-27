@@ -17,6 +17,8 @@ const config: PayrollConfig = {
   overRate: { threshold: 30_000_000, percent: 10 },
   latePenaltyPerMinute: 0,
   overtimePerHour: 0,
+  // 0 để các phép tính khác không bị lẫn khoản bảo hiểm; phần bảo hiểm có bộ test riêng bên dưới
+  insuranceDefault: 0,
 };
 
 const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
@@ -24,6 +26,7 @@ const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
   workDays: 27,
   adjustment: 0,
   note: '',
+  insurance: null,
   ...over,
 });
 
@@ -43,6 +46,37 @@ describe('dayBonus', () => {
     expect(dayBonus(2_499_999, config.dailyBonuses)).toBe(50_000);
     expect(dayBonus(2_500_000, config.dailyBonuses)).toBe(100_000);
     expect(dayBonus(9_000_000, config.dailyBonuses)).toBe(100_000);
+  });
+});
+
+describe('bảo hiểm', () => {
+  const withDefault = { ...config, insuranceDefault: 567_000 };
+
+  it('chưa có số riêng thì trừ theo mức mặc định', () => {
+    const r = computePayroll({ config: withDefault, daysInMonth: 31, daily: {}, entry: entry() });
+    expect(r.insurance).toBe(567_000);
+    expect(r.total).toBe(4_200_000 - 567_000);
+  });
+
+  it('số riêng của tháng thắng mức mặc định', () => {
+    const r = computePayroll({ config: withDefault, daysInMonth: 31, daily: {}, entry: entry({ insurance: 700_000 }) });
+    expect(r.insurance).toBe(700_000);
+    expect(r.total).toBe(4_200_000 - 700_000);
+  });
+
+  it('đổi mức mặc định không đổi tháng đã chốt số riêng', () => {
+    const saved = entry({ insurance: 567_000 });
+    const raised = { ...config, insuranceDefault: 678_000 };
+    const july = computePayroll({ config: raised, daysInMonth: 31, daily: {}, entry: saved });
+    const august = computePayroll({ config: raised, daysInMonth: 31, daily: {}, entry: entry() });
+    expect(july.insurance).toBe(567_000);
+    expect(august.insurance).toBe(678_000);
+  });
+
+  it('chốt 0 là không trừ, dù mức mặc định có số', () => {
+    const r = computePayroll({ config: withDefault, daysInMonth: 31, daily: {}, entry: entry({ insurance: 0 }) });
+    expect(r.insurance).toBe(0);
+    expect(r.total).toBe(4_200_000);
   });
 });
 

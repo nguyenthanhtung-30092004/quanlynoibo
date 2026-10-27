@@ -129,7 +129,10 @@ export class PayrollService {
       const clean: Record<string, PayrollEntry> = {};
       for (const [userId, value] of Object.entries(entries)) {
         if (!/^\d+$/.test(userId)) continue;
-        clean[userId] = sanitizeEntry(value, nextConfig.levels.length);
+        const entry = sanitizeEntry(value, nextConfig.levels.length);
+        // Chốt bảo hiểm của tháng này: nhân viên chưa có số riêng thì ghi luôn mức mặc định lúc lưu,
+        // để sau này đổi mức mặc định (tháng sau) không kéo theo các tháng đã lưu
+        clean[userId] = { ...entry, insurance: entry.insurance ?? nextConfig.insuranceDefault };
       }
       await this.settings.save(
         this.settings.create({ key: entriesKey(month), value: JSON.stringify(clean) }),

@@ -25,6 +25,8 @@ export interface PayrollConfig {
   latePenaltyPerMinute: number;
   /** Tăng ca: mỗi giờ tăng ca được bấy nhiêu đồng (0 = không tính) */
   overtimePerHour: number;
+  /** Bảo hiểm trừ vào lương mỗi tháng: mức mặc định cho nhân viên chưa có số riêng của tháng đó */
+  insuranceDefault: number;
 }
 
 export interface PayrollEntry {
@@ -35,6 +37,8 @@ export interface PayrollEntry {
   /** Cộng / trừ thêm bằng tay (âm = trừ) */
   adjustment: number;
   note: string;
+  /** Bảo hiểm của tháng này; null = chưa chốt, dùng `config.insuranceDefault`. Lưu bảng lương thì server chốt thành số */
+  insurance: number | null;
 }
 
 export interface PayrollDay {

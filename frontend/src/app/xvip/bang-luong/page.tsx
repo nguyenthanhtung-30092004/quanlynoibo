@@ -164,6 +164,7 @@ export default function PayrollPage() {
       overBonus: rows.reduce((sum, r) => sum + r.result.overBonus, 0),
       latePenalty: rows.reduce((sum, r) => sum + r.result.latePenalty, 0),
       overtimePay: rows.reduce((sum, r) => sum + r.result.overtimePay, 0),
+      insurance: rows.reduce((sum, r) => sum + r.result.insurance, 0),
       adjustment: rows.reduce((sum, r) => sum + r.result.adjustment, 0),
       total: rows.reduce((sum, r) => sum + r.result.total, 0),
     }),
@@ -321,6 +322,10 @@ export default function PayrollPage() {
                   Tăng ca
                   <span className="block text-[10px] font-normal normal-case text-slate-400">Theo giờ ở lại thêm</span>
                 </th>
+                <th className={`${TH} text-right`}>
+                  Bảo hiểm
+                  <span className="block text-[10px] font-normal normal-case text-slate-400">Riêng từng tháng</span>
+                </th>
                 <th className={`${TH} text-right`}>Điều chỉnh (+/−)</th>
                 <th className={TH}>Ghi chú</th>
                 <th className={`${TH} text-right`}>Tổng lương</th>
@@ -329,13 +334,13 @@ export default function PayrollPage() {
             <tbody>
               {isLoading || !config ? (
                 <tr>
-                  <td colSpan={14} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={15} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải bảng lương...
                   </td>
                 </tr>
               ) : visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={14} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={15} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {rows.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
                   </td>
                 </tr>
@@ -445,6 +450,20 @@ export default function PayrollPage() {
                       </td>
                       <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
                         <MoneyInput
+                          align="right"
+                          ariaLabel={`Bảo hiểm của ${staff.fullName}`}
+                          className="!h-9 !w-28 !py-1 !px-2 text-sm"
+                          value={result.insurance}
+                          onChange={(insurance) => patchEntry(staff.id, { insurance })}
+                        />
+                        {result.insurance !== config.insuranceDefault && (
+                          <span className="block text-[11px] text-amber-600 dark:text-amber-400">
+                            khác mặc định ({money(config.insuranceDefault)})
+                          </span>
+                        )}
+                      </td>
+                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
+                        <MoneyInput
                           allowNegative
                           align="right"
                           ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
@@ -489,6 +508,9 @@ export default function PayrollPage() {
                   </td>
                   <td className={`${TD} text-right tnum font-black text-teal-700 dark:text-teal-400`}>
                     {totals.overtimePay > 0 ? `+${vnd(totals.overtimePay)}` : vnd(0)}
+                  </td>
+                  <td className={`${TD} text-right tnum font-black text-red-600 dark:text-red-400`}>
+                    {totals.insurance > 0 ? `−${vnd(totals.insurance)}` : vnd(0)}
                   </td>
                   <td className={`${TD} text-right tnum font-black`}>{vnd(totals.adjustment)}</td>
                   <td className={TD} />
@@ -614,6 +636,18 @@ export default function PayrollPage() {
                           {result.overtimePay > 0 ? `+${vnd(result.overtimePay)}` : vnd(0)}
                         </span>
                       </Line>
+                      <Line
+                        label="Bảo hiểm"
+                        note={
+                          result.insurance !== config.insuranceDefault
+                            ? `khác mặc định (${money(config.insuranceDefault)})`
+                            : 'mặc định'
+                        }
+                      >
+                        <span className={result.insurance > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-400'}>
+                          {result.insurance > 0 ? `−${vnd(result.insurance)}` : vnd(0)}
+                        </span>
+                      </Line>
                     </div>
 
                     {/* Ô nhập: cao 44px và chữ 16px để dễ chạm, iPhone không tự phóng to khi nhập */}
@@ -632,6 +666,18 @@ export default function PayrollPage() {
                             </option>
                           ))}
                         </select>
+                      </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          Bảo hiểm (tháng này)
+                        </span>
+                        <MoneyInput
+                          align="right"
+                          ariaLabel={`Bảo hiểm của ${staff.fullName}`}
+                          className="!h-11 !w-full !py-1 !px-2 !text-base"
+                          value={result.insurance}
+                          onChange={(insurance) => patchEntry(staff.id, { insurance })}
+                        />
                       </label>
                       <label className="block min-w-0">
                         <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -683,6 +729,11 @@ export default function PayrollPage() {
                       {totals.overtimePay > 0 ? `+${vnd(totals.overtimePay)}` : vnd(0)}
                     </span>
                   </Line>
+                  <Line label="Bảo hiểm">
+                    <span className="text-red-600 dark:text-red-400">
+                      {totals.insurance > 0 ? `−${vnd(totals.insurance)}` : vnd(0)}
+                    </span>
+                  </Line>
                   <Line label="Điều chỉnh">{vnd(totals.adjustment)}</Line>
                   <Line label="Tổng lương">
                     <span className="text-base font-black text-emerald-700 dark:text-emerald-400">
@@ -730,7 +781,7 @@ export default function PayrollPage() {
             <>
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
                 <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) ± Điều chỉnh tay
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) − Bảo hiểm (9) ± Điều chỉnh tay
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
@@ -748,6 +799,7 @@ export default function PayrollPage() {
               {money(config.overRate.threshold)}: {config.overRate.percent}% phần vượt.
               {config.latePenaltyPerMinute > 0 && ` Vào muộn trừ ${money(config.latePenaltyPerMinute)}đ mỗi phút.`}
               {config.overtimePerHour > 0 && ` Tăng ca ${money(config.overtimePerHour)}đ mỗi giờ.`}
+              {config.insuranceDefault > 0 && ` Bảo hiểm mặc định ${money(config.insuranceDefault)}đ mỗi tháng.`}
             </p>
           )
         ) : (

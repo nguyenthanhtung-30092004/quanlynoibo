@@ -24,6 +24,7 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   overRate: { threshold: 30_000_000, percent: 10 },
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
+  insuranceDefault: 567_000,
 };
 
 const vnd = (n: number) => `${money(Math.round(n))}đ`;
@@ -413,6 +414,34 @@ export function FormulaPanel({
                   ariaLabel="Tiền tăng ca mỗi giờ"
                   value={config.overtimePerHour}
                   onChange={(overtimePerHour) => set({ overtimePerHour })}
+                />
+              </Field>
+            </div>
+          </Rule>
+
+          {/* 9. Bảo hiểm */}
+          <Rule
+            no={9}
+            title="Bảo hiểm trừ vào lương"
+            desc="Mức mặc định áp cho mọi nhân viên, tháng nào cũng vậy. Ai cần khác thì sửa riêng ở cột Bảo hiểm của bảng lương, chỉ đổi cho tháng đang xem. Khi bấm Lưu, mức của tháng đó được chốt lại nên đổi mức mặc định về sau không làm đổi các tháng đã lưu. Để 0 là không trừ."
+            example={
+              config.insuranceDefault > 0 ? (
+                <>
+                  Mỗi tháng trừ <b>−{vnd(config.insuranceDefault)}</b> vào tổng lương của từng nhân viên. Đổi mức này
+                  sang tháng 8 thì tháng 7 đã lưu vẫn giữ nguyên.
+                </>
+              ) : (
+                <>Đang để 0đ nên chưa trừ bảo hiểm.</>
+              )
+            }
+          >
+            <div className="max-w-xs">
+              <Field label="Bảo hiểm mặc định mỗi tháng" unit="đ / tháng">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Bảo hiểm mặc định mỗi tháng"
+                  value={config.insuranceDefault}
+                  onChange={(insuranceDefault) => set({ insuranceDefault })}
                 />
               </Field>
             </div>
