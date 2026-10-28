@@ -2,6 +2,34 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Mọi thứ bấm được đều hiện bàn tay khi rê chuột; nút bị khóa thì hiện biển cấm. Nằm trong layer base nên class cursor-* vẫn ghi đè được */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab'],
+  [role='menuitem'],
+  a[href],
+  summary,
+  select:not(:disabled),
+  label[for],
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled),
+  input[type='submit']:not(:disabled),
+  input[type='button']:not(:disabled),
+  input[type='file']:not(:disabled),
+  input[type='date']:not(:disabled),
+  input[type='month']:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  [role='button'][aria-disabled='true'],
+  select:disabled,
+  input:disabled {
+    cursor: not-allowed;
+  }
+}
+
 :root {
   color-scheme: light;
 }
