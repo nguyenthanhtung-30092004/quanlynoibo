@@ -764,9 +764,9 @@ export default function StaffReportPage() {
         </Card>
       )}
 
-      {/* Cần cố gắng: cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
+      {/* Bảng tiềm năng chưa khai phá (nhân viên ít vé nhất): cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
-        <Card title="Nhân viên cần cố gắng thêm" className="mt-5">
+        <Card title="Bảng tiềm năng chưa khai phá" className="mt-5">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
             {/* Top 2 */}
             {needsEffort[1] && (
@@ -776,7 +776,7 @@ export default function StaffReportPage() {
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
                   {needsEffort[1].fullName}
                 </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 2 cần cố gắng</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 2 · Ngồi chơi ít thôi</span>
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
                   <div className="text-xs text-slate-500">
                     {needsEffort[1].total === 0 && needsEffort[1].seats === 0 ? (
@@ -828,7 +828,7 @@ export default function StaffReportPage() {
                 <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
                   {needsEffort[2].fullName}
                 </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 3 cần cố gắng</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 3 · Ngủ ít thôi</span>
                 <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
                   <div className="text-xs text-slate-500">
                     {needsEffort[2].total === 0 && needsEffort[2].seats === 0 ? (

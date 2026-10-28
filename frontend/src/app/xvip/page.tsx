@@ -371,7 +371,7 @@ function OverviewContent() {
 
         {/* Khách quen / khách lạ theo số điện thoại */}
         <Card title="Khách quen & khách lạ">
-          <CustomerTypeChart data={kpiData?.byCustomerType} />
+          <CustomerTypeChart data={kpiData?.byCustomerType} routes={routeStats} />
         </Card>
 
         {/* Nhân viên tổng đài */}
