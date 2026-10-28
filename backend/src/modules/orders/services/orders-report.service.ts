@@ -22,10 +22,12 @@ interface CustomerTypeStats {
   new: { customers: number; orders: number };
 }
 
-/** Số đơn và doanh số (hoa hồng) của khách quen / khách lạ trên một tuyến */
+/** Số đơn, số vé và doanh số (hoa hồng) của khách quen / khách lạ trên một tuyến */
 interface RouteCustomerTally {
   regular: number;
   fresh: number;
+  regularSeats: number;
+  freshSeats: number;
   regularCommission: number;
   freshCommission: number;
 }
@@ -294,6 +296,9 @@ export class OrdersReportService {
           /** Chỉ Admin: doanh số (hoa hồng) của khách quen / khách lạ trên tuyến */
           regularCommission?: number;
           newCommission?: number;
+          /** Chỉ Admin: số vé của khách quen / khách lạ trên tuyến */
+          regularSeats?: number;
+          newSeats?: number;
         }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
         byCustomerType?: CustomerTypeStats;
@@ -341,6 +346,8 @@ export class OrdersReportService {
               newOrders: routeCustomers.get(routeId)?.fresh ?? 0,
               regularCommission: routeCustomers.get(routeId)?.regularCommission ?? 0,
               newCommission: routeCustomers.get(routeId)?.freshCommission ?? 0,
+              regularSeats: routeCustomers.get(routeId)?.regularSeats ?? 0,
+              newSeats: routeCustomers.get(routeId)?.freshSeats ?? 0,
             }
           : {}),
       }))
@@ -427,19 +434,29 @@ export class OrdersReportService {
       .select('order.routeId', 'routeId')
       .addSelect(`(pc."cnt" >= ${min})`, 'regular')
       .addSelect('COUNT(*)', 'orders')
+      .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'seats')
       .addSelect('COALESCE(SUM(order.commission), 0)', 'commission')
       .groupBy('order.routeId')
       .addGroupBy(`(pc."cnt" >= ${min})`)
-      .getRawMany<{ routeId: string; regular: boolean; orders: string; commission: string }>();
+      .getRawMany<{ routeId: string; regular: boolean; orders: string; seats: string; commission: string }>();
 
     const byRoute = new Map<number, RouteCustomerTally>();
     for (const r of rows) {
-      const cur = byRoute.get(Number(r.routeId)) ?? { regular: 0, fresh: 0, regularCommission: 0, freshCommission: 0 };
+      const cur = byRoute.get(Number(r.routeId)) ?? {
+        regular: 0,
+        fresh: 0,
+        regularSeats: 0,
+        freshSeats: 0,
+        regularCommission: 0,
+        freshCommission: 0,
+      };
       if (r.regular) {
         cur.regular += Number(r.orders);
+        cur.regularSeats += Number(r.seats);
         cur.regularCommission += Number(r.commission);
       } else {
         cur.fresh += Number(r.orders);
+        cur.freshSeats += Number(r.seats);
         cur.freshCommission += Number(r.commission);
       }
       byRoute.set(Number(r.routeId), cur);

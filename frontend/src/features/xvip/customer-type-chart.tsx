@@ -14,6 +14,8 @@ export interface CustomerRouteShare {
   name: string;
   regularOrders: number;
   newOrders: number;
+  regularSeats: number;
+  newSeats: number;
   regularCommission: number;
   newCommission: number;
 }
@@ -72,6 +74,7 @@ export function CustomerTypeChart({
             .map((x) => ({
               name: x.name,
               orders: r.key === 'regular' ? x.regularOrders : x.newOrders,
+              seats: r.key === 'regular' ? x.regularSeats : x.newSeats,
               commission: r.key === 'regular' ? x.regularCommission : x.newCommission,
             }))
             .filter((x) => x.orders > 0)
@@ -126,7 +129,7 @@ export function CustomerTypeChart({
                               <div className="h-full rounded-full" style={{ width: `${pct}%`, background: r.color }} />
                             </div>
                             <div className="tnum mt-0.5 text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                              {fmt(x.orders)} đơn · DS {fmt(x.commission)}đ
+                              {fmt(x.orders)} đơn · {fmt(x.seats)} vé · DS {fmt(x.commission)}đ
                             </div>
                           </li>
                         );

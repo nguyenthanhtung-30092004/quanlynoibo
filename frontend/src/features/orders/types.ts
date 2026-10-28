@@ -281,6 +281,9 @@ export interface Kpi extends KpiSummary {
     /** Chỉ Admin: doanh số (hoa hồng) của khách quen / khách lạ trên tuyến */
     regularCommission?: number;
     newCommission?: number;
+    /** Chỉ Admin: số vé của khách quen / khách lạ trên tuyến */
+    regularSeats?: number;
+    newSeats?: number;
   }>;
   /** Chỉ có với Admin: số vé và hoa hồng theo đối tác, nhiều hoa hồng nhất trước */
   byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
