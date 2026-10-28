@@ -9,29 +9,23 @@ export interface StaffTally {
 }
 
 /**
- * Khoảng ngày của tháng chứa `day` ('YYYY-MM-DD' hoặc 'YYYY-MM'): ngày đầu, ngày cuối và nhãn tháng 'YYYY-MM'.
- */
-export function monthRangeOf(day: string): { month: string; from: string; to: string } {
-  const month = day.slice(0, 7);
-  const [y, m] = month.split('-').map(Number);
-  const lastDay = new Date(Date.UTC(y, m, 0)).getUTCDate();
-  return { month, from: `${month}-01`, to: `${month}-${String(lastDay).padStart(2, '0')}` };
-}
-
-/**
- * Nhân viên cần cố gắng trong một tháng: ít vé nhất (bằng vé thì ít đơn hơn, bằng nữa thì theo tên),
- * phần tử đầu là "top 1" tức ít nhất.
+ * Nhân viên cần cố gắng: ít vé nhất (bằng vé thì ít đơn hơn, bằng nữa thì theo tên), phần tử đầu là "top 1" tức ít nhất.
  *
- * - `roster`: mọi nhân viên đang hoạt động, kể cả người chưa có đơn nào trong tháng (số liệu lấy từ `monthly`, thiếu thì là 0).
- * - Trả về rỗng khi cả tháng không ai bán được vé nào: lúc đó không có gì để so sánh.
+ * - `roster`: mọi nhân viên đang hoạt động, kể cả người chưa có đơn nào (số liệu lấy từ `ranking`, thiếu thì là 0).
+ * - Người đã lên bục vinh danh (`podiumIds`) không xuất hiện ở đây để hai mục không trùng nhau.
+ * - `onlyIds` khác rỗng (Admin đang lọc theo nhân viên) thì chỉ xét những người đó.
+ * - Trả về rỗng khi cả kỳ không ai bán được vé nào: lúc đó không có gì để so sánh.
  */
 export function pickNeedsEffort(
   roster: ReadonlyArray<{ id: number; fullName: string }>,
-  monthly: ReadonlyArray<{ staffId: number; total: number; seats: number }>,
+  ranking: readonly StaffTally[],
+  podiumIds: ReadonlySet<number>,
+  onlyIds: ReadonlySet<number> = new Set(),
 ): StaffTally[] {
-  if (!monthly.some((r) => r.seats > 0)) return [];
-  const tallyOf = new Map(monthly.map((r) => [r.staffId, r]));
+  if (!ranking.some((r) => r.seats > 0)) return [];
+  const tallyOf = new Map(ranking.map((r) => [r.staffId, r]));
   return roster
+    .filter((u) => !podiumIds.has(u.id) && (onlyIds.size === 0 || onlyIds.has(u.id)))
     .map((u) => ({
       staffId: u.id,
       fullName: u.fullName,

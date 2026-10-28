@@ -12,7 +12,7 @@ import { REGULAR_CUSTOMER_MIN_ORDERS } from '../customer-type.util.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula } from '../mappers/order.mapper.js';
-import { monthRangeOf, pickNeedsEffort } from '../kpi-needs-effort.util.js';
+import { pickNeedsEffort } from '../kpi-needs-effort.util.js';
 
 /** Khách quen / khách lạ: số khách (số điện thoại khác nhau) và số đơn của mỗi nhóm */
 interface CustomerTypeStats {
@@ -270,8 +270,6 @@ export class OrdersReportService {
         leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
         needsEffort?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
-        /** Tháng (YYYY-MM) mà `needsEffort` tính trên */
-        needsEffortMonth?: string;
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
@@ -336,33 +334,21 @@ export class OrdersReportService {
       .sort((a, b) => b.seats - a.seats || b.total - a.total);
     result.leaderboard = result.ranking.slice(0, 3);
 
-    // Cần cố gắng: tính cả THÁNG chứa ngày đang xem (theo ngày vào sổ), không theo bộ lọc ngày / nhân viên / tuyến
-    // của trang, vì một ngày chưa bán chưa nói lên điều gì. Lấy từ mọi nhân viên đang hoạt động (kể cả người chưa có
-    // đơn nào nên không thể dùng `ranking`). Cũng chỉ có số đơn / vé như bảng vinh danh
-    const range = monthRangeOf(query.dateFrom ?? query.departureFrom ?? date);
-    const [roster, monthly] = await Promise.all([
-      this.orderRepository.manager.find(User, {
-        where: { role: UserRole.STAFF, isActive: true, deletedAt: IsNull() },
-        select: { id: true, fullName: true },
-      }),
-      this.orderRepository
-        .createQueryBuilder('order')
-        .select('order.createdById', 'staffId')
-        .addSelect('COUNT(*)', 'total')
-        .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'seats')
-        .where('order.entryDate >= :monthFrom AND order.entryDate <= :monthTo', {
-          monthFrom: range.from,
-          monthTo: range.to,
-        })
-        .andWhere('order.cancelledAt IS NULL')
-        .groupBy('order.createdById')
-        .getRawMany<{ staffId: number | string; total: string; seats: string }>(),
-    ]);
+    // Cần cố gắng: nhân viên ít vé nhất, tính trên mọi nhân viên đang hoạt động (kể cả người chưa có đơn nào nên
+    // không lấy từ `ranking`), bỏ những người đã lên bục vinh danh. Cũng chỉ có số đơn / vé như bảng vinh danh
+    const roster = await this.orderRepository.manager.find(User, {
+      where: { role: UserRole.STAFF, isActive: true, deletedAt: IsNull() },
+      select: { id: true, fullName: true },
+    });
+    const onlyIds = new Set<number>(
+      isAdmin ? [...(query.staffId !== undefined ? [query.staffId] : []), ...(query.staffIds ?? [])] : [],
+    );
     result.needsEffort = pickNeedsEffort(
       roster,
-      monthly.map((r) => ({ staffId: Number(r.staffId), total: Number(r.total), seats: Number(r.seats) })),
+      result.ranking,
+      new Set(result.leaderboard.map((r) => r.staffId)),
+      onlyIds,
     );
-    result.needsEffortMonth = range.month;
 
     if (isAdmin) {
       result.byStaff = [...byStaffGroups.entries()]
