@@ -10,7 +10,7 @@ import { useActiveStaff, useUsers } from '@/features/users/hooks';
 import { Modal } from '@/features/xvip/Modal';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { CustomerTypeChart } from '@/features/xvip/customer-type-chart';
+import { CustomerTypeChart, NEW_COLOR as CUSTOMER_NEW_COLOR, REGULAR_COLOR as CUSTOMER_REGULAR_COLOR } from '@/features/xvip/customer-type-chart';
 import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
@@ -138,6 +138,8 @@ function OverviewContent() {
         commission: number;
         regularOrders: number;
         newOrders: number;
+        regularCommission: number;
+        newCommission: number;
         topSeats: number;
       }
     >();
@@ -149,7 +151,7 @@ function OverviewContent() {
       const key = [forward, [...parts].reverse().join('|')].sort()[0];
       const cur = groups.get(key);
       if (!cur) {
-        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, regularOrders: r.regularOrders ?? 0, newOrders: r.newOrders ?? 0, topSeats: r.seats });
+        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, regularOrders: r.regularOrders ?? 0, newOrders: r.newOrders ?? 0, regularCommission: r.regularCommission ?? 0, newCommission: r.newCommission ?? 0, topSeats: r.seats });
         continue;
       }
       cur.ids.push(r.routeId);
@@ -159,6 +161,8 @@ function OverviewContent() {
       cur.commission += r.commission ?? 0;
       cur.regularOrders += r.regularOrders ?? 0;
       cur.newOrders += r.newOrders ?? 0;
+      cur.regularCommission += r.regularCommission ?? 0;
+      cur.newCommission += r.newCommission ?? 0;
       // Tên hiển thị theo chiều có nhiều vé hơn
       if (r.seats > cur.topSeats) {
         cur.name = name;
@@ -333,8 +337,27 @@ function OverviewContent() {
                           </div>
                         </div>
                         {r.regularPct !== null && (
-                          <div className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                            Quen {r.regularPct}% ({r.regularOrders} đơn) · Lạ {r.newPct}% ({r.newOrders} đơn)
+                          <div className="mt-1.5">
+                            {/* Thanh tỷ lệ khách quen / khách lạ theo số đơn */}
+                            <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
+                              <div style={{ width: `${r.regularPct}%`, background: CUSTOMER_REGULAR_COLOR }} />
+                              <div style={{ width: `${r.newPct}%`, background: CUSTOMER_NEW_COLOR }} />
+                            </div>
+                            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                              {[
+                                { label: 'Quen', pct: r.regularPct, orders: r.regularOrders, commission: r.regularCommission, color: CUSTOMER_REGULAR_COLOR },
+                                { label: 'Lạ', pct: r.newPct, orders: r.newOrders, commission: r.newCommission, color: CUSTOMER_NEW_COLOR },
+                              ].map((g) => (
+                                <div key={g.label} className="min-w-0 rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/60">
+                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                                    <span className="size-2 shrink-0 rounded-full" style={{ background: g.color }} />
+                                    {g.label} {g.pct}%
+                                  </div>
+                                  <div className="tnum mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{g.orders} đơn</div>
+                                  <div className="tnum text-xs font-bold text-slate-900 dark:text-white">DS {money(g.commission)}đ</div>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         )}
                       </div>

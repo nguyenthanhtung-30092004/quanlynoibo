@@ -22,6 +22,14 @@ interface CustomerTypeStats {
   new: { customers: number; orders: number };
 }
 
+/** Số đơn và doanh số (hoa hồng) của khách quen / khách lạ trên một tuyến */
+interface RouteCustomerTally {
+  regular: number;
+  fresh: number;
+  regularCommission: number;
+  freshCommission: number;
+}
+
 /**
  * Biểu thức SQL số vé của đơn, khớp `ticketsOf` ở order.mapper (ưu tiên số ghế, không thì tổng đầu/giữa/cuối).
  * Viết sẵn tên cột có dấu nháy vì TypeORM chỉ đổi `order.cột` khi sau nó là dấu cách, `)` hoặc `,`;
@@ -283,12 +291,15 @@ export class OrdersReportService {
           /** Chỉ Admin: số đơn của khách quen / khách lạ trên tuyến (đơn không có số điện thoại thì không phân loại) */
           regularOrders?: number;
           newOrders?: number;
+          /** Chỉ Admin: doanh số (hoa hồng) của khách quen / khách lạ trên tuyến */
+          regularCommission?: number;
+          newCommission?: number;
         }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
         byCustomerType?: CustomerTypeStats;
       } = { date, ...summarize(mine), byRoute: [] };
 
-    let routeCustomers = new Map<number, { regular: number; fresh: number }>();
+    let routeCustomers = new Map<number, RouteCustomerTally>();
     // Số đơn, số vé (ghế) và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
     if (isAdmin) {
       const partnerGroups = new Map<string, { partner: string; total: number; seats: number; commission: number }>();
@@ -328,6 +339,8 @@ export class OrdersReportService {
               revenue: stat.revenue,
               regularOrders: routeCustomers.get(routeId)?.regular ?? 0,
               newOrders: routeCustomers.get(routeId)?.fresh ?? 0,
+              regularCommission: routeCustomers.get(routeId)?.regularCommission ?? 0,
+              newCommission: routeCustomers.get(routeId)?.freshCommission ?? 0,
             }
           : {}),
       }))
@@ -403,7 +416,7 @@ export class OrdersReportService {
    * Số đơn của khách quen / khách lạ theo từng tuyến (cùng quy tắc phân loại với `customerTypeStats`).
    * Gom ở SQL, chỉ vài chục dòng (tuyến x 2 nhóm).
    */
-  private async routeCustomerOrders(qb: SelectQueryBuilder<Order>): Promise<Map<number, { regular: number; fresh: number }>> {
+  private async routeCustomerOrders(qb: SelectQueryBuilder<Order>): Promise<Map<number, RouteCustomerTally>> {
     const min = Math.trunc(REGULAR_CUSTOMER_MIN_ORDERS);
     const rows = await qb
       .innerJoin(
@@ -414,15 +427,21 @@ export class OrdersReportService {
       .select('order.routeId', 'routeId')
       .addSelect(`(pc."cnt" >= ${min})`, 'regular')
       .addSelect('COUNT(*)', 'orders')
+      .addSelect('COALESCE(SUM(order.commission), 0)', 'commission')
       .groupBy('order.routeId')
       .addGroupBy(`(pc."cnt" >= ${min})`)
-      .getRawMany<{ routeId: string; regular: boolean; orders: string }>();
+      .getRawMany<{ routeId: string; regular: boolean; orders: string; commission: string }>();
 
-    const byRoute = new Map<number, { regular: number; fresh: number }>();
+    const byRoute = new Map<number, RouteCustomerTally>();
     for (const r of rows) {
-      const cur = byRoute.get(Number(r.routeId)) ?? { regular: 0, fresh: 0 };
-      if (r.regular) cur.regular += Number(r.orders);
-      else cur.fresh += Number(r.orders);
+      const cur = byRoute.get(Number(r.routeId)) ?? { regular: 0, fresh: 0, regularCommission: 0, freshCommission: 0 };
+      if (r.regular) {
+        cur.regular += Number(r.orders);
+        cur.regularCommission += Number(r.commission);
+      } else {
+        cur.fresh += Number(r.orders);
+        cur.freshCommission += Number(r.commission);
+      }
       byRoute.set(Number(r.routeId), cur);
     }
     return byRoute;

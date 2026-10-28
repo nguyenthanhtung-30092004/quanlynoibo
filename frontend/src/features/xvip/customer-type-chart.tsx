@@ -1,7 +1,7 @@
 import type { Kpi } from '@/features/orders/types';
 
-const REGULAR_COLOR = '#2563eb';
-const NEW_COLOR = '#f59e0b';
+export const REGULAR_COLOR = '#2563eb';
+export const NEW_COLOR = '#f59e0b';
 
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 
