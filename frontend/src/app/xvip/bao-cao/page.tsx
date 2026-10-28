@@ -3,17 +3,12 @@
 import { useToast } from '@/features/xvip/toast';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Bed,
   CheckCircle,
   ClipboardText,
-  Coffee,
   FileXls,
   HandCoins,
-  Medal,
-  Moon,
   Percent,
   Ticket,
-  Trophy,
   X,
 } from '@phosphor-icons/react';
 import { useKpi, useKpiFilterOptions, useOrders } from '@/features/orders/hooks';
@@ -26,6 +21,7 @@ import { useActiveRoutes } from '@/features/routes/hooks';
 import { usePartners } from '@/features/partners/hooks';
 import { money } from '@/features/xvip/data';
 import { Avatar, Card, NUM, PageTitle, TD, TH } from '@/features/xvip/ui';
+import { RankPodium } from '@/features/xvip/RankPodium';
 import { ORDERS_ALL_SIZE } from '@/features/orders/constants';
 import { ScrollTable } from '@/features/xvip/ScrollTable';
 import {
@@ -684,168 +680,14 @@ export default function StaffReportPage() {
       {/* 3D Podium: Top 3 Nhân Viên Xuất Sắc Nhất */}
       {podium.length > 0 && podium[0].seats > 0 && (
         <Card title="Vinh danh nhân viên bán vé xuất sắc" className="mt-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
-            {/* Top 2 */}
-            {podium[1] && (
-              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-2 md:order-1">
-                <Medal
-                  size={28}
-                  weight="fill"
-                  className="text-slate-400 mb-2"
-                />
-                <Avatar name={podium[1].fullName} />
-                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {podium[1].fullName}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Á quân bán vé
-                </span>
-                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">
-                    Số lượng:{' '}
-                    <strong>
-                      {podium[1].total} đơn · {podium[1].seats} vé
-                    </strong>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Top 1 Quán Quân */}
-            <div className="flex flex-col items-center justify-end rounded-2xl bg-gradient-to-b from-amber-50 to-amber-100/60 dark:from-amber-950/40 dark:to-amber-900/20 p-5 border-2 border-amber-400 shadow-[0_8px_20px_rgba(245,158,11,0.2)] text-center order-1 md:order-2">
-              <Trophy
-                size={36}
-                weight="fill"
-                className="text-amber-500 mb-2 animate-bounce"
-              />
-              <Avatar name={podium[0].fullName} />
-              <span className="mt-2 font-black text-slate-900 dark:text-white text-lg">
-                {podium[0].fullName}
-              </span>
-              <span className="text-xs font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-                Quán quân toàn hệ thống
-              </span>
-              <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-amber-300 dark:border-amber-700 shadow-inner">
-                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                  Đạt:{' '}
-                  <strong>
-                    {podium[0].total} đơn · {podium[0].seats} vé
-                  </strong>
-                </div>
-              </div>
-            </div>
-
-            {/* Top 3 */}
-            {podium[2] && (
-              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-3">
-                <Medal
-                  size={28}
-                  weight="fill"
-                  className="text-amber-700 mb-2"
-                />
-                <Avatar name={podium[2].fullName} />
-                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {podium[2].fullName}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  Hạng ba
-                </span>
-                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">
-                    Số lượng:{' '}
-                    <strong>
-                      {podium[2].total} đơn · {podium[2].seats} vé
-                    </strong>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <RankPodium entries={podium} theme="honor" />
         </Card>
       )}
 
       {/* Bảng tiềm năng chưa khai phá (nhân viên ít vé nhất): cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
         <Card title="Bảng tiềm năng chưa khai phá" className="mt-5">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3 pt-2">
-            {/* Top 2 */}
-            {needsEffort[1] && (
-              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-2 md:order-1">
-                <Coffee size={28} weight="fill" className="text-orange-400 mb-2" />
-                <Avatar name={needsEffort[1].fullName} />
-                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {needsEffort[1].fullName}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 2 · Ngồi chơi ít thôi</span>
-                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">
-                    {needsEffort[1].total === 0 && needsEffort[1].seats === 0 ? (
-                      <strong>Chưa có đơn nào</strong>
-                    ) : (
-                      <>
-                        Số lượng:{' '}
-                        <strong>
-                          {needsEffort[1].total} đơn · {needsEffort[1].seats} vé
-                        </strong>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Top 1: ít vé nhất */}
-            <div className="flex flex-col items-center justify-end rounded-2xl bg-gradient-to-b from-rose-50 to-rose-100/60 dark:from-rose-950/40 dark:to-rose-900/20 p-5 border-2 border-rose-400 shadow-[0_8px_20px_rgba(244,63,94,0.2)] text-center order-1 md:order-2">
-              <Bed size={36} weight="fill" className="text-rose-500 mb-2" />
-              <Avatar name={needsEffort[0].fullName} />
-              <span className="mt-2 font-black text-slate-900 dark:text-white text-lg">
-                {needsEffort[0].fullName}
-              </span>
-              <span className="text-xs font-black uppercase tracking-wider text-rose-700 dark:text-rose-400">
-                Top 1 · Siêu lười
-              </span>
-              <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-3 border border-rose-300 dark:border-rose-800 shadow-inner">
-                <div className="text-sm font-bold text-slate-700 dark:text-slate-200">
-                  {needsEffort[0].total === 0 && needsEffort[0].seats === 0 ? (
-                    <strong>Chưa có đơn nào</strong>
-                  ) : (
-                    <>
-                      Mới có:{' '}
-                      <strong>
-                        {needsEffort[0].total} đơn · {needsEffort[0].seats} vé
-                      </strong>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Top 3 */}
-            {needsEffort[2] && (
-              <div className="flex flex-col items-center justify-end rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-4 border border-slate-200 dark:border-slate-700 shadow-sm text-center order-3">
-                <Moon size={28} weight="fill" className="text-amber-500 mb-2" />
-                <Avatar name={needsEffort[2].fullName} />
-                <span className="mt-2 font-black text-slate-900 dark:text-white text-base">
-                  {needsEffort[2].fullName}
-                </span>
-                <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Top 3 · Ngủ ít thôi</span>
-                <div className="mt-3 w-full rounded-xl bg-white dark:bg-slate-900 p-2.5 border border-slate-200 dark:border-slate-700 shadow-inner">
-                  <div className="text-xs text-slate-500">
-                    {needsEffort[2].total === 0 && needsEffort[2].seats === 0 ? (
-                      <strong>Chưa có đơn nào</strong>
-                    ) : (
-                      <>
-                        Số lượng:{' '}
-                        <strong>
-                          {needsEffort[2].total} đơn · {needsEffort[2].seats} vé
-                        </strong>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <RankPodium entries={needsEffort} theme="potential" />
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
             Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo số vé ít nhất (bằng vé thì
             theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
