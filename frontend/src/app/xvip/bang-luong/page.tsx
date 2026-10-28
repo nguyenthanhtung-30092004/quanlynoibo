@@ -245,7 +245,7 @@ export default function PayrollPage() {
           </div>
         }
       >
-        Bảng tính lương
+        Bảng Lương Dự Kiến
       </PageTitle>
       </div>
 
@@ -295,7 +295,7 @@ export default function PayrollPage() {
       {/* Bảng lương */}
       <Card
         className="mt-5 !p-0 overflow-clip"
-        title={`Bảng lương ${monthLabel(month).toLowerCase()}`}
+        title={`Bảng Lương Dự Kiến ${monthLabel(month).toLowerCase()}`}
       >
         {/* Máy tính: bảng đầy đủ các cột */}
         <div className="hidden md:block">
@@ -331,7 +331,6 @@ export default function PayrollPage() {
                   Ứng lương
                   <span className="block text-[10px] font-normal normal-case text-slate-400">Đã ứng trong tháng</span>
                 </th>
-                <th className={`${TH} text-right`}>Điều chỉnh (+/−)</th>
                 <th className={TH}>Ghi chú</th>
                 <th className={`${TH} text-right`}>Tổng lương</th>
               </tr>
@@ -339,13 +338,13 @@ export default function PayrollPage() {
             <tbody>
               {isLoading || !config ? (
                 <tr>
-                  <td colSpan={16} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
+                  <td colSpan={15} className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse">
                     Đang tải bảng lương...
                   </td>
                 </tr>
               ) : visibleRows.length === 0 ? (
                 <tr>
-                  <td colSpan={16} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
+                  <td colSpan={15} className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {rows.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
                   </td>
                 </tr>
@@ -476,16 +475,6 @@ export default function PayrollPage() {
                           onChange={(advance) => patchEntry(staff.id, { advance })}
                         />
                       </td>
-                      <td className={`${TD} text-right`} onClick={(e) => e.stopPropagation()}>
-                        <MoneyInput
-                          allowNegative
-                          align="right"
-                          ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
-                          className="!h-9 !w-28 !py-1 !px-2 text-sm"
-                          value={entry.adjustment}
-                          onChange={(adjustment) => patchEntry(staff.id, { adjustment })}
-                        />
-                      </td>
                       <td className={TD} onClick={(e) => e.stopPropagation()}>
                         <input
                           className="input-3d !h-9 !w-40 !py-1 !px-2 text-sm"
@@ -529,7 +518,6 @@ export default function PayrollPage() {
                   <td className={`${TD} text-right tnum font-black text-red-600 dark:text-red-400`}>
                     {totals.advance > 0 ? `−${vnd(totals.advance)}` : vnd(0)}
                   </td>
-                  <td className={`${TD} text-right tnum font-black`}>{vnd(totals.adjustment)}</td>
                   <td className={TD} />
                   <td className={`${TD} text-right tnum text-base font-black text-emerald-700 dark:text-emerald-400`}>
                     {vnd(totals.total)}
@@ -715,19 +703,6 @@ export default function PayrollPage() {
                           onChange={(advance) => patchEntry(staff.id, { advance })}
                         />
                       </label>
-                      <label className="block min-w-0">
-                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          Điều chỉnh (+/−)
-                        </span>
-                        <MoneyInput
-                          allowNegative
-                          align="right"
-                          ariaLabel={`Điều chỉnh lương của ${staff.fullName}`}
-                          className="!h-11 !w-full !py-1 !px-2 !text-base"
-                          value={entry.adjustment}
-                          onChange={(adjustment) => patchEntry(staff.id, { adjustment })}
-                        />
-                      </label>
                       <label className="col-span-2 block min-w-0">
                         <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">Ghi chú</span>
                         <input
@@ -775,7 +750,6 @@ export default function PayrollPage() {
                       {totals.advance > 0 ? `−${vnd(totals.advance)}` : vnd(0)}
                     </span>
                   </Line>
-                  <Line label="Điều chỉnh">{vnd(totals.adjustment)}</Line>
                   <Line label="Tổng lương">
                     <span className="text-base font-black text-emerald-700 dark:text-emerald-400">
                       {vnd(totals.total)}
@@ -822,7 +796,7 @@ export default function PayrollPage() {
             <>
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
                 <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) − Bảo hiểm (9) − Ứng lương (nhập từng tháng) ± Điều chỉnh tay
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) − Bảo hiểm (9) − Ứng lương (nhập từng tháng)
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
@@ -852,7 +826,7 @@ export default function PayrollPage() {
       {dirty && (
         <div className="sticky bottom-4 z-20 mt-5 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-blue-200 bg-white/95 px-4 py-3 shadow-lg backdrop-blur-md dark:border-blue-900 dark:bg-slate-900/95">
           <span className="text-sm font-bold text-slate-700 dark:text-slate-200">
-            Có thay đổi chưa lưu (công thức, bậc, điều chỉnh hoặc ghi chú).
+            Có thay đổi chưa lưu (công thức, bậc, bảo hiểm, ứng lương hoặc ghi chú).
           </span>
           <button
             type="button"
