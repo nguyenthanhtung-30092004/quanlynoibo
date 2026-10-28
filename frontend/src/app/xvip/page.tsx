@@ -136,6 +136,8 @@ function OverviewContent() {
         count: number;
         revenue: number;
         commission: number;
+        regularOrders: number;
+        newOrders: number;
         topSeats: number;
       }
     >();
@@ -147,7 +149,7 @@ function OverviewContent() {
       const key = [forward, [...parts].reverse().join('|')].sort()[0];
       const cur = groups.get(key);
       if (!cur) {
-        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, topSeats: r.seats });
+        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, regularOrders: r.regularOrders ?? 0, newOrders: r.newOrders ?? 0, topSeats: r.seats });
         continue;
       }
       cur.ids.push(r.routeId);
@@ -155,6 +157,8 @@ function OverviewContent() {
       cur.count += r.seats;
       cur.revenue += r.revenue ?? 0;
       cur.commission += r.commission ?? 0;
+      cur.regularOrders += r.regularOrders ?? 0;
+      cur.newOrders += r.newOrders ?? 0;
       // Tên hiển thị theo chiều có nhiều vé hơn
       if (r.seats > cur.topSeats) {
         cur.name = name;
@@ -171,12 +175,19 @@ function OverviewContent() {
       })
       .sort((x, y) => y.count - x.count);
     const total = rows.reduce((sum, r) => sum + r.count, 0);
-    return rows.map((r, idx) => ({
-      ...r,
-      pct: total > 0 ? Math.round((r.count / total) * 100) : 0,
-      share: total > 0 ? (r.count / total) * 100 : 0,
-      color: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
-    }));
+    return rows.map((r, idx) => {
+      // Tỷ lệ theo số đơn đã phân loại được (đơn không có số điện thoại thì không tính)
+      const classified = r.regularOrders + r.newOrders;
+      const regularPct = classified > 0 ? Math.round((r.regularOrders / classified) * 100) : null;
+      return {
+        ...r,
+        regularPct,
+        newPct: regularPct === null ? null : 100 - regularPct,
+        pct: total > 0 ? Math.round((r.count / total) * 100) : 0,
+        share: total > 0 ? (r.count / total) * 100 : 0,
+        color: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
+      };
+    });
   }, [routes, kpiData]);
 
   const donutGradient = useMemo(() => {
@@ -314,11 +325,18 @@ function OverviewContent() {
                       className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
                     >
                       <span className="mt-0.5 size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
-                      <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:justify-between sm:gap-3">
-                        <div className="break-words">{r.name}</div>
-                        <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
-                          {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
+                      <div className="min-w-0 flex-1">
+                        <div className="sm:flex sm:items-baseline sm:justify-between sm:gap-3">
+                          <div className="break-words">{r.name}</div>
+                          <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
+                            {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
+                          </div>
                         </div>
+                        {r.regularPct !== null && (
+                          <div className="mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
+                            Quen {r.regularPct}% ({r.regularOrders} đơn) · Lạ {r.newPct}% ({r.newOrders} đơn)
+                          </div>
+                        )}
                       </div>
                     </button>
                   </li>

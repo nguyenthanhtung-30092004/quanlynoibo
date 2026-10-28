@@ -202,6 +202,7 @@ export class OrdersReportService {
     const { date, qb } = this.kpiFilteredQuery(query, actor, !isAdmin);
     // Truy vấn khách quen / khách lạ dùng chung bộ lọc nhưng chạy riêng (chỉ Admin xem), nên dựng trước khi qb bị thêm select
     const customerQb = isAdmin ? qb.clone() : null;
+    const routeCustomerQb = isAdmin ? qb.clone() : null;
 
     // Một truy vấn duy nhất gom theo (nhân viên, tuyến, đối tác): chỉ vài chục dòng dù lọc cả năm
     const partnerExpr = `LOWER(TRIM(COALESCE(order.partner, '')))`;
@@ -273,11 +274,21 @@ export class OrdersReportService {
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
-        byRoute: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission: number }>;
+        byRoute: Array<{
+          routeId: number;
+          total: number;
+          seats: number;
+          revenue?: number;
+          commission: number;
+          /** Chỉ Admin: số đơn của khách quen / khách lạ trên tuyến (đơn không có số điện thoại thì không phân loại) */
+          regularOrders?: number;
+          newOrders?: number;
+        }>;
         byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
         byCustomerType?: CustomerTypeStats;
       } = { date, ...summarize(mine), byRoute: [] };
 
+    let routeCustomers = new Map<number, { regular: number; fresh: number }>();
     // Số đơn, số vé (ghế) và hoa hồng theo đối tác (chỉ Admin vì có hoa hồng), nhiều hoa hồng nhất trước
     if (isAdmin) {
       const partnerGroups = new Map<string, { partner: string; total: number; seats: number; commission: number }>();
@@ -293,6 +304,7 @@ export class OrdersReportService {
         (a, b) => b.commission - a.commission || b.total - a.total,
       );
       result.byCustomerType = await this.customerTypeStats(customerQb!);
+      routeCustomers = await this.routeCustomerOrders(routeCustomerQb!);
     }
 
     // Số đơn, số vé (ghế) và doanh thu theo tuyến (trên toàn bộ vé trong khoảng lọc, không phụ thuộc phân trang danh sách)
@@ -311,7 +323,13 @@ export class OrdersReportService {
         total: stat.total,
         seats: stat.seats,
         commission: stat.commission,
-        ...(isAdmin ? { revenue: stat.revenue } : {}),
+        ...(isAdmin
+          ? {
+              revenue: stat.revenue,
+              regularOrders: routeCustomers.get(routeId)?.regular ?? 0,
+              newOrders: routeCustomers.get(routeId)?.fresh ?? 0,
+            }
+          : {}),
       }))
       .sort((a, b) => b.total - a.total);
 
@@ -379,6 +397,35 @@ export class OrdersReportService {
       [from, to],
     );
     return new Set(rows.map((r) => Number(r.userId)));
+  }
+
+  /**
+   * Số đơn của khách quen / khách lạ theo từng tuyến (cùng quy tắc phân loại với `customerTypeStats`).
+   * Gom ở SQL, chỉ vài chục dòng (tuyến x 2 nhóm).
+   */
+  private async routeCustomerOrders(qb: SelectQueryBuilder<Order>): Promise<Map<number, { regular: number; fresh: number }>> {
+    const min = Math.trunc(REGULAR_CUSTOMER_MIN_ORDERS);
+    const rows = await qb
+      .innerJoin(
+        `(SELECT o2."phoneKey" AS "phoneKey", COUNT(*) AS "cnt" FROM "orders" o2 WHERE o2."cancelledAt" IS NULL AND o2."phoneKey" IS NOT NULL GROUP BY o2."phoneKey")`,
+        'pc',
+        'pc."phoneKey" = order.phoneKey',
+      )
+      .select('order.routeId', 'routeId')
+      .addSelect(`(pc."cnt" >= ${min})`, 'regular')
+      .addSelect('COUNT(*)', 'orders')
+      .groupBy('order.routeId')
+      .addGroupBy(`(pc."cnt" >= ${min})`)
+      .getRawMany<{ routeId: string; regular: boolean; orders: string }>();
+
+    const byRoute = new Map<number, { regular: number; fresh: number }>();
+    for (const r of rows) {
+      const cur = byRoute.get(Number(r.routeId)) ?? { regular: 0, fresh: 0 };
+      if (r.regular) cur.regular += Number(r.orders);
+      else cur.fresh += Number(r.orders);
+      byRoute.set(Number(r.routeId), cur);
+    }
+    return byRoute;
   }
 
   /**

@@ -269,7 +269,16 @@ export interface Kpi extends KpiSummary {
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
   /** Số đơn (total), số vé (seats) và doanh thu theo tuyến, nhiều đơn nhất trước */
-  byRoute?: Array<{ routeId: number; total: number; seats: number; revenue?: number; commission?: number }>;
+  byRoute?: Array<{
+    routeId: number;
+    total: number;
+    seats: number;
+    revenue?: number;
+    commission?: number;
+    /** Chỉ Admin: số đơn của khách quen / khách lạ trên tuyến */
+    regularOrders?: number;
+    newOrders?: number;
+  }>;
   /** Chỉ có với Admin: số vé và hoa hồng theo đối tác, nhiều hoa hồng nhất trước */
   byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
   /** Chỉ có với Admin: khách quen / khách lạ trong khoảng lọc, tính theo số điện thoại */
