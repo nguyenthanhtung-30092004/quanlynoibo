@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -30,6 +30,7 @@ import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
 import { DateFilterProvider } from './date-filter';
+import { orderForMobile } from './nav-order';
 
 interface NavItem {
   href: string;
@@ -166,6 +167,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const live = useRealtimeConnected();
   const isAdmin = me?.role === 'ADMIN';
 
+  // Mục hiện ra theo quyền. Máy tính giữ thứ tự gốc; điện thoại (menu kéo) dùng thứ tự riêng nhờ CSS `order`,
+  // nên không phải dựng hai danh sách: Đăng ký nghỉ lên vị trí thứ 2, Đối tác / Tuyến đường xuống cuối
+  const visibleNav = NAV.filter((item) => (!item.adminOnly || isAdmin) && (!item.staffOnly || me?.role === 'STAFF'));
+  const mobileOrder = orderForMobile(visibleNav);
+
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gradient-to-b dark:from-[#091528] dark:via-xv-navy dark:to-[#060e1a] text-slate-800 dark:text-xv-text shadow-[2px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)] border-r border-slate-200 dark:border-[#1a2d4f] transition-colors duration-200">
       {/* 3D Gold Logo XVIP - Sáng rõ, nổi bật và sang trọng */}
@@ -185,10 +191,15 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       {/* Nav List with Bright, Crisp Text in Light Mode & Glowing Depth in Dark Mode */}
       <nav aria-label="Menu chính" className="flex-1 overflow-y-auto px-3.5 py-4">
         <ul className="flex flex-col gap-2">
-          {NAV.filter((item) => (!item.adminOnly || isAdmin) && (!item.staffOnly || me?.role === 'STAFF')).map(({ href, label, icon: Icon }) => {
+          {visibleNav.map((item) => {
+            const { href, label, icon: Icon } = item;
             const active = href === '/xvip' ? pathname === '/xvip' : pathname.startsWith(href);
             return (
-              <li key={label}>
+              <li
+                key={label}
+                style={{ '--mobile-order': mobileOrder.indexOf(item) } as CSSProperties}
+                className="[order:var(--mobile-order)] lg:order-none"
+              >
                 <Link
                   href={href}
                   onClick={onNavigate}
