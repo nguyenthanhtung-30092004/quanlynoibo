@@ -334,8 +334,9 @@ export class OrdersReportService {
       .sort((a, b) => b.seats - a.seats || b.total - a.total);
     result.leaderboard = result.ranking.slice(0, 3);
 
-    // Cần cố gắng: nhân viên ít vé nhất, tính trên mọi nhân viên đang hoạt động (kể cả người chưa có đơn nào nên
-    // không lấy từ `ranking`), bỏ những người đã lên bục vinh danh. Cũng chỉ có số đơn / vé như bảng vinh danh
+    // Cần cố gắng: nhân viên ít vé nhất, tính trên nhân viên đang hoạt động (kể cả người chưa có đơn nào nên
+    // không lấy từ `ranking`), bỏ những người đã lên bục vinh danh. Chỉ tính người đã chấm công vào trong khoảng
+    // ngày đang xem: ai chưa quẹt máy chấm công thì chưa tính. Cũng chỉ có số đơn / vé như bảng vinh danh
     const roster = await this.orderRepository.manager.find(User, {
       where: { role: UserRole.STAFF, isActive: true, deletedAt: IsNull() },
       select: { id: true, fullName: true },
@@ -343,11 +344,16 @@ export class OrdersReportService {
     const onlyIds = new Set<number>(
       isAdmin ? [...(query.staffId !== undefined ? [query.staffId] : []), ...(query.staffIds ?? [])] : [],
     );
+    const clockedIn = await this.clockedInStaffIds(
+      query.dateFrom ?? date,
+      query.dateTo ?? (query.dateFrom ? getBusinessDate() : date),
+    );
     result.needsEffort = pickNeedsEffort(
       roster,
       result.ranking,
       new Set(result.leaderboard.map((r) => r.staffId)),
       onlyIds,
+      clockedIn,
     );
 
     if (isAdmin) {
@@ -360,6 +366,19 @@ export class OrdersReportService {
         .sort((a, b) => b.total - a.total);
     }
     return result;
+  }
+
+  /**
+   * Id nhân viên đã chấm công vào trong khoảng ngày: có ít nhất một lượt quẹt máy chấm công thật
+   * (không tính lượt hệ thống tự chấm ra lúc 23:59, vì lượt đó chỉ có khi người ấy đã quẹt vào).
+   */
+  private async clockedInStaffIds(from: string, to: string): Promise<Set<number>> {
+    const rows: Array<{ userId: number | string }> = await this.orderRepository.manager.query(
+      `SELECT DISTINCT "userId" FROM "attendance_punches"
+        WHERE NOT "auto" AND "day" BETWEEN $1::date AND $2::date`,
+      [from, to],
+    );
+    return new Set(rows.map((r) => Number(r.userId)));
   }
 
   /**

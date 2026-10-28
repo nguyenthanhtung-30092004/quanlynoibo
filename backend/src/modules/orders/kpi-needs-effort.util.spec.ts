@@ -41,6 +41,21 @@ describe('pickNeedsEffort', () => {
     expect(pickNeedsEffort(roster, [tally(1, 3, 0)], new Set())).toEqual([]);
   });
 
+  it('chỉ tính người đã chấm công vào, người chưa quẹt thì chưa tính', () => {
+    // 6 chưa có đơn nào nhưng chưa chấm công vào nên không bị gọi là siêu lười; 5 và 4 đã vào làm
+    const result = pickNeedsEffort(roster, ranking, podium, new Set(), new Set([4, 5]));
+    expect(result.map((r) => r.staffId)).toEqual([5, 4]);
+  });
+
+  it('người đã chấm công vào mà chưa có đơn nào vẫn được tính, là người ít nhất', () => {
+    const result = pickNeedsEffort(roster, ranking, podium, new Set(), new Set([4, 5, 6]));
+    expect(result.map((r) => r.staffId)).toEqual([6, 5, 4]);
+  });
+
+  it('chưa ai chấm công vào thì không có danh sách', () => {
+    expect(pickNeedsEffort(roster, ranking, podium, new Set(), new Set())).toEqual([]);
+  });
+
   it('Admin lọc theo nhân viên thì chỉ xét những người đó', () => {
     const result = pickNeedsEffort(roster, ranking, podium, new Set([4, 5]));
     expect(result.map((r) => r.staffId)).toEqual([5, 4]);

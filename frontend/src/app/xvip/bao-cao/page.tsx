@@ -847,7 +847,8 @@ export default function StaffReportPage() {
             )}
           </div>
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
-            Xếp theo số vé ít nhất (bằng vé thì theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
+            Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo số vé ít nhất (bằng vé thì
+            theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
           </p>
         </Card>
       )}

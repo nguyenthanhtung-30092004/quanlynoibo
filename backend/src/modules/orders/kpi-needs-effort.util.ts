@@ -14,6 +14,8 @@ export interface StaffTally {
  * - `roster`: mọi nhân viên đang hoạt động, kể cả người chưa có đơn nào (số liệu lấy từ `ranking`, thiếu thì là 0).
  * - Người đã lên bục vinh danh (`podiumIds`) không xuất hiện ở đây để hai mục không trùng nhau.
  * - `onlyIds` khác rỗng (Admin đang lọc theo nhân viên) thì chỉ xét những người đó.
+ * - `clockedInIds`: chỉ xét người đã chấm công vào trong khoảng ngày đang xem; ai chưa quẹt máy chấm công thì chưa tính
+ *   (chưa đi làm thì chưa thể gọi là chưa cố gắng). Bỏ trống thì không lọc theo chấm công.
  * - Trả về rỗng khi cả kỳ không ai bán được vé nào: lúc đó không có gì để so sánh.
  */
 export function pickNeedsEffort(
@@ -21,11 +23,17 @@ export function pickNeedsEffort(
   ranking: readonly StaffTally[],
   podiumIds: ReadonlySet<number>,
   onlyIds: ReadonlySet<number> = new Set(),
+  clockedInIds?: ReadonlySet<number>,
 ): StaffTally[] {
   if (!ranking.some((r) => r.seats > 0)) return [];
   const tallyOf = new Map(ranking.map((r) => [r.staffId, r]));
   return roster
-    .filter((u) => !podiumIds.has(u.id) && (onlyIds.size === 0 || onlyIds.has(u.id)))
+    .filter(
+      (u) =>
+        !podiumIds.has(u.id) &&
+        (onlyIds.size === 0 || onlyIds.has(u.id)) &&
+        (!clockedInIds || clockedInIds.has(u.id)),
+    )
     .map((u) => ({
       staffId: u.id,
       fullName: u.fullName,
