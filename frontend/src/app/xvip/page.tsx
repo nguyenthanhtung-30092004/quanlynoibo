@@ -207,8 +207,8 @@ function OverviewContent() {
           )}
         </Card>
 
-        {/* Khách quen / khách lạ theo số điện thoại */}
-        <Card title="Khách quen & khách lạ">
+        {/* Khách quen / khách mới theo số điện thoại */}
+        <Card title="Khách quen & khách mới">
           <CustomerTypeChart data={kpiData?.byCustomerType} routes={routeStats} />
         </Card>
 

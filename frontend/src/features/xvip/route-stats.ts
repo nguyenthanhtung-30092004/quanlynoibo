@@ -36,7 +36,7 @@ export interface RankedRoute extends RouteStat {
   /** Phần trăm chính xác, dùng để vẽ biểu đồ */
   share: number;
   color: string;
-  /** Tỷ lệ khách quen / khách lạ theo số đơn đã phân loại; null khi chưa phân loại được đơn nào */
+  /** Tỷ lệ khách quen / khách mới theo số đơn đã phân loại; null khi chưa phân loại được đơn nào */
   regularPct: number | null;
   newPct: number | null;
 }

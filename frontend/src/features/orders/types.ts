@@ -27,7 +27,7 @@ export type CustomerType = 'REGULAR' | 'NEW';
 
 export const CUSTOMER_TYPE_LABELS: Record<CustomerType, string> = {
   REGULAR: 'Khách quen',
-  NEW: 'Khách lạ',
+  NEW: 'Khách mới',
 };
 
 export interface Order {
@@ -38,7 +38,7 @@ export interface Order {
   phone: string;
   /** Số đơn còn hiệu lực cùng số điện thoại; null = chưa tra (vd phản hồi sau khi tạo/sửa đơn) */
   orderCount?: number | null;
-  /** Khách quen (từ 3 đơn trở lên) hoặc khách lạ; null = chưa phân loại */
+  /** Khách quen (từ 3 đơn trở lên) hoặc khách mới; null = chưa phân loại */
   customerType?: CustomerType | null;
   route: { id: number; name: string };
   /** HH:mm */
@@ -110,7 +110,7 @@ export interface OrderFilters {
   /** Bộ lọc cột kiểu Excel */
   staffIds?: number[];
   customerNames?: string[];
-  /** Lọc khách quen / khách lạ; bỏ trống = tất cả */
+  /** Lọc khách quen / khách mới; bỏ trống = tất cả */
   customerType?: CustomerType;
   phones?: string[];
   departureTimes?: string[];
@@ -275,19 +275,19 @@ export interface Kpi extends KpiSummary {
     seats: number;
     revenue?: number;
     commission?: number;
-    /** Chỉ Admin: số đơn của khách quen / khách lạ trên tuyến */
+    /** Chỉ Admin: số đơn của khách quen / khách mới trên tuyến */
     regularOrders?: number;
     newOrders?: number;
-    /** Chỉ Admin: doanh số (hoa hồng) của khách quen / khách lạ trên tuyến */
+    /** Chỉ Admin: doanh số (hoa hồng) của khách quen / khách mới trên tuyến */
     regularCommission?: number;
     newCommission?: number;
-    /** Chỉ Admin: số vé của khách quen / khách lạ trên tuyến */
+    /** Chỉ Admin: số vé của khách quen / khách mới trên tuyến */
     regularSeats?: number;
     newSeats?: number;
   }>;
   /** Chỉ có với Admin: số vé và hoa hồng theo đối tác, nhiều hoa hồng nhất trước */
   byPartner?: Array<{ partner: string; total: number; seats: number; commission: number }>;
-  /** Chỉ có với Admin: khách quen / khách lạ trong khoảng lọc, tính theo số điện thoại */
+  /** Chỉ có với Admin: khách quen / khách mới trong khoảng lọc, tính theo số điện thoại */
   byCustomerType?: {
     /** Từ bấy nhiêu đơn trở lên là khách quen */
     minOrders: number;

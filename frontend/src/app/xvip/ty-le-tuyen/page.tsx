@@ -80,7 +80,6 @@ function RouteShareContent() {
 
   const needle = search.trim().toLocaleLowerCase('vi');
   const visible = needle ? ranked.filter((r) => r.name.toLocaleLowerCase('vi').includes(needle)) : ranked;
-  const topValue = ranked[0]?.value ?? 0;
 
   const TILES = [
     {
@@ -214,7 +213,6 @@ function RouteShareContent() {
                     r={r}
                     rank={ranked.indexOf(r)}
                     metric={metric}
-                    topValue={topValue}
                     dim={hover !== null && hover !== r.id}
                     onHover={setHover}
                     onPick={() => setSelected({ ids: r.ids, name: r.name })}
@@ -347,7 +345,6 @@ function RouteRow({
   r,
   rank,
   metric,
-  topValue,
   dim,
   onHover,
   onPick,
@@ -355,16 +352,13 @@ function RouteRow({
   r: RankedRoute;
   rank: number;
   metric: RouteMetric;
-  topValue: number;
   dim: boolean;
   onHover: (id: number | null) => void;
   onPick: () => void;
 }) {
-  // Thanh dài theo tuyến dẫn đầu để thấy rõ chênh lệch, không phải theo tổng
-  const width = topValue > 0 ? Math.max(3, (r.value / topValue) * 100) : 0;
   const groups = [
     { label: 'Quen', pct: r.regularPct, orders: r.regularOrders, seats: r.regularSeats, commission: r.regularCommission, color: REGULAR_COLOR },
-    { label: 'Lạ', pct: r.newPct, orders: r.newOrders, seats: r.newSeats, commission: r.newCommission, color: NEW_COLOR },
+    { label: 'Mới', pct: r.newPct, orders: r.newOrders, seats: r.newSeats, commission: r.newCommission, color: NEW_COLOR },
   ];
   const stat = (key: RouteMetric, text: string) => (
     <span className={metric === key ? 'font-black text-slate-900 dark:text-white' : ''}>{text}</span>
@@ -405,22 +399,10 @@ function RouteRow({
           </span>
         </div>
 
-        {/* Thanh tỷ lệ theo chỉ số đang chọn */}
-        <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{ width: `${width}%`, background: `linear-gradient(90deg, ${r.color}, ${r.color}cc)` }}
-          />
-        </div>
-
-        {/* Khách quen / khách lạ */}
+        {/* Khách quen / khách mới */}
         {r.regularPct !== null && (
           <div className="mt-3">
-            <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
-              <div style={{ width: `${r.regularPct}%`, background: REGULAR_COLOR }} />
-              <div style={{ width: `${r.newPct}%`, background: NEW_COLOR }} />
-            </div>
-            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5">
               {groups.map((g) => (
                 <div key={g.label} className="min-w-0 rounded-lg bg-slate-50 px-2 py-1.5 dark:bg-slate-800/60">
                   <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">

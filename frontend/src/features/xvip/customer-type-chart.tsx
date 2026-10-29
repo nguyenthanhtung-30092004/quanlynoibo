@@ -9,7 +9,7 @@ export const NEW_COLOR = '#f59e0b';
 
 const fmt = (n: number) => n.toLocaleString('vi-VN');
 
-/** Số đơn và doanh số (hoa hồng) của khách quen / khách lạ trên một tuyến (đã gộp hai chiều) */
+/** Số đơn và doanh số (hoa hồng) của khách quen / khách mới trên một tuyến (đã gộp hai chiều) */
 export interface CustomerRouteShare {
   name: string;
   regularOrders: number;
@@ -21,7 +21,7 @@ export interface CustomerRouteShare {
 }
 
 /**
- * Tỷ lệ khách quen và khách lạ trong khoảng ngày đang lọc, tính theo số điện thoại (mỗi số là một khách).
+ * Tỷ lệ khách quen và khách mới trong khoảng ngày đang lọc, tính theo số điện thoại (mỗi số là một khách).
  * Khách quen là số điện thoại có từ `minOrders` đơn trở lên (đếm trên toàn bộ lịch sử).
  */
 export function CustomerTypeChart({
@@ -46,7 +46,7 @@ export function CustomerTypeChart({
   const gradient = `conic-gradient(${REGULAR_COLOR} 0% ${regularPct}%, ${NEW_COLOR} ${regularPct}% 100%)`;
   const rows = [
     { key: 'regular', label: 'Khách quen', note: `từ ${data.minOrders} đơn trở lên`, color: REGULAR_COLOR, ...data.regular },
-    { key: 'new', label: 'Khách lạ', note: `dưới ${data.minOrders} đơn`, color: NEW_COLOR, ...data.new },
+    { key: 'new', label: 'Khách mới', note: `dưới ${data.minOrders} đơn`, color: NEW_COLOR, ...data.new },
   ];
   const totalOrders = data.regular.orders + data.new.orders;
   const totalCommission = data.regular.commission + data.new.commission;
@@ -57,7 +57,7 @@ export function CustomerTypeChart({
         className="relative size-40 rounded-full border border-slate-200 shadow-[0_8px_20px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.3)] dark:border-slate-700"
         style={{ background: gradient }}
         role="img"
-        aria-label={`Khách quen ${Math.round(regularPct)}%, khách lạ ${100 - Math.round(regularPct)}%`}
+        aria-label={`Khách quen ${Math.round(regularPct)}%, khách mới ${100 - Math.round(regularPct)}%`}
       >
         <div className="absolute inset-[24%] flex flex-col items-center justify-center rounded-full border border-slate-100 bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_2px_6px_rgba(0,0,0,0.08)] dark:border-slate-800 dark:bg-slate-900">
           <span className="tnum text-xl font-black text-slate-900 dark:text-white">{fmt(customers)}</span>
