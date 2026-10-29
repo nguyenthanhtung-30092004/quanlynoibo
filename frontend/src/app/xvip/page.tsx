@@ -10,16 +10,10 @@ import { useActiveStaff, useUsers } from '@/features/users/hooks';
 import { Modal } from '@/features/xvip/Modal';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
-import { CustomerTypeChart, NEW_COLOR as CUSTOMER_NEW_COLOR, REGULAR_COLOR as CUSTOMER_REGULAR_COLOR } from '@/features/xvip/customer-type-chart';
+import { CustomerTypeChart } from '@/features/xvip/customer-type-chart';
+import { buildRouteStats } from '@/features/xvip/route-stats';
 import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
-
-const ROUTE_PALETTE = [
-  '#2563eb', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4',
-  '#ea580c', '#14b8a6', '#6366f1', '#84cc16', '#e11d48', '#d946ef',
-  '#3b82f6', '#22c55e', '#eab308', '#a855f7',
-];
-
 
 function MessageStat({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'blue' | 'cyan' }) {
   const colors = {
@@ -55,7 +49,6 @@ function OverviewContent() {
   const dates = rangeParams(range, basis);
   // Đang mở danh sách vé của một tuyến hoặc một nhân viên
   const [selected, setSelected] = useState<
-    | { kind: 'route'; ids: number[]; name: string }
     | { kind: 'staff'; id: number; name: string }
     | { kind: 'partner'; name: string }
     | null
@@ -122,92 +115,8 @@ function OverviewContent() {
     [kpiData],
   );
 
-  // Tỷ lệ vé theo tuyến: gộp hai chiều của cùng một tuyến (Hà Nội - Hạ Long + Hạ Long - Hà Nội)
-  const routeStats = useMemo(() => {
-    const nameById = new Map(routes.map((r) => [r.id, r.name]));
-    const groups = new Map<
-      string,
-      {
-        id: number;
-        /** Id của mọi chiều thuộc tuyến này, dùng để lọc danh sách vé */
-        ids: number[];
-        name: string;
-        orders: number;
-        count: number;
-        revenue: number;
-        commission: number;
-        regularOrders: number;
-        newOrders: number;
-        regularCommission: number;
-        newCommission: number;
-        regularSeats: number;
-        newSeats: number;
-        topSeats: number;
-      }
-    >();
-    for (const r of kpiData?.byRoute ?? []) {
-      if (r.total <= 0) continue;
-      const name = nameById.get(r.routeId) ?? `Tuyến #${r.routeId}`;
-      const parts = name.split(/\s+[-–]\s+/).map((p) => p.trim().toLowerCase());
-      const forward = parts.join('|');
-      const key = [forward, [...parts].reverse().join('|')].sort()[0];
-      const cur = groups.get(key);
-      if (!cur) {
-        groups.set(key, { id: r.routeId, ids: [r.routeId], name, orders: r.total, count: r.seats, revenue: r.revenue ?? 0, commission: r.commission ?? 0, regularOrders: r.regularOrders ?? 0, newOrders: r.newOrders ?? 0, regularCommission: r.regularCommission ?? 0, newCommission: r.newCommission ?? 0, regularSeats: r.regularSeats ?? 0, newSeats: r.newSeats ?? 0, topSeats: r.seats });
-        continue;
-      }
-      cur.ids.push(r.routeId);
-      cur.orders += r.total;
-      cur.count += r.seats;
-      cur.revenue += r.revenue ?? 0;
-      cur.commission += r.commission ?? 0;
-      cur.regularOrders += r.regularOrders ?? 0;
-      cur.newOrders += r.newOrders ?? 0;
-      cur.regularCommission += r.regularCommission ?? 0;
-      cur.newCommission += r.newCommission ?? 0;
-      cur.regularSeats += r.regularSeats ?? 0;
-      cur.newSeats += r.newSeats ?? 0;
-      // Tên hiển thị theo chiều có nhiều vé hơn
-      if (r.seats > cur.topSeats) {
-        cur.name = name;
-        cur.topSeats = r.seats;
-      }
-    }
-    const rows = [...groups.values()]
-      .map((g) => {
-        // Tuyến có Hà Nội thì luôn đặt Hà Nội lên đầu: "Hà Nội ↔ ..."
-        let parts = g.name.split(/\s+[-–]\s+/);
-        const hasHn = (t: string) => t.toLowerCase().includes('hà nội');
-        if (parts.length > 1 && !hasHn(parts[0]) && hasHn(parts[parts.length - 1])) parts = [...parts].reverse();
-        return { ...g, name: parts.join(' ↔ ') };
-      })
-      .sort((x, y) => y.count - x.count);
-    const total = rows.reduce((sum, r) => sum + r.count, 0);
-    return rows.map((r, idx) => {
-      // Tỷ lệ theo số đơn đã phân loại được (đơn không có số điện thoại thì không tính)
-      const classified = r.regularOrders + r.newOrders;
-      const regularPct = classified > 0 ? Math.round((r.regularOrders / classified) * 100) : null;
-      return {
-        ...r,
-        regularPct,
-        newPct: regularPct === null ? null : 100 - regularPct,
-        pct: total > 0 ? Math.round((r.count / total) * 100) : 0,
-        share: total > 0 ? (r.count / total) * 100 : 0,
-        color: ROUTE_PALETTE[idx % ROUTE_PALETTE.length],
-      };
-    });
-  }, [routes, kpiData]);
-
-  const donutGradient = useMemo(() => {
-    if (routeStats.length === 0) return 'conic-gradient(#334155 0% 100%)';
-    let acc = 0;
-    const parts = routeStats.map((r) => {
-      const from = acc;
-      acc += r.share;
-      return `${r.color} ${from}% ${acc}%`;
-    });
-    return `conic-gradient(${parts.join(', ')})`;
-  }, [routeStats]);
+  // Hai chiều của cùng một tuyến được gộp lại; trang "Tỷ lệ vé theo tuyến" hiển thị đầy đủ, ở đây chỉ để tách khách quen / lạ
+  const routeStats = useMemo(() => buildRouteStats(kpiData?.byRoute ?? [], routes), [kpiData, routes]);
 
   // Toàn bộ nhân viên tổng đài và kết quả bán vé
   const staffPodium = useMemo(() => {
@@ -298,81 +207,6 @@ function OverviewContent() {
           )}
         </Card>
 
-        {/* Tỷ lệ vé theo tuyến thật */}
-        <Card
-          title="Tỷ lệ vé theo tuyến đường"
-        >
-          {routeStats.length === 0 ? (
-            <div className="py-8 text-center text-xs font-bold text-slate-400">
-              Chưa có vé nào trong khoảng thời gian đã chọn.
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-6 pt-2">
-              <div
-                className="relative size-40 rounded-full shadow-[0_8px_20px_rgba(0,0,0,0.12),inset_0_2px_4px_rgba(255,255,255,0.3)] border border-slate-200 dark:border-slate-700"
-                style={{ background: donutGradient }}
-                role="img"
-                aria-label="Biểu đồ tỷ lệ vé theo tuyến"
-              >
-                <div className="absolute inset-[24%] flex flex-col items-center justify-center rounded-full bg-white dark:bg-slate-900 shadow-[inset_0_2px_4px_rgba(0,0,0,0.06),0_2px_6px_rgba(0,0,0,0.08)] border border-slate-100 dark:border-slate-800">
-                  <span className="tnum text-xl font-black text-slate-900 dark:text-white">
-                    {totalTickets.toLocaleString('vi-VN')}
-                  </span>
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Vé bán
-                  </span>
-                </div>
-              </div>
-              <ul className="w-full space-y-2 text-xs font-semibold text-slate-700 dark:text-slate-300">
-                {routeStats.map((r) => (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      onClick={() => setSelected({ kind: 'route', ids: r.ids, name: r.name })}
-                      title="Bấm để xem toàn bộ vé của tuyến này"
-                      className="flex w-full cursor-pointer items-start gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
-                    >
-                      <span className="mt-0.5 size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
-                      <div className="min-w-0 flex-1">
-                        <div className="sm:flex sm:items-baseline sm:justify-between sm:gap-3">
-                          <div className="break-words">{r.name}</div>
-                          <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
-                            {r.orders} đơn · {r.count} vé · DS {money(r.commission)}đ ({r.pct}%)
-                          </div>
-                        </div>
-                        {r.regularPct !== null && (
-                          <div className="mt-1.5">
-                            {/* Thanh tỷ lệ khách quen / khách lạ theo số đơn */}
-                            <div className="flex h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
-                              <div style={{ width: `${r.regularPct}%`, background: CUSTOMER_REGULAR_COLOR }} />
-                              <div style={{ width: `${r.newPct}%`, background: CUSTOMER_NEW_COLOR }} />
-                            </div>
-                            <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                              {[
-                                { label: 'Quen', pct: r.regularPct, orders: r.regularOrders, seats: r.regularSeats, commission: r.regularCommission, color: CUSTOMER_REGULAR_COLOR },
-                                { label: 'Lạ', pct: r.newPct, orders: r.newOrders, seats: r.newSeats, commission: r.newCommission, color: CUSTOMER_NEW_COLOR },
-                              ].map((g) => (
-                                <div key={g.label} className="min-w-0 rounded-lg bg-slate-50 px-2 py-1 dark:bg-slate-800/60">
-                                  <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-300">
-                                    <span className="size-2 shrink-0 rounded-full" style={{ background: g.color }} />
-                                    {g.label} {g.pct}%
-                                  </div>
-                                  <div className="tnum mt-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">{g.orders} đơn · {g.seats} vé</div>
-                                  <div className="tnum text-xs font-bold text-slate-900 dark:text-white">DS {money(g.commission)}đ</div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </Card>
-
         {/* Khách quen / khách lạ theo số điện thoại */}
         <Card title="Khách quen & khách lạ">
           <CustomerTypeChart data={kpiData?.byCustomerType} routes={routeStats} />
@@ -433,22 +267,17 @@ function OverviewContent() {
       {selected && (
         <DashboardOrdersModal
           title={
-            selected.kind === 'route'
-              ? `Vé tuyến ${selected.name}`
-              : selected.kind === 'partner'
-                ? `Vé của đối tác ${selected.name}`
-                : `Vé của nhân viên ${selected.name}`
+            selected.kind === 'partner' ? `Vé của đối tác ${selected.name}` : `Vé của nhân viên ${selected.name}`
           }
           filters={{
             staffId: selected.kind === 'staff' ? selected.id : 'all',
             routeId: 'all',
-            routeIds: selected.kind === 'route' ? selected.ids : undefined,
             partner: selected.kind === 'partner' ? selected.name : undefined,
             dateFrom: null,
             dateTo: null,
             ...dates,
           }}
-          showRoute={selected.kind !== 'route'}
+          showRoute
           showStaff={selected.kind !== 'staff'}
           onClose={() => setSelected(null)}
         />

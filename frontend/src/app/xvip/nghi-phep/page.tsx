@@ -194,6 +194,53 @@ export default function LeavePage() {
         Đăng ký nghỉ
       </PageTitle>
 
+      <Card title={isAdmin ? 'Lịch nghỉ của nhân viên' : 'Chọn ngày muốn nghỉ'} className="mb-5">
+        {isLoading ? (
+          <p className="py-10 text-center text-sm text-slate-500">Đang tải lịch...</p>
+        ) : isError ? (
+          <p className="py-10 text-center text-sm text-rose-600">
+            {errText(error, 'Không tải được lịch đăng ký nghỉ.')}{' '}
+            <button type="button" onClick={() => refetch()} className="font-bold underline">
+              Thử lại
+            </button>
+          </p>
+        ) : (
+          <>
+            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+              {HEADERS.map((h, i) => (
+                <div
+                  key={h}
+                  className={`pb-1 text-center text-xs font-extrabold ${
+                    i >= 4 ? 'text-orange-600 dark:text-orange-400' : 'text-sky-700 dark:text-sky-400'
+                  }`}
+                >
+                  {h}
+                </div>
+              ))}
+              {Array.from({ length: leadingBlanks }, (_, i) => (
+                <div key={`blank-${i}`} />
+              ))}
+              {data?.days.map((d) => (
+                <DayCell key={d.day} d={d} today={today} onClick={() => setSelectedDay(d.day)} />
+              ))}
+            </div>
+            <div className="mt-4 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                <Legend className="bg-sky-100 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:ring-sky-700" text="Đầu tuần (T2-T5)" />
+                <Legend className="bg-orange-100 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:ring-orange-700" text="Cuối tuần (T6-CN)" />
+                <Legend className="bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-900/40 dark:ring-violet-700" text="Đã có người đăng ký" />
+                {!isAdmin && <Legend className="bg-violet-600" text="Ngày bạn đã đăng ký (tím đậm)" />}
+              </div>
+              <div>
+                Số <b className="text-emerald-600 dark:text-emerald-400">xanh</b> còn chỗ ·{' '}
+                <b className="text-amber-600 dark:text-amber-400">vàng</b> gần đủ ·{' '}
+                <b className="text-rose-600 dark:text-rose-400">đỏ</b> đã đủ người
+              </div>
+            </div>
+          </>
+        )}
+      </Card>
+
       {isAdmin && (
         <Card title="Giới hạn số người nghỉ mỗi ngày" className="mb-5">
           <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
@@ -321,53 +368,6 @@ export default function LeavePage() {
         <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
           Mỗi người được nghỉ tối đa {quota} buổi/tháng. Ai vượt sẽ được đánh dấu đỏ. Ngày nghỉ đột xuất hiện màu đỏ.
         </p>
-      </Card>
-
-      <Card title={isAdmin ? 'Lịch nghỉ của nhân viên' : 'Chọn ngày muốn nghỉ'}>
-        {isLoading ? (
-          <p className="py-10 text-center text-sm text-slate-500">Đang tải lịch...</p>
-        ) : isError ? (
-          <p className="py-10 text-center text-sm text-rose-600">
-            {errText(error, 'Không tải được lịch đăng ký nghỉ.')}{' '}
-            <button type="button" onClick={() => refetch()} className="font-bold underline">
-              Thử lại
-            </button>
-          </p>
-        ) : (
-          <>
-            <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
-              {HEADERS.map((h, i) => (
-                <div
-                  key={h}
-                  className={`pb-1 text-center text-xs font-extrabold ${
-                    i >= 4 ? 'text-orange-600 dark:text-orange-400' : 'text-sky-700 dark:text-sky-400'
-                  }`}
-                >
-                  {h}
-                </div>
-              ))}
-              {Array.from({ length: leadingBlanks }, (_, i) => (
-                <div key={`blank-${i}`} />
-              ))}
-              {data?.days.map((d) => (
-                <DayCell key={d.day} d={d} today={today} onClick={() => setSelectedDay(d.day)} />
-              ))}
-            </div>
-            <div className="mt-4 space-y-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                <Legend className="bg-sky-100 ring-1 ring-sky-300 dark:bg-sky-900/40 dark:ring-sky-700" text="Đầu tuần (T2-T5)" />
-                <Legend className="bg-orange-100 ring-1 ring-orange-300 dark:bg-orange-900/40 dark:ring-orange-700" text="Cuối tuần (T6-CN)" />
-                <Legend className="bg-violet-100 ring-1 ring-violet-300 dark:bg-violet-900/40 dark:ring-violet-700" text="Đã có người đăng ký" />
-                {!isAdmin && <Legend className="bg-violet-600" text="Ngày bạn đã đăng ký (tím đậm)" />}
-              </div>
-              <div>
-                Số <b className="text-emerald-600 dark:text-emerald-400">xanh</b> còn chỗ ·{' '}
-                <b className="text-amber-600 dark:text-amber-400">vàng</b> gần đủ ·{' '}
-                <b className="text-rose-600 dark:text-rose-400">đỏ</b> đã đủ người
-              </div>
-            </div>
-          </>
-        )}
       </Card>
 
       {selected && (

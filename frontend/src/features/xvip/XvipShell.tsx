@@ -8,6 +8,7 @@ import {
   CalendarX,
   CaretDown,
   ChartBar,
+  ChartPieSlice,
   Gear,
   Handshake,
   List,
@@ -44,6 +45,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: '/xvip', label: 'Tổng quan', icon: SquaresFour, adminOnly: true },
+  { href: '/xvip/ty-le-tuyen', label: 'Tỷ lệ tuyến', icon: ChartPieSlice, adminOnly: true },
   { href: '/xvip/quan-ly-ve', label: 'Quản lý vé / Đơn', icon: Ticket },
   { href: '/xvip/tao-qr', label: 'Tạo QR', icon: QrCode },
   { href: '/xvip/doi-tac', label: 'Đối tác', icon: Handshake },
