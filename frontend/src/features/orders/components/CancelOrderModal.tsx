@@ -12,6 +12,8 @@ export const CANCEL_REASONS = [
   'Nhập nhầm vé',
   'Nhà xe hết chỗ',
   'Khách không liên lạc được',
+  'Hủy nhà xe phạt cọc',
+  'Hủy XVIP phạt cọc',
 ];
 
 interface CancelOrderModalProps {
