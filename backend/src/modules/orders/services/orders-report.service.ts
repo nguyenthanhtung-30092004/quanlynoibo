@@ -14,12 +14,20 @@ import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula } from '../mappers/order.mapper.js';
 import { pickNeedsEffort } from '../kpi-needs-effort.util.js';
 
-/** Khách quen / khách lạ: số khách (số điện thoại khác nhau) và số đơn của mỗi nhóm */
+/** Một nhóm khách: số khách (số điện thoại khác nhau), số đơn, số vé và doanh số (hoa hồng) */
+interface CustomerGroupStats {
+  customers: number;
+  orders: number;
+  seats: number;
+  commission: number;
+}
+
+/** Khách quen / khách lạ trong khoảng lọc */
 interface CustomerTypeStats {
   /** Từ bấy nhiêu đơn trở lên là khách quen */
   minOrders: number;
-  regular: { customers: number; orders: number };
-  new: { customers: number; orders: number };
+  regular: CustomerGroupStats;
+  new: CustomerGroupStats;
 }
 
 /** Số đơn, số vé và doanh số (hoa hồng) của khách quen / khách lạ trên một tuyến */
@@ -483,12 +491,19 @@ export class OrdersReportService {
       .select(`(pc."cnt" >= ${min})`, 'regular')
       .addSelect('COUNT(DISTINCT order.phoneKey)', 'customers')
       .addSelect('COUNT(*)', 'orders')
+      .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'seats')
+      .addSelect('COALESCE(SUM(order.commission), 0)', 'commission')
       .groupBy(`(pc."cnt" >= ${min})`)
-      .getRawMany<{ regular: boolean; customers: string; orders: string }>();
+      .getRawMany<{ regular: boolean; customers: string; orders: string; seats: string; commission: string }>();
 
     const pick = (regular: boolean) => {
       const row = rows.find((r) => r.regular === regular);
-      return { customers: Number(row?.customers ?? 0), orders: Number(row?.orders ?? 0) };
+      return {
+        customers: Number(row?.customers ?? 0),
+        orders: Number(row?.orders ?? 0),
+        seats: Number(row?.seats ?? 0),
+        commission: Number(row?.commission ?? 0),
+      };
     };
     return { minOrders: min, regular: pick(true), new: pick(false) };
   }

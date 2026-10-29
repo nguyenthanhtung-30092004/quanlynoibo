@@ -291,8 +291,8 @@ export interface Kpi extends KpiSummary {
   byCustomerType?: {
     /** Từ bấy nhiêu đơn trở lên là khách quen */
     minOrders: number;
-    regular: { customers: number; orders: number };
-    new: { customers: number; orders: number };
+    regular: { customers: number; orders: number; seats: number; commission: number };
+    new: { customers: number; orders: number; seats: number; commission: number };
   };
 }
 

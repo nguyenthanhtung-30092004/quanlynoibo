@@ -49,6 +49,7 @@ export function CustomerTypeChart({
     { key: 'new', label: 'Khách lạ', note: `dưới ${data.minOrders} đơn`, color: NEW_COLOR, ...data.new },
   ];
   const totalOrders = data.regular.orders + data.new.orders;
+  const totalCommission = data.regular.commission + data.new.commission;
 
   return (
     <div className="flex flex-col items-center gap-6 pt-2">
@@ -90,13 +91,24 @@ export function CustomerTypeChart({
                 className="flex w-full items-start gap-2.5 rounded-lg p-1 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
               >
                 <span className="mt-0.5 size-3 shrink-0 rounded-full shadow-sm" style={{ background: r.color }} />
-                <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:justify-between sm:gap-3">
-                  <div>
-                    {r.label}
-                    <span className="ml-1 font-medium text-slate-400">({r.note})</span>
+                <div className="min-w-0 flex-1">
+                  <div className="sm:flex sm:items-baseline sm:justify-between sm:gap-3">
+                    <div>
+                      {r.label}
+                      <span className="ml-1 font-medium text-slate-400">({r.note})</span>
+                    </div>
+                    <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
+                      {fmt(r.customers)} khách · {fmt(r.orders)} đơn ({Math.round((r.customers / customers) * 100)}%)
+                    </div>
                   </div>
-                  <div className="tnum font-bold text-slate-900 dark:text-white sm:shrink-0">
-                    {fmt(r.customers)} khách · {fmt(r.orders)} đơn ({Math.round((r.customers / customers) * 100)}%)
+                  <div className="tnum mt-0.5 flex flex-wrap items-baseline justify-between gap-x-3 font-bold text-slate-900 dark:text-white">
+                    <span>{fmt(r.seats)} vé</span>
+                    <span>
+                      DS {fmt(r.commission)}đ
+                      <span className="ml-1 font-medium text-slate-400">
+                        ({Math.round((r.commission / Math.max(1, totalCommission)) * 100)}%)
+                      </span>
+                    </span>
                   </div>
                 </div>
                 <CaretDown

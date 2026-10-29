@@ -26,21 +26,21 @@ const LOOKS: Record<PodiumTheme, [Look, Look, Look]> = {
   honor: [
     {
       icon: Crown,
-      title: 'Quán quân toàn hệ thống',
+      title: 'Vua gọi là có – Thánh chốt đơn',
       card: 'from-yellow-300 via-amber-500 to-orange-600',
       glow: 'shadow-[0_18px_44px_-8px_rgba(245,158,11,0.75)]',
       initial: 'text-amber-600',
     },
     {
       icon: Medal,
-      title: 'Á quân bán vé',
+      title: 'Phó tướng săn vé – Chỉ thua cái ngai',
       card: 'from-slate-300 via-slate-500 to-slate-700',
       glow: 'shadow-[0_12px_28px_-8px_rgba(71,85,105,0.65)]',
       initial: 'text-slate-600',
     },
     {
       icon: Medal,
-      title: 'Hạng ba',
+      title: 'Tay đua nước rút – Sắp chiếm ngôi',
       card: 'from-orange-300 via-amber-700 to-orange-900',
       glow: 'shadow-[0_12px_28px_-8px_rgba(194,65,12,0.6)]',
       initial: 'text-orange-700',
@@ -49,21 +49,21 @@ const LOOKS: Record<PodiumTheme, [Look, Look, Look]> = {
   potential: [
     {
       icon: Bed,
-      title: 'Siêu lười',
+      title: 'Đang giữ kỷ lục… ít vé nhất',
       card: 'from-rose-500 via-pink-600 to-fuchsia-700',
       glow: 'shadow-[0_18px_44px_-8px_rgba(225,29,72,0.7)]',
       initial: 'text-rose-600',
     },
     {
       icon: Coffee,
-      title: 'Ngồi chơi ít thôi',
+      title: 'Cố thêm vài đơn nữa!',
       card: 'from-orange-400 via-orange-500 to-red-600',
       glow: 'shadow-[0_12px_28px_-8px_rgba(234,88,12,0.65)]',
       initial: 'text-orange-600',
     },
     {
       icon: Moon,
-      title: 'Ngủ ít thôi',
+      title: 'Sắp thoát bảng rồi!',
       card: 'from-indigo-500 via-violet-600 to-purple-800',
       glow: 'shadow-[0_12px_28px_-8px_rgba(109,40,217,0.65)]',
       initial: 'text-violet-700',
@@ -161,8 +161,8 @@ function RankCard({
         </span>
 
         <span
-          className={`mt-1.5 rounded-full bg-white/25 font-black uppercase tracking-wide backdrop-blur ${
-            hero ? 'px-3.5 py-1 text-xs' : 'px-2.5 py-0.5 text-[10px]'
+          className={`mt-1.5 rounded-2xl bg-white/25 text-center font-black leading-snug backdrop-blur ${
+            hero ? 'px-3.5 py-1.5 text-sm' : 'px-2.5 py-1 text-[11px]'
           }`}
         >
           {look.title}
