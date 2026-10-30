@@ -378,6 +378,129 @@ export default function AttendancePage() {
         </div>
       )}
 
+      {/* Tình hình đi làm hôm nay theo lượt quẹt máy chấm công: chưa quẹt, đang làm, đã quẹt ra */}
+      <Card
+        className="mt-5"
+        title={`Hôm nay · đang làm ${workingCount} · đã ra ca ${doneCount} · ${staffToday.length} nhân viên`}
+        action={
+          <div
+            className={`flex items-center gap-1.5 text-xs font-bold ${
+              live ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
+            }`}
+          >
+            <span className={`size-2 rounded-full ${live ? 'animate-pulse bg-emerald-500' : 'bg-amber-500'}`} />
+            <span>{live ? 'Trực tiếp' : 'Mất kết nối, đang tải lại mỗi phút'}</span>
+          </div>
+        }
+      >
+        {visibleToday.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {staffToday.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {visibleToday.map((u) => {
+              const dot =
+                u.status === 'working'
+                  ? 'bg-emerald-500'
+                  : u.status === 'done'
+                    ? 'bg-slate-400'
+                    : u.status === 'auto_out' || u.status === 'missing_out'
+                      ? 'bg-amber-500'
+                      : 'bg-rose-400';
+              const label =
+                u.status === 'working'
+                  ? `Đang làm · vào lúc ${formatTime(u.firstAt!)}`
+                  : u.status === 'done'
+                    ? `Vào ${formatTime(u.firstAt!)} · ra ${formatTime(u.lastAt!)}`
+                    : u.status === 'auto_out'
+                      ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra, tự chấm ra 23:59`
+                      : u.status === 'missing_out'
+                        ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra`
+                        : 'Chưa quẹt máy chấm công hôm nay';
+              const late = lateText(u.lateMinutes, u.earlyLeaveMinutes);
+              return (
+                <div
+                  key={u.userId}
+                  className={`rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40 ${
+                    u.status === 'not_in' ? 'opacity-70' : ''
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="relative">
+                        <Avatar name={u.fullName} />
+                        <span
+                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 ${dot}`}
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
+                          {u.fullName}
+                        </div>
+                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{label}</div>
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      {u.status === 'done' ? (
+                        <>
+                          <div className="text-xs font-black text-blue-600 dark:text-blue-400">
+                            {congText(u.cong)} công
+                          </div>
+                          <div className="text-[10px] font-medium text-slate-400">ca {u.shift}</div>
+                        </>
+                      ) : (
+                        <div className="text-[10px] font-medium text-slate-400">
+                          {u.status === 'working'
+                            ? 'chưa chốt công'
+                            : u.status === 'auto_out' || u.status === 'missing_out'
+                              ? '0 công (quên quẹt ra)'
+                              : '0 công'}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  {late && (
+                    <div className="mt-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">{late}</div>
+                  )}
+                  {isAdmin && u.status === 'done' && (
+                    <ShiftPicker
+                      shifts={shiftOptions}
+                      shiftStart={u.shiftStart}
+                      source={u.shiftSource}
+                      disabled={setShift.isPending}
+                      onChange={(v) => changeShift(u.userId, dayLog!.day, v)}
+                    />
+                  )}
+                  {u.punches.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1 border-t border-slate-200 pt-2 text-[10px] font-bold dark:border-slate-800">
+                      {u.punches.map((at, i) => {
+                        const isIn = i === 0;
+                        const isOut = i === u.punches.length - 1 && u.punches.length > 1;
+                        return (
+                          <span
+                            key={at}
+                            className={`tnum rounded px-1.5 py-0.5 ${
+                              isIn
+                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                                : isOut
+                                  ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+                                  : 'bg-slate-100 text-slate-400 dark:bg-slate-800/60'
+                            }`}
+                          >
+                            {formatTime(at)} {isIn ? 'vào' : isOut ? 'ra' : 'quẹt'}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+
       {/* Bảng công cả tháng */}
       <Card
         className="mt-5 !p-0 overflow-hidden"
@@ -561,129 +684,6 @@ export default function AttendancePage() {
           <p className="border-t border-slate-200 px-5 py-3 text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
             Số công này được tự động điền vào ô Công thực tế ở trang Bảng lương cho nhân viên chưa có công đã lưu.
           </p>
-        )}
-      </Card>
-
-      {/* Tình hình đi làm hôm nay theo lượt quẹt máy chấm công: chưa quẹt, đang làm, đã quẹt ra */}
-      <Card
-        className="mt-5"
-        title={`Hôm nay · đang làm ${workingCount} · đã ra ca ${doneCount} · ${staffToday.length} nhân viên`}
-        action={
-          <div
-            className={`flex items-center gap-1.5 text-xs font-bold ${
-              live ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
-            }`}
-          >
-            <span className={`size-2 rounded-full ${live ? 'animate-pulse bg-emerald-500' : 'bg-amber-500'}`} />
-            <span>{live ? 'Trực tiếp' : 'Mất kết nối, đang tải lại mỗi phút'}</span>
-          </div>
-        }
-      >
-        {visibleToday.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {staffToday.length === 0 ? 'Chưa có nhân viên nào.' : `Không tìm thấy nhân viên "${search.trim()}".`}
-          </p>
-        ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {visibleToday.map((u) => {
-              const dot =
-                u.status === 'working'
-                  ? 'bg-emerald-500'
-                  : u.status === 'done'
-                    ? 'bg-slate-400'
-                    : u.status === 'auto_out' || u.status === 'missing_out'
-                      ? 'bg-amber-500'
-                      : 'bg-rose-400';
-              const label =
-                u.status === 'working'
-                  ? `Đang làm · vào lúc ${formatTime(u.firstAt!)}`
-                  : u.status === 'done'
-                    ? `Vào ${formatTime(u.firstAt!)} · ra ${formatTime(u.lastAt!)}`
-                    : u.status === 'auto_out'
-                      ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra, tự chấm ra 23:59`
-                      : u.status === 'missing_out'
-                        ? `Vào ${formatTime(u.firstAt!)} · quên quẹt ra`
-                        : 'Chưa quẹt máy chấm công hôm nay';
-              const late = lateText(u.lateMinutes, u.earlyLeaveMinutes);
-              return (
-                <div
-                  key={u.userId}
-                  className={`rounded-xl border border-slate-200 bg-slate-50/70 p-3 dark:border-slate-800 dark:bg-slate-900/40 ${
-                    u.status === 'not_in' ? 'opacity-70' : ''
-                  }`}
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className="relative">
-                        <Avatar name={u.fullName} />
-                        <span
-                          className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border-2 border-white dark:border-slate-900 ${dot}`}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-extrabold text-slate-900 dark:text-white">
-                          {u.fullName}
-                        </div>
-                        <div className="text-[11px] text-slate-500 dark:text-slate-400">{label}</div>
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      {u.status === 'done' ? (
-                        <>
-                          <div className="text-xs font-black text-blue-600 dark:text-blue-400">
-                            {congText(u.cong)} công
-                          </div>
-                          <div className="text-[10px] font-medium text-slate-400">ca {u.shift}</div>
-                        </>
-                      ) : (
-                        <div className="text-[10px] font-medium text-slate-400">
-                          {u.status === 'working'
-                            ? 'chưa chốt công'
-                            : u.status === 'auto_out' || u.status === 'missing_out'
-                              ? '0 công (quên quẹt ra)'
-                              : '0 công'}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {late && (
-                    <div className="mt-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400">{late}</div>
-                  )}
-                  {isAdmin && u.status === 'done' && (
-                    <ShiftPicker
-                      shifts={shiftOptions}
-                      shiftStart={u.shiftStart}
-                      source={u.shiftSource}
-                      disabled={setShift.isPending}
-                      onChange={(v) => changeShift(u.userId, dayLog!.day, v)}
-                    />
-                  )}
-                  {u.punches.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1 border-t border-slate-200 pt-2 text-[10px] font-bold dark:border-slate-800">
-                      {u.punches.map((at, i) => {
-                        const isIn = i === 0;
-                        const isOut = i === u.punches.length - 1 && u.punches.length > 1;
-                        return (
-                          <span
-                            key={at}
-                            className={`tnum rounded px-1.5 py-0.5 ${
-                              isIn
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                                : isOut
-                                  ? 'bg-slate-200 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
-                                  : 'bg-slate-100 text-slate-400 dark:bg-slate-800/60'
-                            }`}
-                          >
-                            {formatTime(at)} {isIn ? 'vào' : isOut ? 'ra' : 'quẹt'}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
         )}
       </Card>
 
