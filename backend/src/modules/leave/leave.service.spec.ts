@@ -25,12 +25,15 @@ interface World {
   countByDay?: Record<string, number>;
   /** Giới hạn riêng của ngày */
   overrideByDay?: Record<string, number>;
+  /** Lượt nghỉ tìm thấy khi hủy */
+  request?: { id: number; userId: number; day: string; user?: { fullName: string } };
 }
 
 function build(world: World = {}) {
   const saved: Array<{ type: string; value: Record<string, unknown> }> = [];
   const manager = {
     query: async () => undefined,
+    delete: async () => undefined,
     create: (type: unknown, v: Record<string, unknown>) => ({ __type: type, ...v }),
     getRepository: () => ({
       findOne: async () => ({ id: 1, fullName: 'Admin' }),
@@ -57,7 +60,7 @@ function build(world: World = {}) {
   const service = new LeaveService(
     { transaction: async (fn: (m: unknown) => unknown) => fn(manager) } as never,
     { findOne: async () => null } as never,
-    {} as never,
+    { findOne: async () => world.request ?? null } as never,
     {} as never,
     {} as never,
   );
@@ -114,5 +117,25 @@ describe('Admin đăng ký nghỉ hộ nhân viên', () => {
     await expect(service.registerForStaff(admin, 7, today())).rejects.toBeInstanceOf(ConflictException);
     await expect(service.registerForStaff(admin, 8, today())).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.registerForStaff(admin, 404, today())).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('ngày đã qua chỉ để xem', () => {
+  const yesterday = () => addDays(today(), -1);
+
+  it('Admin cũng không hủy được lượt nghỉ của ngày đã qua', async () => {
+    const { service, saved } = build({ request: { id: 3, userId: 7, day: yesterday() } });
+    await expect(service.remove(3, admin)).rejects.toBeInstanceOf(BadRequestException);
+    expect(saved).toHaveLength(0);
+  });
+
+  it('Admin vẫn hủy được lượt nghỉ của hôm nay', async () => {
+    const { service } = build({ request: { id: 3, userId: 7, day: today() } });
+    await expect(service.remove(3, admin)).resolves.toMatchObject({ id: 3, day: today() });
+  });
+
+  it('Admin không chỉnh giới hạn của ngày đã qua', async () => {
+    const { service } = build();
+    await expect(service.setDayLimit(yesterday(), 2)).rejects.toBeInstanceOf(BadRequestException);
   });
 });

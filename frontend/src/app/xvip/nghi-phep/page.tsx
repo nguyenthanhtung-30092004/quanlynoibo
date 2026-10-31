@@ -600,6 +600,8 @@ function AdminDayPanel({
   const registeredIds = new Set(people.map((p) => p.userId));
   const available = staff.filter((u) => !registeredIds.has(u.id));
   const isToday = day.day === today;
+  // Ngày đã qua chỉ để xem, Admin cũng không hủy hay chỉnh giới hạn được
+  const past = day.day < today;
   const parsed = Number(limitText);
   const validLimit = limitText.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100;
 
@@ -627,7 +629,7 @@ function AdminDayPanel({
                     )}
                   </span>
                   {p.urgent && <UrgentBadge />}
-                  {requestId !== null && (
+                  {requestId !== null && !past && (
                     <button
                       type="button"
                       disabled={busy}
@@ -685,6 +687,11 @@ function AdminDayPanel({
         </div>
       )}
 
+      {past ? (
+        <p className="border-t border-slate-100 pt-4 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400">
+          Ngày này đã qua nên không đăng ký, hủy hay chỉnh giới hạn được nữa.
+        </p>
+      ) : (
       <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
         <Field label="Số người được nghỉ tối đa riêng cho ngày này">
           <input
@@ -741,6 +748,7 @@ function AdminDayPanel({
           </button>
         </div>
       </div>
+      )}
     </>
   );
 }

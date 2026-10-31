@@ -169,11 +169,12 @@ export class OrdersCommandService {
       );
     }
 
-    // Không tạo vé cho ngày hoặc giờ đã qua (Admin và nhập bù có chỉ định ngày vào sổ thì được bỏ qua)
-    if (!options.entryDate && actor.role !== UserRole.ADMIN) {
+    // Không tạo vé cho ngày đã qua, kể cả Admin; giờ đã qua của hôm nay thì chỉ Admin được bỏ qua.
+    // Nhập bù có chỉ định ngày vào sổ (nhập file) thì không bị chặn
+    if (!options.entryDate) {
       const past = departurePastReason(dto.departureDate, dto.departureTime);
       if (past === 'DATE') throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
-      if (past === 'TIME') {
+      if (past === 'TIME' && actor.role !== UserRole.ADMIN) {
         throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
       }
     }
@@ -268,13 +269,16 @@ export class OrdersCommandService {
       throw new BadRequestException('Vé đã hủy, không thể sửa.');
     }
 
-    // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác. Admin không bị chặn
+    // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác.
+    // Ngày đã qua bị chặn với cả Admin; giờ đã qua của hôm nay thì chỉ Admin được bỏ qua
     const nextDate = dto.departureDate ?? order.departureDate;
     const nextTime = dto.departureTime ?? order.departureTime;
-    if (actor.role !== UserRole.ADMIN && (nextDate !== order.departureDate || nextTime !== order.departureTime)) {
+    if (nextDate !== order.departureDate || nextTime !== order.departureTime) {
       const past = departurePastReason(nextDate, nextTime);
-      if (past === 'DATE') throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
-      if (past === 'TIME') {
+      if (past === 'DATE' && nextDate !== order.departureDate) {
+        throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
+      }
+      if (past === 'TIME' && actor.role !== UserRole.ADMIN) {
         throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
       }
     }

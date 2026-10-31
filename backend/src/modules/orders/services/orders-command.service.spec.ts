@@ -276,18 +276,21 @@ describe('giờ đi trong ngày hôm nay', () => {
     expect(saved).toHaveLength(1);
   });
 
-  it('Admin được tạo vé cho ngày và giờ đã qua', async () => {
+  it('Admin được tạo vé cho giờ đã qua của hôm nay nhưng không được tạo cho ngày đã qua', async () => {
     freezeAtMorning();
     const { service, saved } = build();
-    await service.create(
-      { ...baseDto, departureDate: '2000-01-01', departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
-      admin,
-    );
     await service.create(
       { ...baseDto, departureDate: getBusinessDate(), departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
       admin,
     );
-    expect(saved).toHaveLength(2);
+    expect(saved).toHaveLength(1);
+    await expect(
+      service.create(
+        { ...baseDto, departureDate: '2000-01-01', departureTime: '00:00', vehicleType: 'Xe Limousine', seatCount: 1 } as never,
+        admin,
+      ),
+    ).rejects.toThrow('Không thể tạo vé cho ngày đã qua.');
+    expect(saved).toHaveLength(1);
   });
 });
 
@@ -339,6 +342,18 @@ describe('sửa đơn', () => {
     await service.update(1, { note: 'ghi chú mới' } as never, admin);
     expect(updates[0]).toMatchObject({ seatCount: 6, costPrice: 3_800_000, sellPrice: 4_850_000 });
     expect((updates[0].cabinLines as unknown[]).length).toBe(3);
+  });
+
+  it('không đổi vé sang ngày đã qua (kể cả Admin), nhưng vé cũ có ngày đã qua vẫn sửa được trường khác', async () => {
+    const { service, updates } = build(cabinOrder);
+    await expect(service.update(1, { departureDate: '2000-01-01' } as never, admin)).rejects.toThrow(
+      'Không thể đổi vé sang ngày đã qua.',
+    );
+    expect(updates).toHaveLength(0);
+
+    const old = build({ ...cabinOrder, departureDate: '2000-01-01' });
+    await old.service.update(1, { note: 'sửa ghi chú', departureDate: '2000-01-01' } as never, admin);
+    expect(old.updates).toHaveLength(1);
   });
 
   it('đổi sang loại hình khác thì xóa dòng cabin và dùng số ghế/giá gửi lên', async () => {

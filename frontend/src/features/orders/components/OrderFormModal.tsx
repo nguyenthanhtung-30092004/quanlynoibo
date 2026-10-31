@@ -713,6 +713,12 @@ export function OrderFormModal({
     }
     if (!formState.departureDate.trim()) {
       errors.departureDate = 'Vui lòng chọn ngày khởi hành.';
+    } else if (
+      formState.departureDate < getVnToday() &&
+      // Sửa vé cũ giữ nguyên ngày thì không bị chặn, chỉ chặn khi chọn ngày đã qua
+      editingOrder?.departureDate !== formState.departureDate
+    ) {
+      errors.departureDate = 'Không thể chọn ngày khởi hành đã qua.';
     }
     if (!formState.partner.trim()) {
       errors.partner = 'Vui lòng chọn đối tác.';
@@ -958,7 +964,8 @@ export function OrderFormModal({
                   error={formErrors.departureDate}
                 >
                   <DateInput
-                    min={isAdmin ? undefined : getVnToday()}
+                    // Không cho chọn ngày đã qua, kể cả Admin
+                    min={getVnToday()}
                     value={formState.departureDate}
                     invalid={!!formErrors.departureDate}
                     onChange={(v) => {

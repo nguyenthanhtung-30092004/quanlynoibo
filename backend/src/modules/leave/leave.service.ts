@@ -283,11 +283,17 @@ export class LeaveService {
     return u?.fullName || actor.username || '';
   }
 
-  /** Hủy một lượt đăng ký nghỉ: Admin hủy được mọi lượt; nhân viên chỉ hủy lượt của mình và chỉ khi ngày nghỉ chưa tới */
+  /**
+   * Hủy một lượt đăng ký nghỉ: Admin hủy được mọi lượt từ hôm nay trở đi; nhân viên chỉ hủy lượt của mình
+   * và chỉ khi ngày nghỉ chưa tới. Ngày đã qua thì không ai hủy được
+   */
   async remove(id: number, actor: JwtPayload) {
     const found = await this.requests.findOne({ where: { id }, relations: { user: true } });
     if (!found) {
       throw new NotFoundException('Không tìm thấy lượt đăng ký nghỉ');
+    }
+    if (found.day < vietnamClock().day) {
+      throw new BadRequestException('Ngày nghỉ đã qua, không hủy được');
     }
     if (actor.role !== UserRole.ADMIN) {
       if (found.userId !== actor.sub) {
@@ -329,10 +335,13 @@ export class LeaveService {
     }));
   }
 
-  /** Admin chỉnh giới hạn riêng cho một ngày (0 = khóa); max rỗng = quay về mặc định theo nhóm */
+  /** Admin chỉnh giới hạn riêng cho một ngày (0 = khóa); max rỗng = quay về mặc định theo nhóm. Không chỉnh ngày đã qua */
   async setDayLimit(day: string, max: number | null | undefined) {
     if (!isRealDay(day)) {
       throw new BadRequestException('Ngày không hợp lệ');
+    }
+    if (day < vietnamClock().day) {
+      throw new BadRequestException('Không chỉnh giới hạn cho ngày đã qua');
     }
     if (max === null || max === undefined) {
       await this.limits.delete({ day });
