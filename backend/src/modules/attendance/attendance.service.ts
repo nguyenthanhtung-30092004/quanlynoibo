@@ -321,6 +321,8 @@ export class AttendanceService {
           cong: override != null ? Number(override) : result.cong,
           lateMinutes: result.lateMinutes,
           earlyLeaveMinutes: result.earlyLeaveMinutes,
+          overtimeMinutes: result.overtimeMinutes,
+          overtimeHours: result.overtimeHours,
           firstAt: list[0] ? list[0].toISOString() : null,
           lastAt: list.length > 1 ? list[list.length - 1].toISOString() : null,
           punches: list.map((d) => d.toISOString()),

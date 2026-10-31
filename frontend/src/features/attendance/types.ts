@@ -105,6 +105,10 @@ export interface DayLogStaff {
   cong: number;
   lateMinutes: number;
   earlyLeaveMinutes: number;
+  /** Ở lại sau giờ kết thúc ca bao nhiêu phút */
+  overtimeMinutes: number;
+  /** Số giờ tăng ca được tính (mốc 0,5 giờ, tối đa 3 giờ/ngày) */
+  overtimeHours: number;
   /** Lượt quẹt đầu tiên (giờ vào) */
   firstAt: string | null;
   /** Lượt quẹt cuối (giờ ra); null nếu mới có một lượt */

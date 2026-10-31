@@ -6,3 +6,8 @@ export function durationText(minutes: number): string {
   if (h === 0) return `${m} phút`;
   return m === 0 ? `${h} giờ` : `${h} giờ ${m} phút`;
 }
+
+/** 2 -> "2 giờ", 1.5 -> "1,5 giờ" (giờ tăng ca tính theo mốc 0,5 giờ) */
+export function overtimeText(hours: number): string {
+  return `${String(hours).replace('.', ',')} giờ`;
+}

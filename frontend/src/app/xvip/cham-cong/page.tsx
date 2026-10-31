@@ -13,7 +13,7 @@ import {
   useSetAttendanceOverride,
   useSetShiftOverride,
 } from '@/features/attendance/hooks';
-import { durationText } from '@/features/attendance/format';
+import { durationText, overtimeText } from '@/features/attendance/format';
 import { ShiftSelect } from '@/features/attendance/ShiftSelect';
 import type { AttendanceDayCell, AttendanceStaff, ShiftOption } from '@/features/attendance/types';
 import { useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
@@ -108,6 +108,11 @@ function CellDetail({ cell }: { cell: AttendanceDayCell }) {
           <InfoRow label="Giờ ra">{formatTime(cell.lastAt!)}</InfoRow>
           <InfoRow label="Ca làm">{cell.shift}</InfoRow>
           <InfoRow label="Thời gian tính">{durationText(cell.minutes)}</InfoRow>
+          {cell.overtimeHours > 0 && (
+            <InfoRow label="Tăng ca">
+              <span className="font-black text-orange-600 dark:text-orange-400">{overtimeText(cell.overtimeHours)}</span>
+            </InfoRow>
+          )}
           {late && (
             <div className="py-2 text-sm font-bold text-amber-600 dark:text-amber-400">{late}</div>
           )}
@@ -448,6 +453,11 @@ export default function AttendancePage() {
                             {congText(u.cong)} công
                           </div>
                           <div className="text-[10px] font-medium text-slate-400">ca {u.shift}</div>
+                          {u.overtimeHours > 0 && (
+                            <div className="mt-0.5 text-[11px] font-black text-orange-600 dark:text-orange-400">
+                              Tăng ca {overtimeText(u.overtimeHours)}
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="text-[10px] font-medium text-slate-400">
@@ -779,6 +789,11 @@ export default function AttendancePage() {
                       }`}
                     >
                       {late || 'Đúng giờ, không đi muộn'}
+                    </div>
+                  )}
+                  {cell && cell.status === 'done' && cell.overtimeHours > 0 && (
+                    <div className="mt-1 text-xs font-black text-orange-600 dark:text-orange-400">
+                      Tăng ca {overtimeText(cell.overtimeHours)}
                     </div>
                   )}
                   {isAdmin && cell && cell.status === 'done' && cell.shift && (
