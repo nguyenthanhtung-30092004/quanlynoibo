@@ -349,7 +349,8 @@ export class OrdersReportService {
         routeId,
         total: stat.total,
         seats: stat.seats,
-        commission: stat.commission,
+        // Nhân viên không được xem doanh số (hoa hồng)
+        commission: isAdmin ? stat.commission : 0,
         ...(isAdmin
           ? {
               revenue: stat.revenue,
@@ -368,6 +369,7 @@ export class OrdersReportService {
     if (actor.role !== UserRole.ADMIN) {
       delete result.revenue;
       delete result.cost;
+      delete result.commission;
     }
 
     // Vinh danh toàn hệ thống theo vé, đơn và doanh số (hoa hồng): chỉ trả số xếp hạng, không có doanh thu hay giá nhập
@@ -415,6 +417,24 @@ export class OrdersReportService {
     }
     result.needsEfforts = needsEfforts;
     result.needsEffort = needsEfforts.seats;
+
+    // Nhân viên không được xem doanh số của ai: bỏ cột hoa hồng khỏi mọi bảng xếp hạng và không có bảng theo doanh số
+    if (!isAdmin) {
+      const strip = (rows: StaffTally[]) => rows.map(({ commission: _commission, ...rest }) => rest);
+      result.ranking = strip(result.ranking);
+      result.leaderboards = {
+        seats: strip(leaderboards.seats),
+        orders: strip(leaderboards.orders),
+        commission: [],
+      };
+      result.needsEfforts = {
+        seats: strip(needsEfforts.seats),
+        orders: strip(needsEfforts.orders),
+        commission: [],
+      };
+      result.leaderboard = result.leaderboards.seats;
+      result.needsEffort = result.needsEfforts.seats;
+    }
 
     if (isAdmin) {
       result.byStaff = [...byStaffGroups.entries()]

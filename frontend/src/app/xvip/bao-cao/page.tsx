@@ -7,6 +7,7 @@ import {
   ClipboardText,
   FileXls,
   HandCoins,
+  LockKey,
   Percent,
   Ticket,
   X,
@@ -461,7 +462,7 @@ export default function StaffReportPage() {
           </div>
         }
       >
-        Báo cáo hiệu suất &amp; Doanh số nhân viên
+        {isAdmin ? 'Báo cáo hiệu suất & Doanh số nhân viên' : 'Báo cáo hiệu suất nhân viên'}
       </PageTitle>
 
       {/* 3D Filter Bar */}
@@ -673,6 +674,7 @@ export default function StaffReportPage() {
         </div>
         )}
 
+        {isAdmin && (
         <div
           style={{
             boxShadow:
@@ -695,6 +697,7 @@ export default function StaffReportPage() {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* 3D Podium: Top 3 Nhân Viên Xuất Sắc Nhất */}
@@ -717,6 +720,21 @@ export default function StaffReportPage() {
           </button>
         ))}
       </div>
+
+      {/* Doanh số là bí mật với nhân viên: vẫn bấm được tab nhưng chỉ ra lời nhắn, server không trả số liệu */}
+      {!isAdmin && honorMetric === 'commission' && (
+        <Card className="mt-3">
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <span className="flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300">
+              <LockKey size={30} weight="fill" />
+            </span>
+            <p className="text-lg font-black text-slate-800 dark:text-white">Doanh số là bí mật nhé!</p>
+            <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
+              Ai đứng đầu thì chưa thể tiết lộ. Cứ bán thật nhiều vé, rồi bất ngờ sẽ đến sau :)
+            </p>
+          </div>
+        </Card>
+      )}
 
       {podiumTop > 0 && (
         <Card title={`Vinh danh nhân viên xuất sắc ${honorLabel}`} className="mt-3">
@@ -943,7 +961,7 @@ export default function StaffReportPage() {
                 <ThSellPrice {...colProps} />
                 {isAdmin && <ThDeposit {...colProps} />}
                 <ThValueList title="Nhờ thu" column="collectOnDelivery" field="collectOnDeliveries" numeric right {...colProps} />
-                <ThCommission {...colProps} title="Doanh số" />
+                {isAdmin && <ThCommission {...colProps} title="Doanh số" />}
                 <ThPartner {...colProps} />
                 <ThValueList title="Ghi chú" column="note" field="notes" {...colProps} />
                 <ThValueList title="Điểm đón" column="pickupPoint" field="pickupPoints" {...colProps} />
@@ -956,7 +974,7 @@ export default function StaffReportPage() {
               {ticketsLoading ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 25 : 24}
+                    colSpan={isAdmin ? 25 : 23}
                     className="p-8 text-center text-sm font-bold text-blue-600 dark:text-blue-400 animate-pulse"
                   >
                     Đang tải danh sách đơn...
@@ -965,7 +983,7 @@ export default function StaffReportPage() {
               ) : ticketList.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={isAdmin ? 25 : 24}
+                    colSpan={isAdmin ? 25 : 23}
                     className="p-8 text-center text-sm font-semibold text-slate-500 dark:text-slate-400"
                   >
                     Không có đơn nào khớp bộ lọc đã chọn.
@@ -1042,9 +1060,11 @@ export default function StaffReportPage() {
                     <td className={`${TD} ${NUM} text-slate-700 dark:text-slate-300 font-semibold`}>
                       {money(t.collectOnDelivery)}đ
                     </td>
-                    <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
-                      {money(t.commission)}đ
-                    </td>
+                    {isAdmin && (
+                      <td className={`${TD} ${NUM} font-black text-red-600 dark:text-red-400`}>
+                        {money(t.commission)}đ
+                      </td>
+                    )}
                     <td className={`${TD} font-bold text-slate-800 dark:text-slate-200`}>
                       {t.partner || 'XVIP'}
                     </td>
