@@ -13,7 +13,7 @@ import {
 } from '@phosphor-icons/react';
 import { useKpi, useKpiFilterOptions, useOrders } from '@/features/orders/hooks';
 import { ordersApi } from '@/features/orders/api';
-import type { Order, OrderFilters } from '@/features/orders/types';
+import type { Order, OrderFilters, StaffMetric } from '@/features/orders/types';
 import { OrderDetailModal } from '@/features/orders/components/OrderDetailModal';
 import { useCurrentUser } from '@/features/auth/hooks';
 import { useUsers } from '@/features/users/hooks';
@@ -67,6 +67,13 @@ const VALUE_LIST_FILTER_KEYS = [
   'costPrices',
   'collectOnDeliveries',
 ] as const satisfies ReadonlyArray<keyof OrderFilters>;
+
+/** Ba tiêu chí vinh danh */
+const HONOR_METRICS: ReadonlyArray<{ value: StaffMetric; label: string }> = [
+  { value: 'seats', label: 'Theo vé' },
+  { value: 'orders', label: 'Theo đơn' },
+  { value: 'commission', label: 'Theo doanh số' },
+];
 
 function FilterChip({
   label,
@@ -179,6 +186,8 @@ export default function StaffReportPage() {
   // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
   // Bấm thẻ "Đã cọc xvip" thì bảng đơn chỉ còn các đơn khách đã cọc
   const [depositOnly, setDepositOnly] = useState(false);
+  // Vinh danh theo vé, theo đơn hoặc theo doanh số
+  const [honorMetric, setHonorMetric] = useState<StaffMetric>('seats');
   const orderListRef = useRef<HTMLDivElement>(null);
   const toggleDepositOnly = () => {
     const next = !depositOnly;
@@ -391,9 +400,20 @@ export default function StaffReportPage() {
   }, [isAdmin, kpiData, filteredStaff]);
 
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
-  const podium = kpiData?.leaderboard ?? [];
+  const podium = kpiData?.leaderboards?.[honorMetric] ?? (honorMetric === 'seats' ? (kpiData?.leaderboard ?? []) : []);
   // Cần cố gắng: chỉ hiện khi bảng vinh danh hiện (cả kỳ có người bán được vé), nên hai mục luôn đi cùng nhau
-  const needsEffort = podium.length > 0 && podium[0].seats > 0 ? (kpiData?.needsEffort ?? []) : [];
+  const podiumTop = podium[0]
+    ? honorMetric === 'seats'
+      ? podium[0].seats
+      : honorMetric === 'orders'
+        ? podium[0].total
+        : (podium[0].commission ?? 0)
+    : 0;
+  const honorLabel = HONOR_METRICS.find((m) => m.value === honorMetric)?.label.toLowerCase() ?? '';
+  const needsEffort =
+    podiumTop > 0
+      ? (kpiData?.needsEfforts?.[honorMetric] ?? (honorMetric === 'seats' ? (kpiData?.needsEffort ?? []) : []))
+      : [];
 
   // Xuất Excel đúng theo bộ lọc đang chọn (chỉ Admin; server cũng chặn nhân viên)
   const handleExportExcel = async () => {
@@ -678,19 +698,39 @@ export default function StaffReportPage() {
       </div>
 
       {/* 3D Podium: Top 3 Nhân Viên Xuất Sắc Nhất */}
-      {podium.length > 0 && podium[0].seats > 0 && (
-        <Card title="Vinh danh nhân viên bán vé xuất sắc" className="mt-5">
-          <RankPodium entries={podium} theme="honor" />
+      <div className="mt-5 flex flex-wrap items-center gap-2" role="tablist" aria-label="Tiêu chí vinh danh">
+        <span className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Vinh danh theo</span>
+        {HONOR_METRICS.map((m) => (
+          <button
+            key={m.value}
+            type="button"
+            role="tab"
+            aria-selected={honorMetric === m.value}
+            onClick={() => setHonorMetric(m.value)}
+            className={`rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors ${
+              honorMetric === m.value
+                ? 'border-amber-400 bg-amber-100 text-amber-800 dark:border-amber-600 dark:bg-amber-950 dark:text-amber-200'
+                : 'border-slate-200 bg-white text-slate-600 hover:bg-amber-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300'
+            }`}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+
+      {podiumTop > 0 && (
+        <Card title={`Vinh danh nhân viên xuất sắc ${honorLabel}`} className="mt-3">
+          <RankPodium entries={podium} theme="honor" metric={honorMetric} />
         </Card>
       )}
 
       {/* Bảng tiềm năng chưa khai phá (nhân viên ít vé nhất): cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
         <Card title="Bảng tiềm năng chưa khai phá" className="mt-5">
-          <RankPodium entries={needsEffort} theme="potential" />
+          <RankPodium entries={needsEffort} theme="potential" metric={honorMetric} />
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
-            Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo số vé ít nhất (bằng vé thì
-            theo số đơn). Bán thêm vé là sẽ rời khỏi danh sách này.
+            Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo {honorLabel} ít nhất (bằng
+            nhau thì theo số vé, số đơn). Bán thêm là sẽ rời khỏi danh sách này.
           </p>
         </Card>
       )}

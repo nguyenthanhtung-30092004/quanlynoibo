@@ -1,11 +1,30 @@
 import type { ComponentType, CSSProperties } from 'react';
 import { Bed, Coffee, Crown, Medal, Moon, Sparkle, type IconProps } from '@phosphor-icons/react';
+import type { StaffMetric } from '@/features/orders/types';
+import { money } from './data';
 
 export interface PodiumEntry {
   staffId: number;
   fullName: string;
   total: number;
   seats: number;
+  /** Doanh số (hoa hồng) */
+  commission?: number;
+}
+
+const valueOf = (e: PodiumEntry, metric: StaffMetric) =>
+  metric === 'seats' ? e.seats : metric === 'orders' ? e.total : (e.commission ?? 0);
+
+/** Số liệu chính (to, bên trái) và số liệu phụ (bên phải) theo tiêu chí đang xem */
+function statsOf(e: PodiumEntry, metric: StaffMetric) {
+  if (metric === 'orders') return { main: [String(e.total), 'đơn'], side: [String(e.seats), 'vé'] };
+  if (metric === 'commission') return { main: [`${money(e.commission ?? 0)}đ`, 'doanh số'], side: [String(e.seats), 'vé'] };
+  return { main: [String(e.seats), 'vé'], side: [String(e.total), 'đơn'] };
+}
+
+/** Đơn vị khi nói "kém hạng 1 bao nhiêu" */
+function gapText(gap: number, metric: StaffMetric) {
+  return metric === 'commission' ? `${money(gap)}đ` : `${gap} ${metric === 'orders' ? 'đơn' : 'vé'}`;
 }
 
 /** honor = bục vinh danh (nhiều vé nhất); potential = bảng tiềm năng chưa khai phá (ít vé nhất) */
@@ -100,10 +119,18 @@ const DOTS: CSSProperties = {
  * Hạng 1 ở giữa và nổi nhất, hạng 2 bên trái, hạng 3 bên phải trên bệ đỡ (máy tính);
  * điện thoại xếp thẻ hạng 1 chiếm cả hàng rồi hạng 2, 3 cạnh nhau.
  */
-export function RankPodium({ entries, theme }: { entries: readonly PodiumEntry[]; theme: PodiumTheme }) {
+export function RankPodium({
+  entries,
+  theme,
+  metric = 'seats',
+}: {
+  entries: readonly PodiumEntry[];
+  theme: PodiumTheme;
+  metric?: StaffMetric;
+}) {
   const looks = LOOKS[theme];
   const only = entries.length === 1;
-  const topSeats = entries[0]?.seats ?? 0;
+  const topValue = entries[0] ? valueOf(entries[0], metric) : 0;
   return (
     <div className="mx-auto grid max-w-3xl grid-cols-2 gap-2.5 pt-1 md:grid-cols-3 md:items-end md:gap-3">
       {entries.slice(0, 3).map((e, i) => (
@@ -117,7 +144,7 @@ export function RankPodium({ entries, theme }: { entries: readonly PodiumEntry[]
                 : 'md:order-3'
           }
         >
-          <RankCard entry={e} rank={i + 1} look={looks[i]} gap={i === 0 ? 0 : topSeats - e.seats} theme={theme} />
+          <RankCard entry={e} rank={i + 1} look={looks[i]} gap={i === 0 ? 0 : topValue - valueOf(e, metric)} theme={theme} metric={metric} />
           {/* Bệ đỡ: chỉ có trên màn hình rộng để ra dáng bục nhận giải */}
           <div
             className={`mx-2 hidden rounded-b-xl bg-gradient-to-b ${looks[i].pedestal} md:flex ${PEDESTAL_HEIGHT[i]} items-center justify-center text-xl font-black leading-none text-white/35 shadow-[inset_0_2px_0_rgba(255,255,255,0.25)]`}
@@ -137,18 +164,21 @@ function RankCard({
   look,
   gap,
   theme,
+  metric,
 }: {
   entry: PodiumEntry;
   rank: number;
   look: Look;
-  /** Số vé kém hạng 1 (0 với hạng 1) */
+  /** Chênh lệch so với hạng 1 theo tiêu chí đang xem (0 với hạng 1) */
   gap: number;
   theme: PodiumTheme;
+  metric: StaffMetric;
 }) {
   const hero = rank === 1;
   const Icon = look.icon;
   const initial = entry.fullName.trim().split(' ').pop()?.charAt(0) ?? '?';
-  const empty = entry.total === 0 && entry.seats === 0;
+  const empty = entry.total === 0 && entry.seats === 0 && !entry.commission;
+  const { main, side } = statsOf(entry, metric);
   return (
     <div
       className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${look.card} ${look.glow} text-center text-white ring-1 ring-white/40 ${
@@ -217,13 +247,19 @@ function RankCard({
             <span className="text-xs font-bold">Chưa có đơn nào</span>
           ) : (
             <>
-              <div>
-                <div className={`tnum font-black leading-none ${hero ? 'text-2xl' : 'text-xl'}`}>{entry.seats}</div>
-                <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85">vé</div>
+              <div className="min-w-0 px-1">
+                <div
+                  className={`tnum break-words font-black leading-none ${
+                    metric === 'commission' ? (hero ? 'text-lg' : 'text-sm') : hero ? 'text-2xl' : 'text-xl'
+                  }`}
+                >
+                  {main[0]}
+                </div>
+                <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85">{main[1]}</div>
               </div>
-              <div>
-                <div className={`tnum font-black leading-none ${hero ? 'text-2xl' : 'text-xl'}`}>{entry.total}</div>
-                <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85">đơn</div>
+              <div className="px-1">
+                <div className={`tnum font-black leading-none ${hero ? 'text-2xl' : 'text-xl'}`}>{side[0]}</div>
+                <div className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-white/85">{side[1]}</div>
               </div>
             </>
           )}
@@ -231,7 +267,7 @@ function RankCard({
 
         {!hero && !empty && (
           <span className="mt-1.5 rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white/90">
-            {theme === 'honor' ? `Kém hạng 1: ${gap} vé` : `Hơn hạng 1: ${Math.abs(gap)} vé`}
+            {theme === 'honor' ? `Kém hạng 1: ${gapText(gap, metric)}` : `Hơn hạng 1: ${gapText(Math.abs(gap), metric)}`}
           </span>
         )}
       </div>

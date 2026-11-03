@@ -60,4 +60,20 @@ describe('pickNeedsEffort', () => {
     const result = pickNeedsEffort(roster, ranking, podium, new Set([4, 5]));
     expect(result.map((r) => r.staffId)).toEqual([5, 4]);
   });
+
+  it('xếp theo đơn hoặc doanh số thì tiêu chí chính đổi theo', () => {
+    const t = (id: number, total: number, seats: number, commission: number) => ({
+      ...tally(id, total, seats),
+      commission,
+    });
+    const rk = [t(1, 5, 50, 100), t(4, 9, 3, 900), t(5, 2, 8, 50)];
+    const r = [1, 4, 5].map(person);
+    expect(pickNeedsEffort(r, rk, new Set(), new Set(), undefined, 'orders').map((x) => x.staffId)).toEqual([5, 1, 4]);
+    expect(pickNeedsEffort(r, rk, new Set(), new Set(), undefined, 'commission').map((x) => x.staffId)).toEqual([5, 1, 4]);
+    expect(pickNeedsEffort(r, rk, new Set(), new Set(), undefined, 'seats').map((x) => x.staffId)).toEqual([4, 5, 1]);
+  });
+
+  it('không ai có doanh số thì không có danh sách theo doanh số', () => {
+    expect(pickNeedsEffort(roster, ranking, new Set(), new Set(), undefined, 'commission')).toEqual([]);
+  });
 });

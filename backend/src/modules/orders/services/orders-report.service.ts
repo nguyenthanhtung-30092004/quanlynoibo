@@ -12,7 +12,7 @@ import { REGULAR_CUSTOMER_MIN_ORDERS } from '../customer-type.util.js';
 import { getBusinessDate } from '../order-time-lock.js';
 import { matchCanonicalPartner } from '../order-partner.util.js';
 import { neutralizeFormula } from '../mappers/order.mapper.js';
-import { pickNeedsEffort } from '../kpi-needs-effort.util.js';
+import { compareStaff, pickNeedsEffort, type StaffMetric, type StaffTally } from '../kpi-needs-effort.util.js';
 
 /** Một nhóm khách: số khách (số điện thoại khác nhau), số đơn, số vé và doanh số (hoa hồng) */
 interface CustomerGroupStats {
@@ -286,9 +286,12 @@ export class OrdersReportService {
     const result: Partial<ReturnType<typeof summarize>> &
       Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent' | 'zaloSent' | 'smsOnlySent'> & {
         date: string;
-        leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
-        ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
-        needsEffort?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+        leaderboard?: StaffTally[];
+        ranking?: StaffTally[];
+        needsEffort?: StaffTally[];
+        /** Vinh danh (top 3) và cần cố gắng theo từng tiêu chí: vé, đơn, doanh số */
+        leaderboards?: Record<StaffMetric, StaffTally[]>;
+        needsEfforts?: Record<StaffMetric, StaffTally[]>;
         byStaff?: Array<
           ReturnType<typeof summarize> & { staffId: number; fullName: string }
         >;
@@ -367,18 +370,23 @@ export class OrdersReportService {
       delete result.cost;
     }
 
-    // Vinh danh toàn hệ thống: chỉ số đơn / vé, không lộ doanh thu hay hoa hồng của người khác
+    // Vinh danh toàn hệ thống theo vé, đơn và doanh số (hoa hồng): chỉ trả số xếp hạng, không có doanh thu hay giá nhập
     const byStaffGroups = groupByStaff(groups);
-    // Xếp hạng đầy đủ mọi nhân viên (chỉ số đơn / vé) để nhân viên biết vị trí của mình
+    // Xếp hạng đầy đủ mọi nhân viên để nhân viên biết vị trí của mình (mặc định theo vé)
     result.ranking = [...byStaffGroups.entries()]
       .map(([staffId, list]) => ({
         staffId,
         fullName: list[0].fullName,
         total: sumOf(list, (g) => g.total),
         seats: sumOf(list, (g) => g.seats),
+        commission: sumOf(list, (g) => g.commission),
       }))
-      .sort((a, b) => b.seats - a.seats || b.total - a.total);
-    result.leaderboard = result.ranking.slice(0, 3);
+      .sort(compareStaff('seats'));
+    const metrics: StaffMetric[] = ['seats', 'orders', 'commission'];
+    const leaderboards = {} as Record<StaffMetric, StaffTally[]>;
+    for (const m of metrics) leaderboards[m] = [...result.ranking].sort(compareStaff(m)).slice(0, 3);
+    result.leaderboards = leaderboards;
+    result.leaderboard = leaderboards.seats;
 
     // Cần cố gắng: nhân viên ít vé nhất, tính trên nhân viên đang hoạt động (kể cả người chưa có đơn nào nên
     // không lấy từ `ranking`), bỏ những người đã lên bục vinh danh. Chỉ tính người đã chấm công vào trong khoảng
@@ -394,13 +402,19 @@ export class OrdersReportService {
       query.dateFrom ?? date,
       query.dateTo ?? (query.dateFrom ? getBusinessDate() : date),
     );
-    result.needsEffort = pickNeedsEffort(
-      roster,
-      result.ranking,
-      new Set(result.leaderboard.map((r) => r.staffId)),
-      onlyIds,
-      clockedIn,
-    );
+    const needsEfforts = {} as Record<StaffMetric, StaffTally[]>;
+    for (const m of metrics) {
+      needsEfforts[m] = pickNeedsEffort(
+        roster,
+        result.ranking,
+        new Set(leaderboards[m].map((r) => r.staffId)),
+        onlyIds,
+        clockedIn,
+        m,
+      );
+    }
+    result.needsEfforts = needsEfforts;
+    result.needsEffort = needsEfforts.seats;
 
     if (isAdmin) {
       result.byStaff = [...byStaffGroups.entries()]

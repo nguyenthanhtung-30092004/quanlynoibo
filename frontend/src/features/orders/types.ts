@@ -258,14 +258,30 @@ export interface KpiSummary {
   commission: number;
 }
 
+/** Tiêu chí vinh danh: theo vé, theo đơn hoặc theo doanh số (hoa hồng) */
+export type StaffMetric = 'seats' | 'orders' | 'commission';
+
+export interface StaffRankRow {
+  staffId: number;
+  fullName: string;
+  total: number;
+  seats: number;
+  /** Doanh số (hoa hồng) */
+  commission?: number;
+}
+
 export interface Kpi extends KpiSummary {
   date: string;
-  /** Top nhân viên toàn hệ thống (mọi vai trò đều nhận), chỉ gồm số đơn / vé */
-  leaderboard?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
-  /** Xếp hạng đầy đủ mọi nhân viên, chỉ gồm số đơn / vé (không lộ doanh thu hay hoa hồng) */
-  ranking?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+  /** Top nhân viên toàn hệ thống theo vé (mọi vai trò đều nhận) */
+  leaderboard?: StaffRankRow[];
+  /** Xếp hạng đầy đủ mọi nhân viên theo vé (không lộ doanh thu) */
+  ranking?: StaffRankRow[];
   /** Tối đa 3 nhân viên cần cố gắng: ít vé nhất trước, kể cả người chưa có đơn nào; không trùng bục vinh danh */
-  needsEffort?: Array<{ staffId: number; fullName: string; total: number; seats: number }>;
+  needsEffort?: StaffRankRow[];
+  /** Top 3 vinh danh theo từng tiêu chí: vé, đơn, doanh số (hoa hồng) */
+  leaderboards?: Record<StaffMetric, StaffRankRow[]>;
+  /** Tối đa 3 nhân viên cần cố gắng theo từng tiêu chí */
+  needsEfforts?: Record<StaffMetric, StaffRankRow[]>;
   /** Chỉ có với Admin */
   byStaff?: Array<KpiSummary & { staffId: number; fullName: string }>;
   /** Số đơn (total), số vé (seats) và doanh thu theo tuyến, nhiều đơn nhất trước */
