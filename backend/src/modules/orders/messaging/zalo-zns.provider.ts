@@ -30,7 +30,7 @@ const DEFAULT_PARAMS =
   'customer_name=customer_name,route=route,departure_time=departure_time,departure_date=departure_date';
 
 /**
- * Mẫu nhắc sắp khởi hành (gửi trước giờ đi 1 tiếng): ten_khach_hang, so_dien_thoai, tuyen_duong, ngay_di, ma_dat_xe.
+ * Mẫu nhắc sắp khởi hành (gửi trước giờ đi 1,5 tiếng): ten_khach_hang, so_dien_thoai, tuyen_duong, ngay_di, ma_dat_xe.
  * Tên biến phải khớp mẫu đã duyệt trên Zalo; ghi đè bằng ZALO_REMINDER_TEMPLATE_PARAMS nếu mẫu đặt tên khác.
  */
 const DEFAULT_REMINDER_PARAMS =

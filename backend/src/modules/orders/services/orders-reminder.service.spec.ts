@@ -8,21 +8,21 @@ import { isCustomerSpecificFailure, OrdersReminderService } from './orders-remin
 const dep = { date: '2026-11-03', time: '08:00' };
 const at = (hhmmVn: string) => new Date(`2026-11-03T${hhmmVn}:00+07:00`);
 
-describe('isReminderDue - khung nhắc 1 tiếng trước giờ đi', () => {
-  it('chưa tới 1 tiếng thì chưa nhắc', () => {
-    expect(isReminderDue(dep.date, dep.time, at('06:59'))).toBe(false);
+describe('isReminderDue - khung nhắc 1,5 tiếng trước giờ đi', () => {
+  it('chưa tới 1,5 tiếng thì chưa nhắc', () => {
+    expect(isReminderDue(dep.date, dep.time, at('06:29'))).toBe(false);
   });
-  it('đúng 1 tiếng trước thì nhắc', () => {
-    expect(isReminderDue(dep.date, dep.time, at('07:00'))).toBe(true);
+  it('đúng 1,5 tiếng trước thì nhắc', () => {
+    expect(isReminderDue(dep.date, dep.time, at('06:30'))).toBe(true);
     expect(isReminderDue(dep.date, dep.time, at('07:45'))).toBe(true);
   });
   it('xe đã khởi hành thì không nhắc', () => {
     expect(isReminderDue(dep.date, dep.time, at('08:00'))).toBe(false);
     expect(isReminderDue(dep.date, dep.time, at('09:00'))).toBe(false);
   });
-  it('chuyến 00:30 sáng mai nhắc từ 23:30 tối nay', () => {
-    expect(isReminderDue('2026-11-04', '00:30', at('23:29'))).toBe(false);
-    expect(isReminderDue('2026-11-04', '00:30', at('23:30'))).toBe(true);
+  it('chuyến 00:30 sáng mai nhắc từ 23:00 tối nay', () => {
+    expect(isReminderDue('2026-11-04', '00:30', at('22:59'))).toBe(false);
+    expect(isReminderDue('2026-11-04', '00:30', at('23:00'))).toBe(true);
   });
 });
 
@@ -73,7 +73,7 @@ describe('OrdersReminderService.runOnce', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('chỉ nhắc vé đã tới khung 1 tiếng, dùng mẫu nhắc và SĐT của vé', async () => {
+  it('chỉ nhắc vé đã tới khung 1,5 tiếng, dùng mẫu nhắc và SĐT của vé', async () => {
     const send = vi.fn().mockResolvedValue({ dryRun: false });
     const { service } = build(
       [order(1), order(2, { phone: '0988888888', departureTime: '10:00' })],

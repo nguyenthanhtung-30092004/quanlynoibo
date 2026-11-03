@@ -7,7 +7,7 @@ import { MessagingService } from '../messaging/messaging.service.js';
 import { buildBookingSms } from '../sms/sms-template.js';
 import { getBusinessDate, isReminderDue, startOfNextBusinessDay } from '../order-time-lock.js';
 
-/** Quét mỗi 30 giây nên khách nhận tin lệch tối đa 30 giây so với mốc 1 tiếng trước giờ đi */
+/** Quét mỗi 30 giây nên khách nhận tin lệch tối đa 30 giây so với mốc 1,5 tiếng trước giờ đi */
 const CHECK_INTERVAL_MS = 30_000;
 
 /** Báo lỗi hệ thống (hết tiền, token...) tối đa 10 phút một lần cho đỡ đầy log */
@@ -31,9 +31,9 @@ export function isCustomerSpecificFailure(err: unknown): boolean {
 }
 
 /**
- * Nhắc khách qua Zalo trước giờ khởi hành 1 tiếng, theo giờ đi trong vé (cùng SĐT của vé đó).
+ * Nhắc khách qua Zalo trước giờ khởi hành 1,5 tiếng, theo giờ đi trong vé (cùng SĐT của vé đó).
  * Mỗi vé chỉ nhắc một lần (cột reminderSentAt). Không dùng thư viện lên lịch: một vòng lặp nhẹ là đủ,
- * giống tự chấm ra ở chấm công, và khởi động lại máy chủ vẫn nhắc bù được các chuyến còn trong khung 1 tiếng.
+ * giống tự chấm ra ở chấm công, và khởi động lại máy chủ vẫn nhắc bù được các chuyến còn trong khung 1,5 tiếng.
  *
  * Chỉ chạy khi đã khai báo mẫu nhắc ZALO_REMINDER_TEMPLATE_ID. Không tự chuyển sang SMS (chỉ nhắc bằng Zalo).
  */
@@ -64,7 +64,7 @@ export class OrdersReminderService implements OnModuleInit, OnModuleDestroy {
     this.running = true;
     try {
       const sent = await this.runOnce();
-      if (sent > 0) this.logger.log(`Đã nhắc ${sent} khách qua Zalo trước giờ khởi hành 1 tiếng`);
+      if (sent > 0) this.logger.log(`Đã nhắc ${sent} khách qua Zalo trước giờ khởi hành 1,5 tiếng`);
     } catch (err) {
       this.logger.error(`Không nhắc được khách: ${errorText(err)}`);
     } finally {
@@ -83,7 +83,7 @@ export class OrdersReminderService implements OnModuleInit, OnModuleDestroy {
   async runOnce(now: Date = new Date()): Promise<number> {
     if (!this.messaging.isReminderReady()) return 0;
 
-    // Khung 1 tiếng có thể vắt qua nửa đêm (chuyến 00:30 nhắc từ 23:30) nên lấy cả hôm nay và ngày mai
+    // Khung 1,5 tiếng có thể vắt qua nửa đêm (chuyến 00:30 nhắc từ 23:00) nên lấy cả hôm nay và ngày mai
     const today = getBusinessDate(now);
     const tomorrow = getBusinessDate(startOfNextBusinessDay(today));
     const candidates = await this.orderRepository

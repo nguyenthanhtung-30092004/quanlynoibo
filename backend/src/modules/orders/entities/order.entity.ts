@@ -213,7 +213,7 @@ export class Order {
   @Column({ name: 'cancelReason', type: 'varchar', length: 500, nullable: true })
   cancelReason: string | null;
 
-  /** Lần nhắc khách qua Zalo trước giờ đi 1 tiếng (đã gửi hoặc đã thử gửi); null = chưa nhắc */
+  /** Lần nhắc khách qua Zalo trước giờ đi 1,5 tiếng (đã gửi hoặc đã thử gửi); null = chưa nhắc */
   @Column({ name: 'reminderSentAt', type: 'timestamptz', nullable: true })
   reminderSentAt: Date | null;
 

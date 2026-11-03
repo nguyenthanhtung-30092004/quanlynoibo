@@ -50,8 +50,8 @@ export function departurePastReason(
   return null;
 }
 
-/** Nhắc khách trước giờ khởi hành bao lâu (1 tiếng) */
-export const REMINDER_LEAD_MS = 60 * 60 * 1000;
+/** Nhắc khách trước giờ khởi hành bao lâu (1,5 tiếng) */
+export const REMINDER_LEAD_MS = 90 * 60 * 1000;
 
 /** Thời điểm xe khởi hành (ngày YYYY-MM-DD + giờ HH:mm theo giờ VN) */
 export function departureInstant(date: string, time: string): Date {
@@ -59,8 +59,8 @@ export function departureInstant(date: string, time: string): Date {
 }
 
 /**
- * Đã tới lúc nhắc chưa: từ 1 tiếng trước giờ đi cho tới khi xe khởi hành.
- * Vé đặt sát giờ (còn dưới 1 tiếng) vẫn được nhắc ngay; chuyến đã đi rồi thì không nhắc.
+ * Đã tới lúc nhắc chưa: từ 1,5 tiếng trước giờ đi cho tới khi xe khởi hành.
+ * Vé đặt sát giờ (còn dưới 1,5 tiếng) vẫn được nhắc ngay; chuyến đã đi rồi thì không nhắc.
  */
 export function isReminderDue(date: string, time: string, now: Date = new Date()): boolean {
   const left = departureInstant(date, time).getTime() - now.getTime();

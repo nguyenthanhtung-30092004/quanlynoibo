@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * Nhắc khách qua Zalo trước giờ khởi hành 1 tiếng: đánh dấu đơn đã được nhắc (hoặc đã thử nhắc) để không gửi lặp.
+ * Nhắc khách qua Zalo trước giờ khởi hành 1,5 tiếng: đánh dấu đơn đã được nhắc (hoặc đã thử nhắc) để không gửi lặp.
  * Thêm cột không có giá trị mặc định nên chạy tức thì, không ghi lại cả bảng.
  */
 export class OrderReminder1710000000023 implements MigrationInterface {
