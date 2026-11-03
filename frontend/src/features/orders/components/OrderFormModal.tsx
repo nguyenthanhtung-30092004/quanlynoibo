@@ -16,7 +16,7 @@ import { SuggestInput } from '@/features/xvip/SuggestInput';
 import { DateInput, TimeInput } from '@/features/xvip/PickerInput';
 import { handleArrowNav } from '@/features/xvip/arrow-nav';
 import { formatDateVN, formatOrderCode } from '@/lib/format';
-import { getVnTime, getVnToday } from '@/lib/time';
+import { getVnToday } from '@/lib/time';
 import { parseOrderText } from '../parse-order-text';
 import { partnersApi } from '@/features/partners/api';
 import type { Route } from '@/features/routes/types';
@@ -695,20 +695,7 @@ export function OrderFormModal({
     if (!formState.routeId) {
       errors.routeId = 'Vui lòng chọn tuyến đường.';
     }
-    // Vé hôm nay không được có giờ đi đã qua; sửa vé cũ giữ nguyên ngày giờ thì không bị chặn
-    const keepsOriginalTime =
-      !!editingOrder &&
-      editingOrder.departureDate === formState.departureDate &&
-      editingOrder.departureTime === formState.departureTime;
-    if (
-      !isAdmin &&
-      formState.departureTime.trim() &&
-      formState.departureDate === getVnToday() &&
-      formState.departureTime < getVnTime() &&
-      !keepsOriginalTime
-    ) {
-      errors.departureTime = `Giờ đi đã qua, chọn từ ${getVnTime()} trở đi.`;
-    } else if (!formState.departureTime.trim()) {
+    if (!formState.departureTime.trim()) {
       errors.departureTime = 'Vui lòng nhập giờ khởi hành.';
     }
     if (!formState.departureDate.trim()) {
@@ -947,8 +934,6 @@ export function OrderFormModal({
                   error={formErrors.departureTime}
                 >
                   <TimeInput
-                    // Chọn ngày hôm nay thì khóa các giờ, phút đã qua
-                    min={!isAdmin && formState.departureDate === getVnToday() ? getVnTime() : undefined}
                     value={formState.departureTime}
                     invalid={!!formErrors.departureTime}
                     onChange={(v) => {

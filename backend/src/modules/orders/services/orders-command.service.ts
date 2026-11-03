@@ -174,9 +174,6 @@ export class OrdersCommandService {
     if (!options.entryDate) {
       const past = departurePastReason(dto.departureDate, dto.departureTime);
       if (past === 'DATE') throw new BadRequestException('Không thể tạo vé cho ngày đã qua.');
-      if (past === 'TIME' && actor.role !== UserRole.ADMIN) {
-        throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
-      }
     }
 
     // Staff luôn tạo đơn cho chính mình; chỉ Admin được chỉ định nhân viên khác
@@ -277,9 +274,6 @@ export class OrdersCommandService {
       const past = departurePastReason(nextDate, nextTime);
       if (past === 'DATE' && nextDate !== order.departureDate) {
         throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');
-      }
-      if (past === 'TIME' && actor.role !== UserRole.ADMIN) {
-        throw new BadRequestException('Giờ đi đã qua, vui lòng chọn giờ sau thời điểm hiện tại.');
       }
     }
 
