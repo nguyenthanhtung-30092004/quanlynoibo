@@ -16,6 +16,7 @@ type ParamKey = keyof OutgoingMessage['params'];
 /** Giá trị lấy từ đơn, dùng trong ZALO_TEMPLATE_PARAMS */
 const PARAM_ALIAS: Record<string, ParamKey> = {
   customer_name: 'customerName',
+  phone: 'phone',
   route: 'route',
   departure_time: 'departureTime',
   departure_date: 'departureDate',
@@ -27,6 +28,13 @@ const PARAM_ALIAS: Record<string, ParamKey> = {
 
 const DEFAULT_PARAMS =
   'customer_name=customer_name,route=route,departure_time=departure_time,departure_date=departure_date';
+
+/**
+ * Mẫu nhắc sắp khởi hành (gửi trước giờ đi 1 tiếng): ten_khach_hang, so_dien_thoai, tuyen_duong, ngay_di, ma_dat_xe.
+ * Tên biến phải khớp mẫu đã duyệt trên Zalo; ghi đè bằng ZALO_REMINDER_TEMPLATE_PARAMS nếu mẫu đặt tên khác.
+ */
+const DEFAULT_REMINDER_PARAMS =
+  'ten_khach_hang=customer_name,so_dien_thoai=phone,tuyen_duong=route,ngay_di=departure_date,ma_dat_xe=booking_code';
 
 /** Mỗi tham số của mẫu ZNS tối đa 30 ký tự và không được để trống */
 const MAX_PARAM_LENGTH = 30;
@@ -70,15 +78,30 @@ export class ZaloZnsProvider implements MessageProvider {
     return this.tokens.hasCredentials() && !!this.config.get<string>('ZALO_TEMPLATE_ID');
   }
 
-  async send({ phone, params }: OutgoingMessage): Promise<void> {
+  /** Đã có đủ khóa và ID mẫu nhắc sắp khởi hành (ZALO_REMINDER_TEMPLATE_ID) chưa */
+  isReminderConfigured(): boolean {
+    return this.tokens.hasCredentials() && !!this.config.get<string>('ZALO_REMINDER_TEMPLATE_ID')?.trim();
+  }
+
+  async send({ phone, params, zaloTemplate }: OutgoingMessage): Promise<void> {
+    const reminder = zaloTemplate === 'reminder';
+    const templateId = this.config.get<string>(reminder ? 'ZALO_REMINDER_TEMPLATE_ID' : 'ZALO_TEMPLATE_ID')?.trim();
+    if (!templateId) {
+      throw new BadGatewayException(
+        reminder ? 'Chưa cấu hình ZALO_REMINDER_TEMPLATE_ID (mẫu nhắc sắp khởi hành).' : 'Chưa cấu hình ZALO_TEMPLATE_ID.',
+      );
+    }
+    const paramSpec = reminder
+      ? this.config.get<string>('ZALO_REMINDER_TEMPLATE_PARAMS') || DEFAULT_REMINDER_PARAMS
+      : this.config.get<string>('ZALO_TEMPLATE_PARAMS') || DEFAULT_PARAMS;
     const templateData: Record<string, string> = {};
-    for (const pair of (this.config.get<string>('ZALO_TEMPLATE_PARAMS') || DEFAULT_PARAMS).split(',')) {
+    for (const pair of paramSpec.split(',')) {
       if (!pair.trim()) continue;
       const [name, alias] = pair.split('=').map((s) => s.trim());
       const key = PARAM_ALIAS[alias];
       if (!name || !key) {
         throw new BadGatewayException(
-          `ZALO_TEMPLATE_PARAMS có mục không hợp lệ: "${pair.trim()}". Dạng đúng: tên_biến=giá_trị, giá trị chỉ dùng: ${Object.keys(PARAM_ALIAS).join(', ')}.`,
+          `${reminder ? 'ZALO_REMINDER_TEMPLATE_PARAMS' : 'ZALO_TEMPLATE_PARAMS'} có mục không hợp lệ: "${pair.trim()}". Dạng đúng: tên_biến=giá_trị, giá trị chỉ dùng: ${Object.keys(PARAM_ALIAS).join(', ')}.`,
         );
       }
       templateData[name] = (params[key] || '-').trim().slice(0, MAX_PARAM_LENGTH) || '-';
@@ -86,7 +109,7 @@ export class ZaloZnsProvider implements MessageProvider {
 
     const body: Record<string, unknown> = {
       phone: toInternationalPhone(phone),
-      template_id: this.config.getOrThrow<string>('ZALO_TEMPLATE_ID').trim(),
+      template_id: templateId,
       template_data: templateData,
     };
     if (this.config.get<string>('ZALO_SANDBOX') === 'true') body.mode = 'development';

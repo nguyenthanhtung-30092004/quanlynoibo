@@ -87,6 +87,7 @@ export class OrdersMessagingService {
       }),
       params: {
         customerName: order.customerName ?? '',
+        phone: order.phone,
         route: order.route.name,
         departureTime: order.departureTime,
         departureDate: `${day}/${month}/${year}`,

@@ -49,6 +49,11 @@ export class MessagingService {
     return this.vmg.checkStatus(referentId);
   }
 
+  /** Nhắc khách trước giờ đi chỉ chạy khi đã khai báo mẫu nhắc (ZALO_REMINDER_TEMPLATE_ID) cùng khóa Zalo */
+  isReminderReady(): boolean {
+    return this.zalo.isReminderConfigured();
+  }
+
   /** @returns dryRun = true nếu chỉ chạy thử, chưa gửi thật */
   async send(
     channel: MessageChannel,
@@ -56,7 +61,11 @@ export class MessagingService {
   ): Promise<{ dryRun: boolean; referentId?: string }> {
     const provider = this.providerFor(channel);
 
-    if (provider.isConfigured()) {
+    const configured =
+      provider === this.zalo && message.zaloTemplate === 'reminder'
+        ? this.zalo.isReminderConfigured()
+        : provider.isConfigured();
+    if (configured) {
       const result = await provider.send(message);
       // Sandbox: nhà cung cấp nhận yêu cầu nhưng không gửi tới điện thoại khách, nên coi là
       // chạy thử (không đánh dấu đơn là "đã gửi").

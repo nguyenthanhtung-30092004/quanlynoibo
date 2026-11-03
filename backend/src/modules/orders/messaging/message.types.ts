@@ -18,9 +18,13 @@ export interface OutgoingMessage {
   phone: string;
   /** Nội dung đầy đủ (dùng cho SMS) */
   content: string;
+  /** Mẫu Zalo ZNS dùng để gửi: mặc định là mẫu xác nhận đặt vé, 'reminder' = mẫu nhắc sắp khởi hành */
+  zaloTemplate?: 'booking' | 'reminder';
   /** Tham số điền vào mẫu tin (dùng cho Zalo ZNS) */
   params: {
     customerName: string;
+    /** SĐT khách, dạng như khách nhập */
+    phone: string;
     route: string;
     departureTime: string;
     /** DD/MM/YYYY */

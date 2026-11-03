@@ -17,6 +17,7 @@ import { OrdersColumnValuesService } from './services/orders-column-values.servi
 import { OrdersExportService } from './services/orders-export.service.js';
 import { OrdersImportService } from './services/orders-import.service.js';
 import { OrdersMessagingService } from './services/orders-messaging.service.js';
+import { OrdersReminderService } from './services/orders-reminder.service.js';
 import { EsmsProvider } from './messaging/esms.provider.js';
 import { MessagingService } from './messaging/messaging.service.js';
 import { SpeedSmsProvider } from './messaging/speedsms.provider.js';
@@ -36,6 +37,7 @@ import { ZaloZnsProvider } from './messaging/zalo-zns.provider.js';
     OrdersExportService,
     OrdersImportService,
     OrdersMessagingService,
+    OrdersReminderService,
     OrdersSchemaGuard,
     // Gửi tin cho khách: SMS (eSMS/SpeedSMS/VMG) và Zalo (ZNS gọi thẳng API Zalo), khóa trong .env
     MessagingService,
