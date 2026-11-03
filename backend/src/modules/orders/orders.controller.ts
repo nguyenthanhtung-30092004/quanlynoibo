@@ -225,7 +225,7 @@ export class OrdersController {
     };
   }
 
-  /** Hủy vé khi khách không đặt nữa; nhân viên chỉ hủy được vé của mình */
+  /** Hủy vé khi khách không đặt nữa; nhân viên được hủy hộ cả vé của người khác */
   @Post(':id/cancel')
   @HttpCode(HttpStatus.OK)
   async cancel(

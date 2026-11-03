@@ -425,9 +425,12 @@ export class OrdersCommandService {
     return this.queryService.findOne(order.id, actor);
   }
 
-  /** Hủy vé (khách không đặt nữa): giữ lại đơn nhưng không tính vào doanh thu */
+  /**
+   * Hủy vé (khách không đặt nữa): giữ lại đơn nhưng không tính vào doanh thu.
+   * Nhân viên được hủy hộ vé của người khác (cùng kiểm tra như xem chi tiết); lịch sử vẫn ghi người hủy.
+   */
   async cancel(id: number, actor: JwtPayload, reason?: string) {
-    const order = await this.queryService.findEntity(id, actor);
+    const order = await this.queryService.findEntity(id, actor, true);
     if (order.cancelledAt) {
       throw new BadRequestException('Vé này đã được hủy trước đó.');
     }

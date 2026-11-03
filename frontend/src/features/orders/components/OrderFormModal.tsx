@@ -1302,7 +1302,7 @@ export function OrderFormModal({
                   </>
                 )}
 
-                <Field label={<>Đã cọc <span className="text-red-600 dark:text-red-400">XVIP</span></>}>
+                <Field label={<>Đã cọc <span className="font-black text-red-600 dark:text-red-400">XVIP</span></>}>
                   <MoneyInput
                     className="input-3d"
                     value={formState.deposit}

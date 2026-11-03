@@ -17,6 +17,7 @@ const FUTURE = '2099-01-01';
 function build(existing?: Record<string, unknown>) {
   const saved: Record<string, unknown>[] = [];
   const updates: Record<string, unknown>[] = [];
+  const findEntityCalls: unknown[][] = [];
   const orderRepository = {
     create: (v: Record<string, unknown>) => v,
     save: async (v: Record<string, unknown>) => {
@@ -36,12 +37,15 @@ function build(existing?: Record<string, unknown>) {
     {
       getCachedPartners: async () => [],
       findOne: async () => ({ id: 1 }),
-      findEntity: async () => existing,
+      findEntity: async (...args: unknown[]) => {
+        findEntityCalls.push(args);
+        return existing;
+      },
     } as never,
     { clearCache: () => undefined } as never,
     { clearCache: () => undefined } as never,
   );
-  return { service, saved, updates };
+  return { service, saved, updates, findEntityCalls };
 }
 
 const baseDto = {
@@ -363,5 +367,15 @@ describe('sửa đơn', () => {
       costPrice: 300_000,
       sellPrice: 400_000,
     });
+  });
+});
+
+describe('hủy vé', () => {
+  it('nhân viên được hủy hộ vé của người khác', async () => {
+    const { service, updates, findEntityCalls } = build({ id: 5, createdById: 99, cancelledAt: null });
+    await service.cancel(5, staff, 'Khách không đi nữa');
+    // Tham số thứ 3 (readOnly = true) bỏ chặn "chỉ vé của mình"
+    expect(findEntityCalls[0][2]).toBe(true);
+    expect(updates[0]).toMatchObject({ cancelReason: 'Khách không đi nữa' });
   });
 });
