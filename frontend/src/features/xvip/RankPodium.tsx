@@ -79,7 +79,7 @@ const LOOKS: Record<PodiumTheme, [Look, Look, Look]> = {
   potential: [
     {
       icon: Bed,
-      title: 'Đang giữ kỷ lục… ít vé nhất',
+      title: 'Hôm nay đứng cuối bảng, ngày mai có quyền đứng đầu – quan trọng là đừng bỏ cuộc',
       card: 'from-rose-500 via-pink-600 to-fuchsia-700',
       pedestal: 'from-pink-600 to-fuchsia-800',
       glow: 'shadow-[0_14px_34px_-10px_rgba(225,29,72,0.75)]',
