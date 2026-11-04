@@ -403,12 +403,16 @@ export default function StaffReportPage() {
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
   const podium = kpiData?.leaderboards?.[honorMetric] ?? (honorMetric === 'seats' ? (kpiData?.leaderboard ?? []) : []);
   // Cần cố gắng: chỉ hiện khi bảng vinh danh hiện (cả kỳ có người bán được vé), nên hai mục luôn đi cùng nhau
+  // Nhân viên xem tab doanh số: server chỉ trả tên người đứng đầu (không có số tiền), nên có người là hiện
+  const secretCommission = !isAdmin && honorMetric === 'commission';
   const podiumTop = podium[0]
     ? honorMetric === 'seats'
       ? podium[0].seats
       : honorMetric === 'orders'
         ? podium[0].total
-        : (podium[0].commission ?? 0)
+        : secretCommission
+          ? 1
+          : (podium[0].commission ?? 0)
     : 0;
   const honorLabel = HONOR_METRICS.find((m) => m.value === honorMetric)?.label.toLowerCase() ?? '';
   const needsEffort =
@@ -674,7 +678,6 @@ export default function StaffReportPage() {
         </div>
         )}
 
-        {isAdmin && (
         <div
           style={{
             boxShadow:
@@ -687,17 +690,16 @@ export default function StaffReportPage() {
           </span>
           <div className="min-w-0 flex-1">
             <div className="break-words text-xs font-semibold uppercase tracking-wider text-white/80 leading-tight">
-              Doanh số
+              {isAdmin ? 'Doanh số' : 'Doanh số của bạn'}
             </div>
             <div className="tnum whitespace-nowrap text-lg sm:text-xl xl:text-lg 2xl:text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)] leading-tight my-0.5">
               {money(totalCommission)}đ
             </div>
             <div className="break-words text-[11px] font-medium text-white/90 leading-tight">
-              Lợi nhuận gộp từ đơn vé
+              {isAdmin ? 'Lợi nhuận gộp từ đơn vé' : 'Chỉ mình bạn xem được'}
             </div>
           </div>
         </div>
-        )}
       </div>
 
       {/* 3D Podium: Top 3 Nhân Viên Xuất Sắc Nhất */}
@@ -721,31 +723,21 @@ export default function StaffReportPage() {
         ))}
       </div>
 
-      {/* Doanh số là bí mật với nhân viên: vẫn bấm được tab nhưng chỉ ra lời nhắn, server không trả số liệu */}
-      {!isAdmin && honorMetric === 'commission' && (
-        <Card className="mt-3">
-          <div className="flex flex-col items-center gap-2 py-6 text-center">
-            <span className="flex size-14 items-center justify-center rounded-full bg-amber-100 text-amber-600 dark:bg-amber-950 dark:text-amber-300">
-              <LockKey size={30} weight="fill" />
-            </span>
-            <p className="text-lg font-black text-slate-800 dark:text-white">Doanh số là bí mật nhé!</p>
-            <p className="max-w-md text-sm text-slate-500 dark:text-slate-400">
-              Ai đứng đầu thì chưa thể tiết lộ. Cứ bán thật nhiều vé, rồi bất ngờ sẽ đến sau :)
-            </p>
-          </div>
-        </Card>
-      )}
-
       {podiumTop > 0 && (
         <Card title={`Vinh danh nhân viên xuất sắc ${honorLabel}`} className="mt-3">
-          <RankPodium entries={podium} theme="honor" metric={honorMetric} />
+          <RankPodium entries={podium} theme="honor" metric={honorMetric} secret={secretCommission} />
+          {secretCommission && (
+            <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs font-semibold text-amber-700 dark:text-amber-300">
+              <LockKey size={14} weight="fill" /> Doanh số là bí mật nhé, chỉ biết ai đứng đầu thôi :)
+            </p>
+          )}
         </Card>
       )}
 
       {/* Bảng tiềm năng chưa khai phá (nhân viên ít vé nhất): cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
         <Card title="Bảng tiềm năng chưa khai phá" className="mt-5">
-          <RankPodium entries={needsEffort} theme="potential" metric={honorMetric} />
+          <RankPodium entries={needsEffort} theme="potential" metric={honorMetric} secret={secretCommission} />
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
             Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo {honorLabel} ít nhất (bằng
             nhau thì theo số vé, số đơn). Bán thêm là sẽ rời khỏi danh sách này.

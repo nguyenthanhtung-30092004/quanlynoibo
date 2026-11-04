@@ -76,4 +76,15 @@ describe('pickNeedsEffort', () => {
   it('không ai có doanh số thì không có danh sách theo doanh số', () => {
     expect(pickNeedsEffort(roster, ranking, new Set(), new Set(), undefined, 'commission')).toEqual([]);
   });
+
+  it('ít người đi làm thì lấy thêm người trên bục cho đủ 3 vị trí, người ít nhất trước', () => {
+    // 4 người đi làm: 1, 2, 3 trên bục, chỉ còn 4 ngoài bục
+    const result = pickNeedsEffort(roster, ranking, podium, new Set(), new Set([1, 2, 3, 4]));
+    expect(result.map((r) => r.staffId)).toEqual([4, 3, 2]);
+  });
+
+  it('không đủ 3 người đi làm thì có bao nhiêu hiện bấy nhiêu', () => {
+    const result = pickNeedsEffort(roster, ranking, podium, new Set(), new Set([1, 4]));
+    expect(result.map((r) => r.staffId)).toEqual([4, 1]);
+  });
 });

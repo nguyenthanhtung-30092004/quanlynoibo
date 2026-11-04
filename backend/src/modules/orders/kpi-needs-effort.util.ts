@@ -49,10 +49,14 @@ export function pickNeedsEffort(
 ): StaffTally[] {
   if (!ranking.some((r) => metricValue(r, metric) > 0)) return [];
   const tallyOf = new Map(ranking.map((r) => [r.staffId, r]));
-  return roster
+  const ascending = (a: StaffTally, b: StaffTally) =>
+    metricValue(a, metric) - metricValue(b, metric) ||
+    a.seats - b.seats ||
+    a.total - b.total ||
+    a.fullName.localeCompare(b.fullName, 'vi');
+  const eligible = roster
     .filter(
       (u) =>
-        !podiumIds.has(u.id) &&
         (onlyIds.size === 0 || onlyIds.has(u.id)) &&
         (!clockedInIds || clockedInIds.has(u.id)),
     )
@@ -62,13 +66,9 @@ export function pickNeedsEffort(
       total: tallyOf.get(u.id)?.total ?? 0,
       seats: tallyOf.get(u.id)?.seats ?? 0,
       commission: tallyOf.get(u.id)?.commission ?? 0,
-    }))
-    .sort(
-      (a, b) =>
-        metricValue(a, metric) - metricValue(b, metric) ||
-        a.seats - b.seats ||
-        a.total - b.total ||
-        a.fullName.localeCompare(b.fullName, 'vi'),
-    )
-    .slice(0, NEEDS_EFFORT_COUNT);
+    }));
+  const others = eligible.filter((t) => !podiumIds.has(t.staffId)).sort(ascending);
+  // Ít người đi làm thì sau khi bỏ người trên bục còn thiếu: lấy thêm người trên bục (ít nhất trước) cho đủ 3 vị trí
+  const fill = eligible.filter((t) => podiumIds.has(t.staffId)).sort(ascending);
+  return [...others, ...fill].slice(0, NEEDS_EFFORT_COUNT);
 }

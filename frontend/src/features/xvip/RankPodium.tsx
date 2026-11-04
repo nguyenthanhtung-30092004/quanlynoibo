@@ -16,7 +16,8 @@ const valueOf = (e: PodiumEntry, metric: StaffMetric) =>
   metric === 'seats' ? e.seats : metric === 'orders' ? e.total : (e.commission ?? 0);
 
 /** Số liệu chính (to, bên trái) và số liệu phụ (bên phải) theo tiêu chí đang xem */
-function statsOf(e: PodiumEntry, metric: StaffMetric) {
+function statsOf(e: PodiumEntry, metric: StaffMetric, secret: boolean) {
+  if (metric === 'commission' && secret) return { main: ['Bí mật', 'doanh số'], side: [String(e.seats), 'vé'] };
   if (metric === 'orders') return { main: [String(e.total), 'đơn'], side: [String(e.seats), 'vé'] };
   if (metric === 'commission') return { main: [`${money(e.commission ?? 0)}đ`, 'doanh số'], side: [String(e.seats), 'vé'] };
   return { main: [String(e.seats), 'vé'], side: [String(e.total), 'đơn'] };
@@ -123,10 +124,13 @@ export function RankPodium({
   entries,
   theme,
   metric = 'seats',
+  secret = false,
 }: {
   entries: readonly PodiumEntry[];
   theme: PodiumTheme;
   metric?: StaffMetric;
+  /** Giấu số tiền doanh số (nhân viên): vẫn thấy ai đứng đầu nhưng số tiền là bí mật */
+  secret?: boolean;
 }) {
   const looks = LOOKS[theme];
   const only = entries.length === 1;
@@ -144,7 +148,7 @@ export function RankPodium({
                 : 'md:order-3'
           }
         >
-          <RankCard entry={e} rank={i + 1} look={looks[i]} gap={i === 0 ? 0 : topValue - valueOf(e, metric)} theme={theme} metric={metric} />
+          <RankCard entry={e} rank={i + 1} look={looks[i]} gap={i === 0 ? 0 : topValue - valueOf(e, metric)} theme={theme} metric={metric} secret={secret} />
           {/* Bệ đỡ: chỉ có trên màn hình rộng để ra dáng bục nhận giải */}
           <div
             className={`mx-2 hidden rounded-b-xl bg-gradient-to-b ${looks[i].pedestal} md:flex ${PEDESTAL_HEIGHT[i]} items-center justify-center text-xl font-black leading-none text-white/35 shadow-[inset_0_2px_0_rgba(255,255,255,0.25)]`}
@@ -165,6 +169,7 @@ function RankCard({
   gap,
   theme,
   metric,
+  secret,
 }: {
   entry: PodiumEntry;
   rank: number;
@@ -173,12 +178,14 @@ function RankCard({
   gap: number;
   theme: PodiumTheme;
   metric: StaffMetric;
+  secret: boolean;
 }) {
   const hero = rank === 1;
   const Icon = look.icon;
   const initial = entry.fullName.trim().split(' ').pop()?.charAt(0) ?? '?';
-  const empty = entry.total === 0 && entry.seats === 0 && !entry.commission;
-  const { main, side } = statsOf(entry, metric);
+  const hidden = secret && metric === 'commission';
+  const empty = entry.total === 0 && entry.seats === 0 && !entry.commission && !hidden;
+  const { main, side } = statsOf(entry, metric, secret);
   return (
     <div
       className={`relative overflow-hidden rounded-2xl bg-gradient-to-br ${look.card} ${look.glow} text-center text-white ring-1 ring-white/40 ${
@@ -265,7 +272,7 @@ function RankCard({
           )}
         </div>
 
-        {!hero && !empty && (
+        {!hero && !empty && !hidden && (
           <span className="mt-1.5 rounded-full bg-black/20 px-2 py-0.5 text-[10px] font-semibold text-white/90">
             {theme === 'honor' ? `Kém hạng 1: ${gapText(gap, metric)}` : `Hơn hạng 1: ${gapText(Math.abs(gap), metric)}`}
           </span>
