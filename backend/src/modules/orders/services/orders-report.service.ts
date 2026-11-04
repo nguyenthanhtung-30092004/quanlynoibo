@@ -418,7 +418,8 @@ export class OrdersReportService {
     result.needsEffort = needsEfforts.seats;
 
     // Nhân viên không được xem số tiền doanh số của ai: bỏ cột hoa hồng khỏi mọi bảng xếp hạng.
-    // Riêng vinh danh theo doanh số vẫn cho biết AI đứng đầu (đã xếp theo hoa hồng thật ở trên), chỉ giấu số tiền
+    // Riêng vinh danh theo doanh số vẫn cho biết AI đứng đầu (đã xếp theo hoa hồng thật ở trên), chỉ giấu số tiền;
+    // bảng tiềm năng thì hiện cả số tiền
     if (!isAdmin) {
       const strip = (rows: StaffTally[]) => rows.map(({ commission: _commission, ...rest }) => rest);
       result.ranking = strip(result.ranking);
@@ -430,7 +431,8 @@ export class OrdersReportService {
       result.needsEfforts = {
         seats: strip(needsEfforts.seats),
         orders: strip(needsEfforts.orders),
-        commission: strip(needsEfforts.commission),
+        // Bảng tiềm năng cho nhân viên xem cả số tiền doanh số
+        commission: needsEfforts.commission,
       };
       result.leaderboard = result.leaderboards.seats;
       result.needsEffort = result.needsEfforts.seats;

@@ -737,7 +737,7 @@ export default function StaffReportPage() {
       {/* Bảng tiềm năng chưa khai phá (nhân viên ít vé nhất): cùng khung với bục vinh danh (Top 2 trái, Top 1 to ở giữa, Top 3 phải); top 1 là người ít vé nhất */}
       {needsEffort.length > 0 && (
         <Card title="Bảng tiềm năng chưa khai phá" className="mt-5">
-          <RankPodium entries={needsEffort} theme="potential" metric={honorMetric} secret={secretCommission} />
+          <RankPodium entries={needsEffort} theme="potential" metric={honorMetric} />
           <p className="mt-3 text-center text-xs text-slate-500 dark:text-slate-400">
             Chỉ tính nhân viên đã chấm công vào, ai chưa chấm công thì chưa tính. Xếp theo {honorLabel} ít nhất (bằng
             nhau thì theo số vé, số đơn). Bán thêm là sẽ rời khỏi danh sách này.
