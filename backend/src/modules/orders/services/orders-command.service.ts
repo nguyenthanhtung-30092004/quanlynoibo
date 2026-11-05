@@ -267,10 +267,10 @@ export class OrdersCommandService {
     }
 
     // Chỉ chặn khi đổi ngày hoặc giờ sang thời điểm đã qua; vé cũ vẫn sửa được các trường khác.
-    // Ngày đã qua bị chặn với cả Admin; giờ đã qua của hôm nay thì chỉ Admin được bỏ qua
+    // Admin được sửa vé về các ngày trước; nhân viên thì không được đổi sang ngày đã qua
     const nextDate = dto.departureDate ?? order.departureDate;
     const nextTime = dto.departureTime ?? order.departureTime;
-    if (nextDate !== order.departureDate || nextTime !== order.departureTime) {
+    if (actor.role !== UserRole.ADMIN && (nextDate !== order.departureDate || nextTime !== order.departureTime)) {
       const past = departurePastReason(nextDate, nextTime);
       if (past === 'DATE' && nextDate !== order.departureDate) {
         throw new BadRequestException('Không thể đổi vé sang ngày đã qua.');

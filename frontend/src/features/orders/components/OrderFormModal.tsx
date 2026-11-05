@@ -701,6 +701,7 @@ export function OrderFormModal({
     if (!formState.departureDate.trim()) {
       errors.departureDate = 'Vui lòng chọn ngày khởi hành.';
     } else if (
+      !isAdmin &&
       formState.departureDate < getVnToday() &&
       // Sửa vé cũ giữ nguyên ngày thì không bị chặn, chỉ chặn khi chọn ngày đã qua
       editingOrder?.departureDate !== formState.departureDate
@@ -949,8 +950,8 @@ export function OrderFormModal({
                   error={formErrors.departureDate}
                 >
                   <DateInput
-                    // Không cho chọn ngày đã qua, kể cả Admin
-                    min={getVnToday()}
+                    // Nhân viên không chọn ngày đã qua; Admin được sửa vé về các ngày trước (tạo mới vẫn không)
+                    min={isAdmin && editingId ? undefined : getVnToday()}
                     value={formState.departureDate}
                     invalid={!!formErrors.departureDate}
                     onChange={(v) => {

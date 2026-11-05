@@ -342,12 +342,17 @@ describe('sửa đơn', () => {
     expect((updates[0].cabinLines as unknown[]).length).toBe(3);
   });
 
-  it('không đổi vé sang ngày đã qua (kể cả Admin), nhưng vé cũ có ngày đã qua vẫn sửa được trường khác', async () => {
+  it('Admin được đổi vé về ngày đã qua; nhân viên thì không, vé cũ có ngày đã qua vẫn sửa được trường khác', async () => {
     const { service, updates } = build(cabinOrder);
-    await expect(service.update(1, { departureDate: '2000-01-01' } as never, admin)).rejects.toThrow(
+    await service.update(1, { departureDate: '2000-01-01' } as never, admin);
+    expect(updates).toHaveLength(1);
+
+    const staffCase = build(cabinOrder);
+    const staff = { ...admin, role: 'STAFF' } as never;
+    await expect(staffCase.service.update(1, { departureDate: '2000-01-01' } as never, staff)).rejects.toThrow(
       'Không thể đổi vé sang ngày đã qua.',
     );
-    expect(updates).toHaveLength(0);
+    expect(staffCase.updates).toHaveLength(0);
 
     const old = build({ ...cabinOrder, departureDate: '2000-01-01' });
     await old.service.update(1, { note: 'sửa ghi chú', departureDate: '2000-01-01' } as never, admin);
