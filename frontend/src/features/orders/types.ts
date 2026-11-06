@@ -250,6 +250,8 @@ export interface KpiSummary {
   /** Trong số tin đã gửi: gửi qua Zalo / gửi qua SMS */
   zaloSent: number;
   smsOnlySent: number;
+  /** Số vé đã được nhắc sắp tới giờ khởi hành (Zalo) */
+  reminderSent: number;
   /** Chỉ Admin nhận được (server không trả cho nhân viên) */
   revenue?: number;
   cost?: number;

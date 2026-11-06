@@ -62,6 +62,7 @@ interface KpiRow {
   seats: string;
   smsSent: string;
   zaloSent: string;
+  reminderSent: string;
   revenue: string;
   cost: string;
   deposit: string;
@@ -79,6 +80,7 @@ interface Group {
   seats: number;
   smsSent: number;
   zaloSent: number;
+  reminderSent: number;
   revenue: number;
   cost: number;
   deposit: number;
@@ -235,6 +237,7 @@ export class OrdersReportService {
       .addSelect(`COALESCE(SUM(${TICKETS_SQL}), 0)`, 'seats')
       .addSelect('COUNT(*) FILTER (WHERE order.smsSent)', 'smsSent')
       .addSelect('COUNT(*) FILTER (WHERE order.smsSent AND order.messageChannel = :zalo)', 'zaloSent')
+      .addSelect('COUNT(*) FILTER (WHERE order.reminderSentAt IS NOT NULL)', 'reminderSent')
       .addSelect('COALESCE(SUM(order.sellPrice), 0)', 'revenue')
       .addSelect('COALESCE(SUM(order.costPrice), 0)', 'cost')
       .addSelect('COALESCE(SUM(order.deposit), 0)', 'deposit')
@@ -257,6 +260,7 @@ export class OrdersReportService {
       seats: Number(r.seats),
       smsSent: Number(r.smsSent),
       zaloSent: Number(r.zaloSent),
+      reminderSent: Number(r.reminderSent),
       revenue: Number(r.revenue),
       cost: Number(r.cost),
       deposit: Number(r.deposit),
@@ -275,6 +279,8 @@ export class OrdersReportService {
         zaloSent,
         // Đơn gửi trước khi có cột kênh (messageChannel null) đều là SMS
         smsOnlySent: smsSent - zaloSent,
+        /** Số vé đã được nhắc sắp tới giờ khởi hành */
+        reminderSent: sumOf(list, (g) => g.reminderSent),
         revenue: sumOf(list, (g) => g.revenue),
         cost: sumOf(list, (g) => g.cost),
         deposit: sumOf(list, (g) => g.deposit),
@@ -284,7 +290,7 @@ export class OrdersReportService {
     };
 
     const result: Partial<ReturnType<typeof summarize>> &
-      Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent' | 'zaloSent' | 'smsOnlySent'> & {
+      Pick<ReturnType<typeof summarize>, 'total' | 'seats' | 'smsSent' | 'zaloSent' | 'smsOnlySent' | 'reminderSent'> & {
         date: string;
         leaderboard?: StaffTally[];
         ranking?: StaffTally[];

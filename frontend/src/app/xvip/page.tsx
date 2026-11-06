@@ -6,7 +6,7 @@ import { useCurrentUser } from '@/features/auth/hooks';
 import { DashboardOrdersModal } from '@/features/orders/components/DashboardOrdersModal';
 import { useKpi, useOrders } from '@/features/orders/hooks';
 import { useRoutes } from '@/features/routes/hooks';
-import { useActiveStaff, useUsers } from '@/features/users/hooks';
+import { useActiveStaff, useResignedStaff, useUsers } from '@/features/users/hooks';
 import { Modal } from '@/features/xvip/Modal';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
 import { money } from '@/features/xvip/data';
@@ -71,6 +71,8 @@ function OverviewContent() {
   // API người dùng chỉ dành cho Admin; nhân viên không xem doanh thu
   const { data: usersData } = useUsers({ page: 1, search: '' }, isAdmin);
   const { data: activeStaffList = [] } = useActiveStaff(isAdmin);
+  const { data: resignedStaff = [] } = useResignedStaff(isAdmin);
+
 
   const orders = useMemo(() => ordersData?.data ?? [], [ordersData]);
   const routes = useMemo(() => routesData?.data ?? [], [routesData]);
@@ -82,6 +84,7 @@ function OverviewContent() {
   const smsSentCount = kpiData?.smsSent ?? orders.filter((o) => o.smsSent).length;
   const zaloSentCount = kpiData?.zaloSent ?? orders.filter((o) => o.smsSent && o.messageChannel === 'ZALO').length;
   const smsOnlyCount = kpiData?.smsOnlySent ?? smsSentCount - zaloSentCount;
+  const reminderSentCount = kpiData?.reminderSent ?? 0;
 
   const STATS = [
     {
@@ -248,6 +251,26 @@ function OverviewContent() {
               ))}
             </ol>
           )}
+          {isAdmin && resignedStaff.length > 0 && (
+            <div className="mt-4 border-t border-slate-200 pt-3 dark:border-slate-700">
+              <div className="mb-2 text-xs font-bold uppercase tracking-wide text-rose-600 dark:text-rose-400">
+                Đã nghỉ việc ({resignedStaff.length})
+              </div>
+              <ul className="space-y-1.5">
+                {resignedStaff.map((u) => (
+                  <li key={u.id} className="flex items-center gap-3 rounded-lg p-1.5 text-sm opacity-70">
+                    <Avatar name={u.fullName} />
+                    <span className="min-w-0 flex-1 break-words font-semibold text-slate-600 dark:text-slate-300">
+                      {u.fullName}
+                    </span>
+                    <span className="shrink-0 rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700 dark:bg-rose-950 dark:text-rose-300">
+                      Đã nghỉ việc
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </Card>
       </div>
 
@@ -257,6 +280,10 @@ function OverviewContent() {
             <MessageStat label="Tổng" value={smsSentCount} tone="slate" />
             <MessageStat label="Zalo" value={zaloSentCount} tone="blue" />
             <MessageStat label="SMS" value={smsOnlyCount} tone="cyan" />
+          </div>
+          <div className="mt-2 rounded-xl bg-amber-50 p-3 text-center dark:bg-amber-950/40">
+            <div className="text-2xl font-black text-amber-600 dark:text-amber-300">{reminderSentCount}</div>
+            <div className="text-xs font-bold uppercase text-amber-700 dark:text-amber-200">Nhắc sắp tới giờ đi (Zalo)</div>
           </div>
           <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
             Tính theo khoảng ngày đang lọc, không gồm vé đã hủy. Mỗi vé tính một tin, kênh là kênh đã gửi thành công.

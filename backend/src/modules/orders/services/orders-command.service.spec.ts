@@ -348,7 +348,6 @@ describe('sửa đơn', () => {
     expect(updates).toHaveLength(1);
 
     const staffCase = build(cabinOrder);
-    const staff = { ...admin, role: 'STAFF' } as never;
     await expect(staffCase.service.update(1, { departureDate: '2000-01-01' } as never, staff)).rejects.toThrow(
       'Không thể đổi vé sang ngày đã qua.',
     );

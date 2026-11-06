@@ -32,6 +32,20 @@ export function useActiveStaff(enabled: boolean) {
   });
 }
 
+/** Nhân viên đã nghỉ việc (tài khoản bị khóa), chỉ Admin xem */
+export function useResignedStaff(enabled: boolean) {
+  return useQuery({
+    queryKey: [...userKeys.staff, 'resigned'],
+    enabled,
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    queryFn: async () => {
+      const res = await api<Paginated<User>>('users', { query: { limit: 100 } });
+      return res.data.filter((u) => u.role === 'STAFF' && !u.isActive);
+    },
+  });
+}
+
 export function useUsers(params: { page: number; search: string }, enabled = true) {
   return useQuery({
     enabled,
