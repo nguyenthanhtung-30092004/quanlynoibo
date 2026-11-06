@@ -105,6 +105,7 @@ export class LeaveService {
     const today = vietnamClock().day;
     const autoUrgent = await this.autoUrgentAbsences(daysInMonth, today, byDay);
 
+    const isAdmin = actor.role === UserRole.ADMIN;
     const days: LeaveDay[] = daysInMonth.map((day) => {
       const list = byDay.get(day) ?? [];
       const override = overrideByDay.get(day);
@@ -114,6 +115,7 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
+        // Nhân viên chỉ thấy số lượng và chính mình; tên người khác chỉ Admin được xem
         people: [
           ...list.map((r) => ({
             requestId: r.id,
@@ -129,7 +131,7 @@ export class LeaveService {
             urgent: true,
             auto: true,
           })),
-        ],
+        ].filter((p) => isAdmin || p.userId === actor.sub),
       };
     });
 
@@ -320,12 +322,14 @@ export class LeaveService {
   }
 
   /** Lịch sử đăng ký / hủy nghỉ của một ngày, mới nhất trước (ai cũng xem được) */
-  async historyOfDay(day: string) {
+  async historyOfDay(day: string, actor: JwtPayload) {
     if (!isRealDay(day)) {
       throw new BadRequestException('Ngày không hợp lệ');
     }
     const rows = await this.history.find({ where: { day }, order: { createdAt: 'DESC', id: 'DESC' }, take: 200 });
-    return rows.map((h) => ({
+    // Nhân viên chỉ xem lịch sử liên quan đến chính mình
+    const visible = actor.role === UserRole.ADMIN ? rows : rows.filter((h) => h.userId === actor.sub);
+    return visible.map((h) => ({
       id: h.id,
       action: h.action,
       userName: h.userName,

@@ -19,7 +19,7 @@ import { LeaveService } from './leave.service.js';
 export class LeaveController {
   constructor(private readonly leaveService: LeaveService) {}
 
-  /** Lịch nghỉ cả tháng: mọi người dùng xem được số lượng; chỉ Admin thấy tên người nghỉ */
+  /** Lịch nghỉ cả tháng: mọi người dùng xem được số lượng; nhân viên chỉ thấy chính mình, chỉ Admin thấy tên mọi người */
   @Get()
   async month(@Query() query: LeaveMonthQueryDto, @CurrentUser() user: JwtPayload) {
     return {
@@ -70,13 +70,13 @@ export class LeaveController {
     };
   }
 
-  /** Lịch sử đăng ký / hủy nghỉ của một ngày: mọi người dùng đều xem được */
+  /** Lịch sử đăng ký / hủy nghỉ của một ngày: Admin xem tất cả, nhân viên chỉ xem phần của mình */
   @Get('history')
-  async history(@Query() query: LeaveDayQueryDto) {
+  async history(@Query() query: LeaveDayQueryDto, @CurrentUser() user: JwtPayload) {
     return {
       statusCode: HttpStatus.OK,
       message: 'Lấy lịch sử đăng ký nghỉ thành công',
-      data: await this.leaveService.historyOfDay(query.day),
+      data: await this.leaveService.historyOfDay(query.day, user),
     };
   }
 
