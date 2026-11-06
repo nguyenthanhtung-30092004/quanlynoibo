@@ -500,6 +500,26 @@ function StaffDayPanel({
 
   return (
     <div className="space-y-3">
+      <div>
+        <div className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Người đăng ký nghỉ ({day.people.length})
+        </div>
+        {day.people.length === 0 ? (
+          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
+        ) : (
+          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+            {day.people.map((p) => (
+              <li key={p.requestId ?? `auto-${p.userId}`} className="flex items-center gap-3 px-3 py-2">
+                <Avatar name={p.fullName} />
+                <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
+                  {p.fullName}
+                </span>
+                {p.urgent && <UrgentBadge />}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
       {note && <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{note}</p>}
       {!day.mine && !note && wouldExceed && (
         <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
