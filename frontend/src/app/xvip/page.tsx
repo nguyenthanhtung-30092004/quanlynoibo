@@ -15,11 +15,12 @@ import { buildRouteStats } from '@/features/xvip/route-stats';
 import { PartnerChart } from '@/features/xvip/partner-chart';
 import { DateRangeFilter, rangeParams, useDateFilter } from '@/features/xvip/date-filter';
 
-function MessageStat({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'blue' | 'cyan' }) {
+function MessageStat({ label, value, tone }: { label: string; value: number; tone: 'slate' | 'blue' | 'cyan' | 'amber' }) {
   const colors = {
     slate: 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white',
     blue: 'bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300',
     cyan: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-300',
+    amber: 'bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-300',
   }[tone];
   return (
     <div className={`rounded-xl px-2 py-4 ${colors}`}>
@@ -85,6 +86,8 @@ function OverviewContent() {
   const zaloSentCount = kpiData?.zaloSent ?? orders.filter((o) => o.smsSent && o.messageChannel === 'ZALO').length;
   const smsOnlyCount = kpiData?.smsOnlySent ?? smsSentCount - zaloSentCount;
   const reminderSentCount = kpiData?.reminderSent ?? 0;
+  // Tổng tin = Zalo + SMS + nhắc sắp tới giờ đi
+  const totalMessages = smsSentCount + reminderSentCount;
 
   const STATS = [
     {
@@ -102,8 +105,8 @@ function OverviewContent() {
       borderBottom: '#b45309',
     },
     {
-      label: 'Tin SMS đã gửi',
-      value: `${smsSentCount} tin`,
+      label: 'Tin nhắn đã gửi',
+      value: `${totalMessages} tin`,
       note: 'Bấm để xem chi tiết Zalo / SMS',
       color: 'from-cyan-600 to-cyan-700',
       borderBottom: '#0e7490',
@@ -276,17 +279,14 @@ function OverviewContent() {
 
       {showMessages && (
         <Modal title="Tin nhắn đã gửi cho khách" onClose={() => setShowMessages(false)}>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <MessageStat label="Tổng" value={smsSentCount} tone="slate" />
+          <MessageStat label="Tổng" value={totalMessages} tone="slate" />
+          <div className="mt-2 grid grid-cols-3 gap-2 text-center">
             <MessageStat label="Zalo" value={zaloSentCount} tone="blue" />
             <MessageStat label="SMS" value={smsOnlyCount} tone="cyan" />
-          </div>
-          <div className="mt-2 rounded-xl bg-amber-50 p-3 text-center dark:bg-amber-950/40">
-            <div className="text-2xl font-black text-amber-600 dark:text-amber-300">{reminderSentCount}</div>
-            <div className="text-xs font-bold uppercase text-amber-700 dark:text-amber-200">Nhắc sắp tới giờ đi (Zalo)</div>
+            <MessageStat label="Nhắc giờ đi" value={reminderSentCount} tone="amber" />
           </div>
           <p className="mt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-            Tính theo khoảng ngày đang lọc, không gồm vé đã hủy. Mỗi vé tính một tin, kênh là kênh đã gửi thành công.
+            Tính theo khoảng ngày đang lọc, không gồm vé đã hủy. Tổng = Zalo + SMS + nhắc giờ đi. Tin xác nhận mỗi vé tính một tin, kênh là kênh đã gửi thành công.
           </p>
         </Modal>
       )}
