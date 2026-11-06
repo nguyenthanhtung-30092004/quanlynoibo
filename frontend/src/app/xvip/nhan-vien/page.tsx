@@ -170,7 +170,7 @@ function UsersPageContent() {
   const { data: me } = useCurrentUser();
   const [page] = useState(1);
   const [search, setSearch] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'ADMIN' | 'STAFF'>('all');
+  const [roleFilter, setRoleFilter] = useState<'STAFF' | 'RESIGNED' | 'ADMIN'>('STAFF');
 
   const { data: apiData, isLoading, refetch } = useUsers({ page, search });
   const createMutation = useCreateUser();
@@ -197,7 +197,11 @@ function UsersPageContent() {
         u.username.toLowerCase().includes(search.toLowerCase()) ||
         (u.phone && u.phone.includes(search));
 
-      const matchRole = roleFilter === 'all' || u.role === roleFilter;
+      // Nhân viên = đang làm; Đã nghỉ việc = nhân viên bị khóa tài khoản; Quản trị = Admin
+      const matchRole =
+        roleFilter === 'ADMIN'
+          ? u.role === 'ADMIN'
+          : u.role === 'STAFF' && (roleFilter === 'RESIGNED' ? !u.isActive : u.isActive);
 
       return matchSearch && matchRole;
     });
@@ -393,8 +397,8 @@ function UsersPageContent() {
             <div className="flex items-center gap-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 p-1 shadow-inner border border-slate-200 dark:border-slate-700">
               {(
                 [
-                  { id: 'all', label: 'Tất cả' },
                   { id: 'STAFF', label: 'Nhân viên' },
+                  { id: 'RESIGNED', label: 'Đã nghỉ việc' },
                   { id: 'ADMIN', label: 'Quản trị' },
                 ] as const
               ).map((tab) => (
