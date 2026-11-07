@@ -75,7 +75,7 @@ export class OrdersExportService {
     const cancelledCount = orders.length - activeCount;
 
     // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
-    // Tiền cọc, nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi.
+    // Nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi; tiền cọc ghi riêng từng dòng (số ghế x giá bán).
     // unit: đơn giá 1 cabin của dòng cabin; hai cột GIÁ NHẬP / GIÁ BÁN ghi đơn giá này (giống form nhập)
     type Row = {
       order: Order;
@@ -108,7 +108,8 @@ export class OrdersExportService {
           // view giữ tổng tiền của dòng (đơn giá x số lượng) để cộng tổng; ô hiển thị lấy từ unit
           costPrice: line.costPrice * line.quantity,
           sellPrice: line.sellPrice * line.quantity,
-          deposit: i === 0 ? o.deposit : 0,
+          // Đơn đã cọc: mỗi dòng cabin ghi cọc riêng = số ghế x giá bán (không gộp cọc vào dòng đầu)
+          deposit: o.deposit > 0 ? line.quantity * line.sellPrice : 0,
           collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
           commission: i === 0 ? o.commission : 0,
         }),

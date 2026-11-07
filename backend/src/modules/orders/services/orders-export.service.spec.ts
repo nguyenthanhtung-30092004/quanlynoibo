@@ -110,7 +110,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(cabinOrder.commission).toBe(1_050_000);
   });
 
-  it('đơn cabin tách 3 dòng, tiền cọc/hoa hồng chỉ ở dòng đầu, tổng các dòng khớp đơn', async () => {
+  it('đơn cabin tách 3 dòng, cọc từng dòng = số ghế x giá bán, hoa hồng chỉ ở dòng đầu, tổng các dòng khớp đơn', async () => {
     const sheet = await exportRows([cabinOrder]);
     const rows = [5, 6, 7].map((r) => sheet.getRow(r));
     const col = (name: string) => {
@@ -128,7 +128,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     // dòng cabin ghi đơn giá 1 cabin (không nhân số lượng)
     expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([800, 500, 700]);
     expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([1_000, 650, 900]);
-    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500, 0, 0]);
+    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([2_000, 1_950, 900]);
     expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
     // STT giống nhau vì cùng một đơn
     expect(new Set(rows.map((r) => r.getCell(1).value)).size).toBe(1);
@@ -146,7 +146,8 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(result('SỐ GHẾ')).toBe(cabinOrder.seatCount);
     expect(result('GIÁ NHẬP')).toBe(cabinOrder.costPrice / 1000);
     expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice / 1000);
-    expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit / 1000);
+    // cọc từng dòng = số ghế x giá bán nên tổng cọc = tổng giá bán
+    expect(result('ĐÃ CỌC')).toBe(cabinOrder.sellPrice / 1000);
     expect(result('HOA HỒNG')).toBe(cabinOrder.commission / 1000);
   });
 
@@ -167,7 +168,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(result('SỐ GHẾ')).toBe(6 + 2 + 0);
     expect(result('GIÁ NHẬP')).toBe((3_800_000 + 300_000 + 800_000) / 1000);
     expect(result('GIÁ BÁN')).toBe((4_850_000 + 400_000 + 1_000_000) / 1000);
-    expect(result('ĐÃ CỌC')).toBe(500);
+    expect(result('ĐÃ CỌC')).toBe(4_850);
     expect(result('HOA HỒNG')).toBe((1_050_000 + 20_000 + 50_000) / 1000);
 
     const cancelledRow = sheet.getRow(9);
