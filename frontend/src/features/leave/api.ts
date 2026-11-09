@@ -27,6 +27,13 @@ export const leaveApi = {
   paydays: (signal?: AbortSignal) =>
     api<ApiResponse<StaffPaydayRow[]>>('leave/paydays', { signal }).then((r) => r.data),
 
+  /** Admin đặt cùng một ngày nhận lương hằng tháng cho nhiều nhân viên */
+  setStaffPaydays: (userIds: number[], dayOfMonth: number) =>
+    api<ApiResponse<{ userIds: number[]; dayOfMonth: number }>>('leave/paydays', {
+      method: 'PUT',
+      body: { userIds, dayOfMonth },
+    }).then((r) => r.data),
+
   /** Admin đặt ngày nhận lương (1-31) cho nhân viên; null = bỏ */
   setStaffPayday: (userId: number, dayOfMonth: number | null) =>
     api<ApiResponse<{ userId: number; dayOfMonth: number | null }>>('leave/payday', {

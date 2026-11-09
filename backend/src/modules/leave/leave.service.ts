@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 import { vietnamClock } from '../attendance/attendance.logic.js';
 import type { JwtPayload } from '../auth/decorators/current-user.decorator.js';
 import { AppSetting } from '../settings/entities/app-setting.entity.js';
@@ -402,6 +402,20 @@ export class LeaveService {
     ]);
     const byUser = new Map(rows.map((r) => [r.userId, r.dayOfMonth]));
     return staff.map((u) => ({ userId: u.id, fullName: u.fullName, dayOfMonth: byUser.get(u.id) ?? null }));
+  }
+
+  /** Admin đặt cùng một ngày nhận lương hằng tháng cho nhiều nhân viên; ai đã có ngày khác thì chuyển sang ngày này */
+  async setStaffPaydays(userIds: number[], dayOfMonth: number) {
+    const ids = [...new Set(userIds)];
+    const staff = await this.dataSource.getRepository(User).find({
+      where: { id: In(ids), role: UserRole.STAFF, isActive: true },
+      select: { id: true },
+    });
+    if (staff.length !== ids.length) {
+      throw new BadRequestException('Có nhân viên không tồn tại hoặc đã bị khóa, hãy tải lại trang');
+    }
+    await this.paydays.save(ids.map((userId) => this.paydays.create({ userId, dayOfMonth })));
+    return { userIds: ids, dayOfMonth };
   }
 
   /** Admin đặt ngày nhận lương hằng tháng (1-31) cho một nhân viên; null = bỏ cấu hình */

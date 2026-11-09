@@ -1,7 +1,23 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { CaretLeft, CaretRight, ClockCounterClockwise, FloppyDisk, Lock, LockOpen, Money, Trash, Warning } from '@phosphor-icons/react';
+import {
+  CalendarBlank,
+  CaretDown,
+  CaretLeft,
+  CaretRight,
+  Check,
+  ClockCounterClockwise,
+  FloppyDisk,
+  Lock,
+  LockOpen,
+  MagnifyingGlass,
+  Money,
+  SlidersHorizontal,
+  Trash,
+  Warning,
+  X,
+} from '@phosphor-icons/react';
 import { ApiError } from '@/lib/api-client';
 import { monthLabel, shiftMonth } from '@/lib/month';
 import { getVnToday } from '@/lib/time';
@@ -16,9 +32,10 @@ import {
   useSaveLeaveConfig,
   useSetDayLimit,
   useSetStaffPayday,
+  useSetStaffPaydays,
   useStaffPaydays,
 } from '@/features/leave/hooks';
-import type { LeaveConfig, LeaveDay, LeaveHistoryEntry, StaffPaydayRow } from '@/features/leave/types';
+import type { LeaveConfig, LeaveDay, LeaveHistoryEntry } from '@/features/leave/types';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
@@ -73,8 +90,14 @@ export default function LeavePage() {
   const removeLeave = useRemoveLeave();
   const saveConfig = useSaveLeaveConfig();
   const setDayLimit = useSetDayLimit();
-  const { data: staffPaydays = [], isLoading: paydaysLoading } = useStaffPaydays(isAdmin);
+  const { data: staffPaydays } = useStaffPaydays(isAdmin);
   const setStaffPayday = useSetStaffPayday();
+  const setStaffPaydays = useSetStaffPaydays();
+  // userId -> ngày nhận lương hiện tại, để ô chọn báo ai đang nhận ngày khác
+  const paydayOf = useMemo(
+    () => new Map((staffPaydays ?? []).flatMap((r) => (r.dayOfMonth === null ? [] : [[r.userId, r.dayOfMonth] as const]))),
+    [staffPaydays],
+  );
 
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const selected = data?.days.find((d) => d.day === selectedDay) ?? null;
@@ -164,14 +187,25 @@ export default function LeavePage() {
     }
   };
 
-  const changePayday = async (row: StaffPaydayRow, dayOfMonth: number | null) => {
+  /** Admin xác nhận những người được chọn nhận lương vào ngày này (hằng tháng) */
+  const assignPaydays = async (day: string, userIds: number[]) => {
+    const dayOfMonth = Number(day.slice(8));
     try {
-      await setStaffPayday.mutateAsync({ userId: row.userId, dayOfMonth });
-      showToast(
-        dayOfMonth ? `Đã đặt ${row.fullName} nhận lương ngày ${dayOfMonth} hằng tháng.` : `Đã bỏ ngày nhận lương của ${row.fullName}.`,
-      );
+      await setStaffPaydays.mutateAsync({ userIds, dayOfMonth });
+      showToast(`Đã đặt ${userIds.length} người nhận lương ngày ${dayOfMonth} hằng tháng.`);
+      return true;
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không lưu được ngày nhận lương.')}`);
+      return false;
+    }
+  };
+
+  const removePayday = async (userId: number, fullName: string) => {
+    try {
+      await setStaffPayday.mutateAsync({ userId, dayOfMonth: null });
+      showToast(`Đã bỏ ngày nhận lương của ${fullName}.`);
+    } catch (err) {
+      showToast(`Lỗi: ${errText(err, 'Không bỏ được ngày nhận lương.')}`);
     }
   };
 
@@ -327,26 +361,6 @@ export default function LeavePage() {
         </Card>
       )}
 
-      {isAdmin && (
-        <Card title="Ngày nhận lương hằng tháng của nhân viên" className="mb-5">
-          {paydaysLoading ? (
-            <p className="text-sm text-slate-500">Đang tải...</p>
-          ) : staffPaydays.length === 0 ? (
-            <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có nhân viên đang làm.</p>
-          ) : (
-            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-              {staffPaydays.map((row) => (
-                <PaydayRow key={row.userId} row={row} busy={setStaffPayday.isPending} onSave={changePayday} />
-              ))}
-            </ul>
-          )}
-          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-            Nhập ngày trong tháng (1-31) rồi bấm Lưu. Tháng nào không có ngày đó (VD 31) thì tính vào ngày cuối tháng. Nhân viên
-            xem lịch nghỉ sẽ thấy ngày nào ai nhận lương.
-          </p>
-        </Card>
-      )}
-
       <Card title={`Bảng tổng hợp nghỉ ${monthLabel(month).toLowerCase()}`} className="mb-5">
         {summary.length === 0 ? (
           <p className="text-sm text-slate-500 dark:text-slate-400">Tháng này chưa có ai đăng ký nghỉ.</p>
@@ -439,47 +453,31 @@ export default function LeavePage() {
 
       {selected && (
         <Modal title={dayLabel(selected.day)} onClose={() => setSelectedDay(null)}>
-          <div className="space-y-4">
-            {selected.paydayPeople.length > 0 && <PaydayPanel people={selected.paydayPeople} meId={me?.id} />}
-            <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-800/50">
-              {selected.limit === 0 ? (
-                <b>Ngày này không nhận đăng ký nghỉ.</b>
-              ) : (
-                <>
-                  Đã có <b className="tnum">{selected.count}</b> / <b className="tnum">{selected.limit}</b> người nghỉ
-                  {selected.customLimit && <span className="text-blue-600 dark:text-blue-400"> (đã chỉnh riêng)</span>}.
-                </>
-              )}
-            </div>
-
-            {isAdmin ? (
-              <AdminDayPanel
-                day={selected}
-                today={today}
-                staff={activeStaff}
-                onRegisterStaff={(userId) => registerStaff(selected.day, userId)}
-                busy={removeLeave.isPending || setDayLimit.isPending || registerForStaff.isPending}
-                defaultLimit={isLateWeekDay(selected.day) ? data!.config.lateMax : data!.config.earlyMax}
-                onCancel={cancel}
-                onChangeLimit={changeLimit}
-              />
-            ) : (
-              <StaffDayPanel
-                day={selected}
-                today={today}
-                firstDay={staffFirstDay}
-                busy={registerLeave.isPending || removeLeave.isPending}
-                myDays={myDaysThisMonth}
-                quota={quota}
-                meId={me?.id}
-                onRegister={() => register(selected.day)}
-                onCancel={async (id) => {
-                  if (await cancel(id)) setSelectedDay(null);
-                }}
-              />
-            )}
-            <HistoryPanel day={selected.day} />
-          </div>
+          <DayDetail
+            day={selected}
+            today={today}
+            isAdmin={isAdmin}
+            meId={me?.id}
+            staffFirstDay={staffFirstDay}
+            myDays={myDaysThisMonth}
+            quota={quota}
+            defaultLimit={isLateWeekDay(selected.day) ? data!.config.lateMax : data!.config.earlyMax}
+            staff={activeStaff}
+            paydayOf={paydayOf}
+            busy={{
+              leave: registerLeave.isPending || removeLeave.isPending || registerForStaff.isPending,
+              limit: setDayLimit.isPending,
+              payday: setStaffPayday.isPending || setStaffPaydays.isPending,
+            }}
+            onRegister={() => register(selected.day)}
+            onRegisterStaff={(userId) => registerStaff(selected.day, userId)}
+            onCancel={async (id, closeAfter) => {
+              if ((await cancel(id)) && closeAfter) setSelectedDay(null);
+            }}
+            onChangeLimit={(max) => changeLimit(selected.day, max)}
+            onSetPaydays={(ids) => assignPaydays(selected.day, ids)}
+            onRemovePayday={removePayday}
+          />
         </Modal>
       )}
     </>
@@ -540,108 +538,6 @@ function DayCell({ d, dimBefore, onClick }: { d: LeaveDay; dimBefore: string; on
   );
 }
 
-function StaffDayPanel({
-  day,
-  today,
-  firstDay,
-  busy,
-  myDays,
-  quota,
-  meId,
-  onRegister,
-  onCancel,
-}: {
-  day: LeaveDay;
-  today: string;
-  /** Ngày sớm nhất được tự đăng ký nghỉ */
-  firstDay: string;
-  busy: boolean;
-  /** Số ngày bạn đã đăng ký nghỉ trong tháng đang xem */
-  myDays: number;
-  quota: number;
-  meId?: number;
-  onRegister: () => void;
-  onCancel: (requestId: number) => void;
-}) {
-  const [confirmOver, setConfirmOver] = useState(false);
-  const full = day.count >= day.limit;
-  const myRequest = day.mine ? day.people.find((p) => p.userId === meId) : undefined;
-  const myRequestId = myRequest?.requestId ?? null;
-  const canCancel = myRequestId !== null && day.day > today;
-  const wouldExceed = myDays >= quota;
-  let note: string | null = null;
-  if (day.mine) note = canCancel ? 'Bạn đã đăng ký nghỉ ngày này.' : 'Bạn đã đăng ký nghỉ ngày này (ngày đã tới nên không hủy được).';
-  else if (day.day < today) note = 'Ngày này đã qua, không đăng ký được.';
-  else if (day.day === today) note = 'Bạn chỉ tự đăng ký nghỉ được từ ngày kia trở đi. Nếu báo nghỉ đột xuất hôm nay, hãy báo quản lý để được ghi nhận.';
-  else if (day.day < firstDay)
-    note = 'Hôm nay đi làm thì không xin nghỉ ngày mai được, bạn chỉ tự đăng ký từ ngày kia trở đi. Cần nghỉ gấp hãy báo quản lý.';
-  else if (day.limit === 0) note = 'Quản lý đã khóa ngày này.';
-  else if (full) note = 'Ngày này đã đủ người nghỉ, bạn chọn ngày khác nhé.';
-
-  return (
-    <div className="space-y-3">
-      <div>
-        <div className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          Người đăng ký nghỉ ({day.people.length})
-        </div>
-        {day.people.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-            {day.people.map((p) => (
-              <li key={p.requestId ?? `auto-${p.userId}`} className="flex items-center gap-3 px-3 py-2">
-                <Avatar name={p.fullName} />
-                <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
-                  {p.fullName}
-                </span>
-                {p.urgent && <UrgentBadge />}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      {note && <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">{note}</p>}
-      {!day.mine && !note && wouldExceed && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
-          <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
-          <span>
-            Cảnh báo: bạn đã đăng ký nghỉ {myDays}/{quota} ngày trong tháng này. Đăng ký thêm sẽ vượt số ngày cho phép.
-          </span>
-        </div>
-      )}
-      <div className="flex justify-end gap-2">
-        {canCancel && myRequestId !== null && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onCancel(myRequestId)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-          >
-            <Trash size={15} weight="bold" />
-            Hủy đăng ký nghỉ
-          </button>
-        )}
-        {!day.mine && (
-          <button
-            type="button"
-            onClick={() => {
-              if (wouldExceed && !confirmOver) {
-                setConfirmOver(true);
-                return;
-              }
-              onRegister();
-            }}
-            disabled={!!note || busy}
-            className="btn-3d btn-3d-blue px-5 py-2.5 text-sm disabled:opacity-50"
-          >
-            {busy ? 'Đang đăng ký...' : wouldExceed && confirmOver ? 'Vẫn đăng ký (vượt số ngày)' : 'Đăng ký nghỉ ngày này'}
-          </button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 /** Nhãn nghỉ đột xuất, ghi bằng chữ để ai nhìn vào cũng hiểu */
 function UrgentBadge() {
   return (
@@ -651,93 +547,343 @@ function UrgentBadge() {
   );
 }
 
-function AdminDayPanel({
-  day,
-  today,
-  staff,
-  onRegisterStaff,
-  busy,
-  defaultLimit,
-  onCancel,
-  onChangeLimit,
+/** Bỏ dấu tiếng Việt để tìm "thanh" vẫn ra "Thành" */
+const fold = (s: string) =>
+  s
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+
+type Tone = 'violet' | 'emerald' | 'slate';
+const TONE: Record<Tone, { icon: string; ring: string }> = {
+  violet: {
+    icon: 'bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-300',
+    ring: 'border-violet-200 dark:border-violet-900/60',
+  },
+  emerald: {
+    icon: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    ring: 'border-emerald-200 dark:border-emerald-900/60',
+  },
+  slate: {
+    icon: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    ring: 'border-slate-200 dark:border-slate-700',
+  },
+};
+
+/** Một khối nội dung trong cửa sổ chi tiết ngày: biểu tượng + tiêu đề + nội dung */
+function Section({
+  icon,
+  title,
+  aside,
+  tone,
+  children,
 }: {
+  icon: React.ReactNode;
+  title: string;
+  aside?: React.ReactNode;
+  tone: Tone;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`rounded-xl border bg-white p-3.5 dark:bg-slate-900/40 ${TONE[tone].ring}`}>
+      <header className="mb-3 flex items-center gap-2.5">
+        <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONE[tone].icon}`}>{icon}</span>
+        <h3 className="min-w-0 flex-1 text-sm font-black text-slate-900 dark:text-white">{title}</h3>
+        {aside}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+/** Ô thống kê nhỏ ở đầu cửa sổ */
+function StatTile({ label, value, sub, tone }: { label: string; value: React.ReactNode; sub?: string; tone: string }) {
+  return (
+    <div className="min-w-0 flex-1 rounded-xl bg-slate-50 px-3 py-2.5 ring-1 ring-slate-200 dark:bg-slate-800/50 dark:ring-slate-700">
+      <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</div>
+      <div className={`tnum text-xl font-black leading-tight ${tone}`}>{value}</div>
+      {sub && <div className="truncate text-xs font-semibold text-slate-500 dark:text-slate-400">{sub}</div>}
+    </div>
+  );
+}
+
+function PersonRow({ name, children, sub }: { name: string; children?: React.ReactNode; sub?: React.ReactNode }) {
+  return (
+    <li className="flex items-center gap-3 py-2">
+      <Avatar name={name} />
+      <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
+        {name}
+        {sub && <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">{sub}</span>}
+      </span>
+      {children}
+    </li>
+  );
+}
+
+/** Nút xóa bấm 2 lần mới chạy, tránh bấm nhầm */
+function ConfirmRemoveButton({ label, busy, onConfirm }: { label: string; busy: boolean; onConfirm: () => void }) {
+  const [armed, setArmed] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={busy}
+      onClick={() => {
+        if (armed) {
+          setArmed(false);
+          onConfirm();
+        } else setArmed(true);
+      }}
+      onBlur={() => setArmed(false)}
+      className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+    >
+      <Trash size={13} weight="bold" />
+      {armed ? 'Bấm lần nữa' : label}
+    </button>
+  );
+}
+
+interface DayDetailProps {
   day: LeaveDay;
   today: string;
-  /** Nhân viên đang hoạt động để Admin chọn đăng ký hộ */
-  staff: Array<{ id: number; fullName: string }>;
-  onRegisterStaff: (userId: number) => void;
-  busy: boolean;
-  /** Giới hạn mặc định của nhóm ngày này (đầu tuần / cuối tuần) */
+  isAdmin: boolean;
+  meId?: number;
+  /** Ngày sớm nhất nhân viên được tự đăng ký */
+  staffFirstDay: string;
+  myDays: number;
+  quota: number;
   defaultLimit: number;
-  onCancel: (requestId: number) => void;
-  onChangeLimit: (day: string, max: number | null) => void;
-}) {
-  const [limitText, setLimitText] = useState(String(day.limit));
-  useEffect(() => setLimitText(String(day.limit)), [day.limit]);
-  const [confirmId, setConfirmId] = useState<number | null>(null);
-  const [pickId, setPickId] = useState('');
-  const people = day.people;
-  const registeredIds = new Set(people.map((p) => p.userId));
-  const available = staff.filter((u) => !registeredIds.has(u.id));
-  const isToday = day.day === today;
-  // Ngày đã qua chỉ để xem, Admin cũng không hủy hay chỉnh giới hạn được
+  staff: Array<{ id: number; fullName: string }>;
+  /** userId -> ngày nhận lương hằng tháng hiện tại */
+  paydayOf: Map<number, number>;
+  busy: { leave: boolean; limit: boolean; payday: boolean };
+  onRegister: () => void;
+  onRegisterStaff: (userId: number) => void;
+  onCancel: (requestId: number, closeAfter: boolean) => void;
+  onChangeLimit: (max: number | null) => void;
+  onSetPaydays: (userIds: number[]) => Promise<boolean>;
+  onRemovePayday: (userId: number, fullName: string) => void;
+}
+
+/** Nội dung cửa sổ khi bấm vào một ngày trên lịch */
+function DayDetail(p: DayDetailProps) {
+  const { day, today, isAdmin } = p;
   const past = day.day < today;
-  const parsed = Number(limitText);
-  const validLimit = limitText.trim() !== '' && Number.isInteger(parsed) && parsed >= 0 && parsed <= 100;
+  const locked = day.limit === 0;
+  const full = !locked && day.count >= day.limit;
+  const almost = !full && !locked && day.count >= day.limit - 1;
+  const leaveTone = locked || full ? 'text-rose-600 dark:text-rose-400' : almost ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400';
+  const leaveSub = locked ? 'Đã khóa ngày' : full ? 'Đã đủ người' : `Còn ${day.limit - day.count} chỗ`;
+  const tag = past ? 'Đã qua' : day.day === today ? 'Hôm nay' : isLateWeekDay(day.day) ? 'Cuối tuần (T6-CN)' : 'Đầu tuần (T2-T5)';
 
   return (
-    <>
-      <div>
-        <div className="mb-2 text-xs font-extrabold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-          Người đăng ký nghỉ ({people.length})
-        </div>
-        {people.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
-        ) : (
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
-            {people.map((p) => {
-              const requestId = p.requestId;
-              return (
-                <li key={requestId ?? `auto-${p.userId}`} className="flex items-center gap-3 px-3 py-2">
-                  <Avatar name={p.fullName} />
-                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">
-                    {p.fullName}
-                    {p.auto && (
-                      <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                        Không quẹt máy chấm công, hệ thống tự ghi nhận
-                      </span>
-                    )}
-                  </span>
-                  {p.urgent && <UrgentBadge />}
-                  {requestId !== null && !past && (
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => {
-                        if (confirmId === requestId) {
-                          setConfirmId(null);
-                          onCancel(requestId);
-                        } else {
-                          setConfirmId(requestId);
-                        }
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-xs font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
-                    >
-                      <Trash size={14} weight="bold" />
-                      {confirmId === requestId ? 'Bấm lần nữa để hủy' : 'Hủy'}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+    <div className="space-y-3.5">
+      <div className="flex items-center gap-2">
+        <span
+          className={`rounded-full px-2.5 py-0.5 text-xs font-extrabold ${
+            past
+              ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+              : isLateWeekDay(day.day)
+                ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300'
+                : 'bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300'
+          }`}
+        >
+          {tag}
+        </span>
+        {day.customLimit && (
+          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-extrabold text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">
+            Giới hạn chỉnh riêng
+          </span>
         )}
       </div>
 
-      {day.day >= today && (
-        <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-          <Field label={isToday ? 'Đăng ký nghỉ đột xuất cho nhân viên' : 'Đăng ký nghỉ cho nhân viên'}>
-            <select className="input-3d !h-10" value={pickId} onChange={(e) => setPickId(e.target.value)}>
+      <div className="flex gap-2.5">
+        <StatTile
+          label="Nghỉ phép"
+          value={locked ? <Lock size={20} weight="bold" className="mt-1" /> : `${day.count}/${day.limit}`}
+          sub={leaveSub}
+          tone={leaveTone}
+        />
+        <StatTile
+          label="Nhận lương"
+          value={day.paydayPeople.length}
+          sub={day.paydayPeople.length > 0 ? 'người nhận ngày này' : 'Không ai'}
+          tone={day.paydayPeople.length > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}
+        />
+      </div>
+
+      <Section
+        tone="violet"
+        icon={<CalendarBlank size={17} weight="bold" />}
+        title="Nghỉ phép"
+        aside={<span className="tnum text-xs font-extrabold text-slate-500">{day.people.length} người</span>}
+      >
+        {isAdmin ? <AdminLeaveBlock {...p} /> : <StaffLeaveBlock {...p} />}
+      </Section>
+
+      {(isAdmin || day.paydayPeople.length > 0) && (
+        <Section
+          tone="emerald"
+          icon={<Money size={17} weight="fill" />}
+          title={`Nhận lương ngày ${Number(day.day.slice(8))}`}
+          aside={<span className="tnum text-xs font-extrabold text-slate-500">{day.paydayPeople.length} người</span>}
+        >
+          {day.paydayPeople.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai nhận lương ngày này.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+              {day.paydayPeople.map((x) => (
+                <PersonRow key={x.userId} name={x.userId === p.meId ? `${x.fullName} (bạn)` : x.fullName}>
+                  {isAdmin && (
+                    <ConfirmRemoveButton label="Bỏ" busy={p.busy.payday} onConfirm={() => p.onRemovePayday(x.userId, x.fullName)} />
+                  )}
+                </PersonRow>
+              ))}
+            </ul>
+          )}
+          {isAdmin && (
+            <PaydayPicker
+              day={day}
+              staff={p.staff}
+              paydayOf={p.paydayOf}
+              busy={p.busy.payday}
+              onConfirm={p.onSetPaydays}
+            />
+          )}
+        </Section>
+      )}
+
+      {isAdmin && !past && (
+        <details className="group rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-700 dark:bg-slate-900/40">
+          <summary className="flex cursor-pointer list-none items-center gap-2.5">
+            <span className={`flex size-8 shrink-0 items-center justify-center rounded-lg ${TONE.slate.icon}`}>
+              <SlidersHorizontal size={17} weight="bold" />
+            </span>
+            <span className="flex-1 text-sm font-black text-slate-900 dark:text-white">Giới hạn số người nghỉ ngày này</span>
+            <CaretDown size={16} weight="bold" className="text-slate-400 transition-transform group-open:rotate-180" />
+          </summary>
+          <LimitEditor day={day} defaultLimit={p.defaultLimit} busy={p.busy.limit} onChange={p.onChangeLimit} />
+        </details>
+      )}
+
+      <HistoryPanel day={day.day} />
+    </div>
+  );
+}
+
+function StaffLeaveBlock({ day, today, staffFirstDay, meId, myDays, quota, busy, onRegister, onCancel }: DayDetailProps) {
+  const [confirmOver, setConfirmOver] = useState(false);
+  const full = day.count >= day.limit;
+  const myRequestId = day.mine ? (day.people.find((x) => x.userId === meId)?.requestId ?? null) : null;
+  const canCancel = myRequestId !== null && day.day > today;
+  const wouldExceed = myDays >= quota;
+  let note: string | null = null;
+  if (day.mine) note = canCancel ? 'Bạn đã đăng ký nghỉ ngày này.' : 'Bạn đã đăng ký nghỉ ngày này (ngày đã tới nên không hủy được).';
+  else if (day.day < today) note = 'Ngày này đã qua, không đăng ký được.';
+  else if (day.day === today) note = 'Hôm nay không tự đăng ký được. Nghỉ đột xuất hãy báo quản lý để được ghi nhận.';
+  else if (day.day < staffFirstDay) note = 'Hôm nay đi làm thì không xin nghỉ ngày mai được, bạn chỉ tự đăng ký từ ngày kia trở đi. Cần nghỉ gấp hãy báo quản lý.';
+  else if (day.limit === 0) note = 'Quản lý đã khóa ngày này.';
+  else if (full) note = 'Ngày này đã đủ người nghỉ, bạn chọn ngày khác nhé.';
+
+  return (
+    <>
+      {day.people.length === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+          {day.people.map((x) => (
+            <PersonRow key={x.requestId ?? `auto-${x.userId}`} name={x.userId === meId ? `${x.fullName} (bạn)` : x.fullName}>
+              {x.urgent && <UrgentBadge />}
+            </PersonRow>
+          ))}
+        </ul>
+      )}
+      {note && (
+        <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
+          {note}
+        </p>
+      )}
+      {!day.mine && !note && wouldExceed && (
+        <div className="mt-3 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm font-semibold text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <Warning size={18} weight="fill" className="mt-0.5 shrink-0" />
+          <span>
+            Bạn đã đăng ký nghỉ {myDays}/{quota} ngày trong tháng này. Đăng ký thêm sẽ vượt số ngày cho phép.
+          </span>
+        </div>
+      )}
+      {(canCancel || !day.mine) && (
+        <div className="mt-3 flex justify-end gap-2">
+          {canCancel && myRequestId !== null && (
+            <button
+              type="button"
+              disabled={busy.leave}
+              onClick={() => onCancel(myRequestId, true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-bold text-rose-700 disabled:opacity-50 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300"
+            >
+              <Trash size={15} weight="bold" />
+              Hủy đăng ký nghỉ
+            </button>
+          )}
+          {!day.mine && (
+            <button
+              type="button"
+              onClick={() => {
+                if (wouldExceed && !confirmOver) {
+                  setConfirmOver(true);
+                  return;
+                }
+                onRegister();
+              }}
+              disabled={!!note || busy.leave}
+              className="btn-3d btn-3d-blue px-5 py-2.5 text-sm disabled:opacity-50"
+            >
+              {busy.leave ? 'Đang đăng ký...' : wouldExceed && confirmOver ? 'Vẫn đăng ký (vượt số ngày)' : 'Đăng ký nghỉ ngày này'}
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function AdminLeaveBlock({ day, today, staff, busy, onRegisterStaff, onCancel }: DayDetailProps) {
+  const [pickId, setPickId] = useState('');
+  const past = day.day < today;
+  const isToday = day.day === today;
+  const registeredIds = new Set(day.people.map((x) => x.userId));
+  const available = staff.filter((u) => !registeredIds.has(u.id));
+
+  return (
+    <>
+      {day.people.length === 0 ? (
+        <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có ai đăng ký nghỉ ngày này.</p>
+      ) : (
+        <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+          {day.people.map((x) => (
+            <PersonRow
+              key={x.requestId ?? `auto-${x.userId}`}
+              name={x.fullName}
+              sub={x.auto ? 'Không quẹt máy chấm công, hệ thống tự ghi nhận' : undefined}
+            >
+              {x.urgent && <UrgentBadge />}
+              {x.requestId !== null && !past && (
+                <ConfirmRemoveButton label="Hủy" busy={busy.leave} onConfirm={() => onCancel(x.requestId!, false)} />
+              )}
+            </PersonRow>
+          ))}
+        </ul>
+      )}
+
+      {past ? (
+        <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Ngày đã qua, chỉ xem được.</p>
+      ) : (
+        <div className="mt-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
+          <div className="mb-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
+            {isToday ? 'Ghi nhận nghỉ đột xuất cho nhân viên' : 'Đăng ký nghỉ hộ nhân viên'}
+          </div>
+          <div className="flex gap-2">
+            <select className="input-3d !h-10 min-w-0 flex-1" value={pickId} onChange={(e) => setPickId(e.target.value)}>
               <option value="">Chọn nhân viên…</option>
               {available.map((u) => (
                 <option key={u.id} value={u.id}>
@@ -745,161 +891,216 @@ function AdminDayPanel({
                 </option>
               ))}
             </select>
-          </Field>
-          {isToday && (
-            <p className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-              Nhân viên báo nghỉ ngay hôm nay sẽ được ghi nhận là NGHỈ ĐỘT XUẤT, kể cả khi ngày đã đủ người.
-            </p>
-          )}
-          <div className="mt-3 flex justify-end">
             <button
               type="button"
-              disabled={busy || !pickId}
+              disabled={busy.leave || !pickId}
               onClick={() => {
                 onRegisterStaff(Number(pickId));
                 setPickId('');
               }}
-              className="btn-3d btn-3d-blue px-4 py-2 text-sm disabled:opacity-50"
+              className="btn-3d btn-3d-blue shrink-0 px-4 py-2 text-sm disabled:opacity-50"
             >
-              {isToday ? 'Ghi nhận nghỉ đột xuất' : 'Đăng ký nghỉ'}
+              {isToday ? 'Ghi nhận' : 'Đăng ký'}
             </button>
           </div>
-        </div>
-      )}
-
-      {past ? (
-        <p className="border-t border-slate-100 pt-4 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400">
-          Ngày này đã qua nên không đăng ký, hủy hay chỉnh giới hạn được nữa.
-        </p>
-      ) : (
-      <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-        <Field label="Số người được nghỉ tối đa riêng cho ngày này">
-          <input
-            type="number"
-            min={0}
-            max={100}
-            className="input-3d !h-10"
-            value={limitText}
-            onChange={(e) => setLimitText(e.target.value)}
-          />
-        </Field>
-        <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onChangeLimit(day.day, null)}
-            className="btn-3d btn-3d-white px-3.5 py-2 text-sm disabled:opacity-50"
-          >
-            Dùng mặc định
-          </button>
-          {day.limit === 0 ? (
-            <button
-              type="button"
-              disabled={busy}
-              // Mở khóa = về giới hạn mặc định; nếu mặc định cũng là 0 thì mở với 1 chỗ để ngày thật sự mở được
-              onClick={() =>
-                defaultLimit > 0
-                  ? onChangeLimit(day.day, null)
-                  : onChangeLimit(day.day, 1)
-              }
-              className="btn-3d btn-3d-blue inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
-            >
-              <LockOpen size={15} weight="bold" />
-              Mở khóa ngày
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => onChangeLimit(day.day, 0)}
-              className="btn-3d btn-3d-white inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
-            >
-              <Lock size={15} weight="bold" />
-              Khóa ngày
-            </button>
+          {isToday && (
+            <p className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
+              Báo nghỉ ngay hôm nay được tính là NGHỈ ĐỘT XUẤT, kể cả khi ngày đã đủ người.
+            </p>
           )}
-          <button
-            type="button"
-            disabled={busy || !validLimit}
-            onClick={() => onChangeLimit(day.day, parsed)}
-            className="btn-3d btn-3d-blue px-4 py-2 text-sm disabled:opacity-50"
-          >
-            Lưu giới hạn
-          </button>
         </div>
-      </div>
       )}
     </>
   );
 }
 
-/** Danh sách ai nhận lương trong ngày đang xem */
-function PaydayPanel({ people, meId }: { people: Array<{ userId: number; fullName: string }>; meId?: number }) {
+/** Admin tìm và chọn nhiều nhân viên rồi xác nhận cùng nhận lương vào ngày này (hằng tháng) */
+function PaydayPicker({
+  day,
+  staff,
+  paydayOf,
+  busy,
+  onConfirm,
+}: {
+  day: LeaveDay;
+  staff: Array<{ id: number; fullName: string }>;
+  paydayOf: Map<number, number>;
+  busy: boolean;
+  onConfirm: (userIds: number[]) => Promise<boolean>;
+}) {
+  const [query, setQuery] = useState('');
+  const [picked, setPicked] = useState<number[]>([]);
+  const dayNum = Number(day.day.slice(8));
+  const already = new Set(day.paydayPeople.map((x) => x.userId));
+  const candidates = staff.filter((u) => !already.has(u.id));
+  const q = fold(query.trim());
+  const shown = q ? candidates.filter((u) => fold(u.fullName).includes(q)) : candidates;
+  const nameOf = new Map(staff.map((u) => [u.id, u.fullName]));
+  const toggle = (id: number) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
+  const moving = picked.filter((id) => paydayOf.has(id)).length;
+
+  if (candidates.length === 0) {
+    return <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Tất cả nhân viên đã nhận lương ngày này.</p>;
+  }
+
   return (
-    <div className="rounded-lg bg-emerald-50 px-3 py-2.5 ring-1 ring-emerald-300 dark:bg-emerald-950/40 dark:ring-emerald-700">
-      <div className="mb-2 flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
-        <Money size={16} weight="fill" className="text-emerald-600 dark:text-emerald-400" />
-        Nhận lương ngày này ({people.length})
+    <div className="mt-3 rounded-lg bg-emerald-50/60 p-3 ring-1 ring-emerald-100 dark:bg-emerald-950/20 dark:ring-emerald-900/50">
+      <div className="mb-2 text-xs font-bold text-emerald-900 dark:text-emerald-200">Thêm người nhận lương ngày {dayNum} hằng tháng</div>
+      <div className="relative">
+        <MagnifyingGlass size={16} weight="bold" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <input
+          type="search"
+          className="input-3d !h-10 !pl-9"
+          placeholder="Tìm tên nhân viên…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
       </div>
-      <ul className="space-y-1.5">
-        {people.map((p) => (
-          <li key={p.userId} className="flex items-center gap-2.5">
-            <Avatar name={p.fullName} />
-            <span className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white">
-              {p.fullName}
-              {p.userId === meId && <span className="text-emerald-700 dark:text-emerald-300"> (bạn)</span>}
-            </span>
-          </li>
-        ))}
+
+      {picked.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {picked.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => toggle(id)}
+              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 py-1 pl-2.5 pr-1.5 text-xs font-bold text-white"
+              aria-label={`Bỏ chọn ${nameOf.get(id)}`}
+            >
+              {nameOf.get(id)}
+              <X size={12} weight="bold" />
+            </button>
+          ))}
+        </div>
+      )}
+
+      <ul className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
+        {shown.length === 0 ? (
+          <li className="px-3 py-3 text-center text-sm text-slate-500">Không tìm thấy nhân viên.</li>
+        ) : (
+          shown.map((u) => {
+            const on = picked.includes(u.id);
+            const current = paydayOf.get(u.id);
+            return (
+              <li key={u.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => toggle(u.id)}
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                    on ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span
+                    className={`flex size-5 shrink-0 items-center justify-center rounded-md border-2 ${
+                      on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                    }`}
+                  >
+                    {on && <Check size={12} weight="bold" />}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</span>
+                  {current !== undefined && (
+                    <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                      Đang nhận ngày {current}
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })
+        )}
       </ul>
+
+      {moving > 0 && (
+        <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
+          {moving} người đang nhận lương ngày khác sẽ được chuyển sang ngày {dayNum}.
+        </p>
+      )}
+      <div className="mt-3 flex items-center justify-end gap-2">
+        {picked.length > 0 && (
+          <button type="button" onClick={() => setPicked([])} className="btn-3d btn-3d-white px-3.5 py-2 text-sm">
+            Bỏ chọn
+          </button>
+        )}
+        <button
+          type="button"
+          disabled={busy || picked.length === 0}
+          onClick={async () => {
+            if (await onConfirm(picked)) {
+              setPicked([]);
+              setQuery('');
+            }
+          }}
+          className="btn-3d btn-3d-green inline-flex items-center gap-1.5 px-4 py-2 text-sm disabled:opacity-50"
+        >
+          <Check size={15} weight="bold" />
+          {busy ? 'Đang lưu...' : `Xác nhận${picked.length > 0 ? ` (${picked.length})` : ''}`}
+        </button>
+      </div>
     </div>
   );
 }
 
-/** Một dòng cấu hình ngày nhận lương của nhân viên (Admin) */
-function PaydayRow({
-  row,
+function LimitEditor({
+  day,
+  defaultLimit,
   busy,
-  onSave,
+  onChange,
 }: {
-  row: StaffPaydayRow;
+  day: LeaveDay;
+  defaultLimit: number;
   busy: boolean;
-  onSave: (row: StaffPaydayRow, dayOfMonth: number | null) => void;
+  onChange: (max: number | null) => void;
 }) {
-  const saved = row.dayOfMonth === null ? '' : String(row.dayOfMonth);
-  const [text, setText] = useState(saved);
-  useEffect(() => setText(saved), [saved]);
+  const [text, setText] = useState(String(day.limit));
+  useEffect(() => setText(String(day.limit)), [day.limit]);
   const n = Number(text);
-  const valid = text.trim() === '' || (Number.isInteger(n) && n >= 1 && n <= 31);
-  const dirty = text.trim() !== saved;
+  const valid = text.trim() !== '' && Number.isInteger(n) && n >= 0 && n <= 100;
 
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
-      <div className="flex min-w-0 flex-1 items-center gap-2.5">
-        <Avatar name={row.fullName} />
-        <span className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white">{row.fullName}</span>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ngày</span>
-        <input
-          type="number"
-          min={1}
-          max={31}
-          placeholder="—"
-          className={`input-3d !h-9 !w-20 text-center ${valid ? '' : '!border-rose-400'}`}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-        />
+    <div className="mt-3 space-y-3">
+      <div className="flex items-end gap-2">
+        <div className="min-w-0 flex-1">
+          <Field label={`Số người nghỉ tối đa (mặc định ${defaultLimit})`}>
+            <input type="number" min={0} max={100} className="input-3d !h-10" value={text} onChange={(e) => setText(e.target.value)} />
+          </Field>
+        </div>
         <button
           type="button"
-          disabled={busy || !dirty || !valid}
-          onClick={() => onSave(row, text.trim() === '' ? null : n)}
-          className="btn-3d btn-3d-blue px-3.5 py-1.5 text-sm disabled:opacity-50"
+          disabled={busy || !valid}
+          onClick={() => onChange(n)}
+          className="btn-3d btn-3d-blue shrink-0 px-4 py-2 text-sm disabled:opacity-50"
         >
           Lưu
         </button>
       </div>
-    </li>
+      <div className="flex flex-wrap justify-end gap-2">
+        <button type="button" disabled={busy} onClick={() => onChange(null)} className="btn-3d btn-3d-white px-3.5 py-2 text-sm disabled:opacity-50">
+          Dùng mặc định
+        </button>
+        {day.limit === 0 ? (
+          <button
+            type="button"
+            disabled={busy}
+            // Mở khóa = về mặc định; nếu mặc định cũng là 0 thì mở với 1 chỗ để ngày thật sự mở được
+            onClick={() => onChange(defaultLimit > 0 ? null : 1)}
+            className="btn-3d btn-3d-blue inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+          >
+            <LockOpen size={15} weight="bold" />
+            Mở khóa ngày
+          </button>
+        ) : (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => onChange(0)}
+            className="btn-3d btn-3d-white inline-flex items-center gap-1.5 px-3.5 py-2 text-sm disabled:opacity-50"
+          >
+            <Lock size={15} weight="bold" />
+            Khóa ngày
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

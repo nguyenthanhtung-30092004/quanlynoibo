@@ -11,6 +11,7 @@ import {
   SaveLeaveConfigDto,
   SetDayLimitDto,
   SetStaffPaydayDto,
+  SetStaffPaydaysDto,
 } from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
@@ -90,6 +91,17 @@ export class LeaveController {
       statusCode: HttpStatus.OK,
       message: dto.dayOfMonth ? 'Đã lưu ngày nhận lương' : 'Đã bỏ ngày nhận lương',
       data: await this.leaveService.setStaffPayday(dto.userId, dto.dayOfMonth ?? null),
+    };
+  }
+
+  /** Admin chọn nhiều nhân viên cùng nhận lương vào một ngày trong tháng (ai đã có ngày khác thì chuyển sang ngày này) */
+  @Put('paydays')
+  @Roles(UserRole.ADMIN)
+  async setPaydays(@Body() dto: SetStaffPaydaysDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: `Đã đặt ngày nhận lương cho ${dto.userIds.length} nhân viên`,
+      data: await this.leaveService.setStaffPaydays(dto.userIds, dto.dayOfMonth),
     };
   }
 

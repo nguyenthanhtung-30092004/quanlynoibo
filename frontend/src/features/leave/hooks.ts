@@ -78,3 +78,12 @@ export function useSetStaffPayday() {
     onSuccess: invalidate,
   });
 }
+
+export function useSetStaffPaydays() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ userIds, dayOfMonth }: { userIds: number[]; dayOfMonth: number }) =>
+      leaveApi.setStaffPaydays(userIds, dayOfMonth),
+    onSuccess: invalidate,
+  });
+}
