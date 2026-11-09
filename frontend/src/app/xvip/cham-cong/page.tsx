@@ -12,6 +12,7 @@ import {
   useDayLog,
   useSetAttendanceOverride,
   useSetShiftOverride,
+  useSetTimeOverride,
 } from '@/features/attendance/hooks';
 import { durationText, overtimeText } from '@/features/attendance/format';
 import { ShiftSelect } from '@/features/attendance/ShiftSelect';
@@ -72,6 +73,25 @@ const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 /** Lịch trên điện thoại bắt đầu từ thứ Hai */
 const WEEKDAY_MON_FIRST = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
+/** ISO -> "07:30" (giờ VN, 24 giờ) cho ô nhập giờ */
+const toHHMM = (iso: string | null) => {
+  if (!iso) return '';
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+    timeZone: 'Asia/Ho_Chi_Minh',
+  }).formatToParts(new Date(iso));
+  const get = (t: string) => parts.find((x) => x.type === t)?.value ?? '00';
+  return `${get('hour')}:${get('minute')}`;
+};
+/** "07:30" -> 450 phút; rỗng -> null */
+const toMinute = (hhmm: string) => {
+  if (!hhmm) return null;
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+
 const formatTime = (isoString: string) => {
   try {
     const d = new Date(isoString);
@@ -104,8 +124,15 @@ function CellDetail({ cell }: { cell: AttendanceDayCell }) {
     <div className="rounded-xl bg-slate-50 px-3.5 py-1 dark:bg-slate-800/50">
       {detailed ? (
         <div className="divide-y divide-slate-200 dark:divide-slate-700">
-          <InfoRow label="Giờ vào">{formatTime(cell.firstAt!)}</InfoRow>
-          <InfoRow label="Giờ ra">{formatTime(cell.lastAt!)}</InfoRow>
+          {cell.timeEdited && (
+            <InfoRow label="Máy chấm công ghi">
+              <span className="text-slate-500 line-through decoration-slate-400">
+                {cell.punchFirstAt ? formatTime(cell.punchFirstAt) : '—'} → {cell.punchLastAt ? formatTime(cell.punchLastAt) : '—'}
+              </span>
+            </InfoRow>
+          )}
+          <InfoRow label={cell.timeEdited ? 'Giờ vào (Admin sửa)' : 'Giờ vào'}>{formatTime(cell.firstAt!)}</InfoRow>
+          <InfoRow label={cell.timeEdited ? 'Giờ ra (Admin sửa)' : 'Giờ ra'}>{formatTime(cell.lastAt!)}</InfoRow>
           <InfoRow label="Ca làm">{cell.shift}</InfoRow>
           <InfoRow label="Thời gian tính">{durationText(cell.minutes)}</InfoRow>
           {cell.overtimeHours > 0 && (
@@ -218,27 +245,63 @@ export default function AttendancePage() {
   const [editing, setEditing] = useState<{ staff: AttendanceStaff; day: string } | null>(null);
   const [editCong, setEditCong] = useState('auto');
   const [editNote, setEditNote] = useState('');
-  const openEdit = (staff: AttendanceStaff, day: string) => {
-    const cell = staff.days[day];
-    setEditing({ staff, day });
+  // Giờ vào / ra / ca Admin sửa khi máy chấm công ghi chưa đúng
+  const [editIn, setEditIn] = useState('');
+  const [editOut, setEditOut] = useState('');
+  const [editShift, setEditShift] = useState('auto');
+  const setTime = useSetTimeOverride();
+  const fillForm = (cell: AttendanceDayCell | undefined) => {
     setEditCong(cell?.overridden ? String(cell.cong) : 'auto');
     setEditNote(cell?.note ?? '');
+    setEditIn(toHHMM(cell?.firstAt ?? null));
+    setEditOut(toHHMM(cell?.lastAt ?? null));
+    setEditShift(cell?.shiftSource === 'forced' && cell.shiftStart !== null ? String(cell.shiftStart) : 'auto');
   };
-  const submitEdit = async () => {
+  const openEdit = (staff: AttendanceStaff, day: string) => {
+    setEditing({ staff, day });
+    fillForm(staff.days[day]);
+  };
+  /** Lưu mọi thay đổi trong form, rồi giữ cửa sổ mở để Admin thấy ngay kết quả hệ thống tính lại */
+  const submitEdit = async (revertTimes = false) => {
     if (!editing) return;
+    const cell = editingCell;
+    const userId = editing.staff.id;
+    const day = editing.day;
+    const inMinute = revertTimes ? null : toMinute(editIn);
+    const outMinute = revertTimes ? null : toMinute(editOut);
+    const timesChanged = revertTimes || editIn !== toHHMM(cell?.firstAt ?? null) || editOut !== toHHMM(cell?.lastAt ?? null);
+    if (!revertTimes && inMinute !== null && outMinute !== null && outMinute <= inMinute) {
+      showToast('Lỗi: giờ ra phải sau giờ vào.');
+      return;
+    }
+    const prevShift = cell?.shiftSource === 'forced' && cell.shiftStart !== null ? String(cell.shiftStart) : 'auto';
+    const prevCong = cell?.overridden ? String(cell.cong) : 'auto';
+    const congChanged = editCong !== prevCong || editNote.trim() !== (cell?.note ?? '');
     try {
-      await setOverride.mutateAsync({
-        userId: editing.staff.id,
-        day: editing.day,
-        cong: editCong === 'auto' ? null : Number(editCong),
-        note: editNote.trim() || undefined,
-      });
-      showToast(editCong === 'auto' ? 'Đã bỏ chỉnh tay, quay về số công tự tính.' : 'Đã chỉnh công.');
-      setEditing(null);
+      if (timesChanged) await setTime.mutateAsync({ userId, day, inMinute, outMinute });
+      if (editShift !== prevShift) {
+        await setShift.mutateAsync({ userId, day, shiftStart: editShift === 'auto' ? null : Number(editShift) });
+      }
+      if (congChanged) {
+        await setOverride.mutateAsync({
+          userId,
+          day,
+          cong: editCong === 'auto' ? null : Number(editCong),
+          note: editNote.trim() || undefined,
+        });
+      }
+      const fresh = (await refetch()).data?.staff.find((s) => s.id === userId)?.days[day];
+      fillForm(fresh);
+      showToast(
+        fresh
+          ? `Đã lưu. Hệ thống tính lại: ${congText(fresh.autoCong)} công${fresh.overridden ? ` (đang chỉnh tay ${congText(fresh.cong)} công)` : ''}.`
+          : 'Đã lưu.',
+      );
     } catch (err) {
-      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không chỉnh được công.'}`);
+      showToast(`Lỗi: ${err instanceof ApiError ? err.message : 'Không lưu được.'}`);
     }
   };
+  const savingEdit = setOverride.isPending || setTime.isPending || setShift.isPending;
 
   // Chi tiết cả ngày: bấm vào tiêu đề cột ngày để xem mọi nhân viên vào/ra ca nào, muộn hay không
   const [dayDetail, setDayDetail] = useState<string | null>(null);
@@ -283,7 +346,8 @@ export default function AttendancePage() {
   }, [data]);
 
   const today = getVnToday();
-  const editingCell = editing ? editing.staff.days[editing.day] : undefined;
+  // Lấy từ dữ liệu mới nhất để sau khi lưu thấy ngay kết quả tính lại
+  const editingCell = editing ? data?.staff.find((s) => s.id === editing.staff.id)?.days[editing.day] : undefined;
   // Ngày 1 rơi vào thứ mấy (thứ Hai = 0) để lịch trên điện thoại chừa đúng số ô trống đầu tháng
   const leadingBlanks = days[0] ? (days[0].weekday + 6) % 7 : 0;
 
@@ -386,9 +450,9 @@ export default function AttendancePage() {
       {/* Tình hình đi làm hôm nay theo lượt quẹt máy chấm công: chưa quẹt, đang làm, đã quẹt ra */}
       <Card
         className="mt-5"
-        title={`Hôm nay · đang làm ${workingCount} · đã ra ca ${doneCount} · ${staffToday.length} nhân viên`}
+        title={isAdmin ? `Hôm nay · đang làm ${workingCount} · đã ra ca ${doneCount} · ${staffToday.length} nhân viên` : undefined}
         action={
-          <div
+          isAdmin && <div
             className={`flex items-center gap-1.5 text-xs font-bold ${
               live ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'
             }`}
@@ -697,7 +761,8 @@ export default function AttendancePage() {
         )}
       </Card>
 
-      {/* Quy tắc chấm công */}
+      {/* Quy tắc chấm công: chỉ Admin xem */}
+      {isAdmin && (
       <Card className="mt-5" title="Quy tắc tính công theo ca">
         <div className="space-y-4">
             <div className="space-y-2 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -749,6 +814,7 @@ export default function AttendancePage() {
             </div>
           </div>
       </Card>
+      )}
 
       {dayDetail && (
         <Modal
@@ -825,6 +891,44 @@ export default function AttendancePage() {
                 Ngày này chưa có dữ liệu chấm công.
               </div>
             )}
+            <div className="rounded-xl border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900/60 dark:bg-blue-950/20">
+              <div className="mb-2 text-xs font-black uppercase tracking-wider text-blue-800 dark:text-blue-300">
+                Sửa giờ khi máy chấm chưa đúng
+              </div>
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+                <Field label="Giờ vào">
+                  <input type="time" className="input-3d !h-10" value={editIn} onChange={(e) => setEditIn(e.target.value)} />
+                </Field>
+                <Field label="Giờ ra">
+                  <input type="time" className="input-3d !h-10" value={editOut} onChange={(e) => setEditOut(e.target.value)} />
+                </Field>
+                <div className="col-span-2 sm:col-span-1">
+                  <Field label="Ca làm">
+                    <select className="input-3d !h-10" value={editShift} onChange={(e) => setEditShift(e.target.value)}>
+                      <option value="auto">Tự đoán</option>
+                      {shiftOptions.map((sh) => (
+                        <option key={sh.startMinute} value={sh.startMinute}>
+                          {sh.label}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </div>
+              <p className="mt-2 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+                Bấm Lưu là hệ thống tự tính lại công, đi muộn và tăng ca theo giờ mới. Lượt quẹt gốc của máy vẫn được giữ để đối chiếu.
+              </p>
+              {editingCell?.timeEdited && (
+                <button
+                  type="button"
+                  disabled={savingEdit}
+                  onClick={() => submitEdit(true)}
+                  className="mt-2 text-xs font-bold text-blue-700 underline disabled:opacity-50 dark:text-blue-300"
+                >
+                  Bỏ sửa, quay về giờ của máy chấm công
+                </button>
+              )}
+            </div>
             <Field label="Số công của ngày này">
               <select className="input-3d !h-10" value={editCong} onChange={(e) => setEditCong(e.target.value)}>
                 <option value="auto">Tự tính theo giờ làm (không chỉnh tay)</option>
@@ -846,15 +950,15 @@ export default function AttendancePage() {
             </Field>
             <div className="flex items-center justify-end gap-2.5 border-t border-slate-100 pt-3 dark:border-slate-800">
               <button type="button" onClick={() => setEditing(null)} className="btn-3d btn-3d-white px-4 py-2 text-sm">
-                Hủy
+                Đóng
               </button>
               <button
                 type="button"
-                onClick={submitEdit}
-                disabled={setOverride.isPending}
+                onClick={() => submitEdit()}
+                disabled={savingEdit}
                 className="btn-3d btn-3d-blue px-5 py-2 text-sm disabled:opacity-50"
               >
-                {setOverride.isPending ? 'Đang lưu...' : 'Lưu'}
+                {savingEdit ? 'Đang lưu...' : 'Lưu và tính lại'}
               </button>
             </div>
           </div>

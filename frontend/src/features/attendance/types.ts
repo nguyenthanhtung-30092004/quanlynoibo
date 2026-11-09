@@ -57,6 +57,11 @@ export interface AttendanceDayCell {
   shiftSource: 'auto' | 'default' | 'forced' | null;
   /** Cách hiểu ca khác cho số giờ tăng ca khác, cần Admin xem lại; null nếu không mập mờ */
   alternative: { shiftStart: number; shift: string; overtimeHours: number } | null;
+  /** Admin đã sửa giờ vào / giờ ra (firstAt / lastAt là giờ đã sửa) */
+  timeEdited: boolean;
+  /** Giờ vào / ra gốc theo máy chấm công */
+  punchFirstAt: string | null;
+  punchLastAt: string | null;
 }
 
 export interface AttendanceStaff {

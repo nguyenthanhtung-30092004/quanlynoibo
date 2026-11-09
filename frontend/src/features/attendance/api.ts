@@ -31,6 +31,10 @@ export const attendanceApi = {
   setShiftOverride: (input: { userId: number; day: string; shiftStart: number | null }) =>
     api<ApiResponse<{ ok: boolean }>>('attendance/shift-override', { method: 'PUT', body: input }).then((r) => r.data),
 
+  /** Admin sửa giờ vào / ra (phút trong ngày, giờ VN); null = lấy theo máy chấm công */
+  setTimeOverride: (input: { userId: number; day: string; inMinute: number | null; outMinute: number | null }) =>
+    api<ApiResponse<{ ok: boolean }>>('attendance/time-override', { method: 'PUT', body: input }).then((r) => r.data),
+
   /** Ca mặc định của nhân viên (shiftStart null = bỏ) */
   setDefaultShift: (input: { userId: number; shiftStart: number | null }) =>
     api<ApiResponse<{ ok: boolean }>>('attendance/default-shift', { method: 'PUT', body: input }).then((r) => r.data),

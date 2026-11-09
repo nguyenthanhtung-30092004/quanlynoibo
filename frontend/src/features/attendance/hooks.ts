@@ -63,3 +63,13 @@ export function useOnlineUsers(enabled = true) {
     refetchOnWindowFocus: true,
   });
 }
+
+/** Admin sửa giờ vào / ra; tải lại mọi số liệu chấm công để hệ thống tính lại công, muộn, tăng ca */
+export function useSetTimeOverride() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { userId: number; day: string; inMinute: number | null; outMinute: number | null }) =>
+      attendanceApi.setTimeOverride(input),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['attendance'] }),
+  });
+}

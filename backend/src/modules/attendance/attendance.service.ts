@@ -7,6 +7,7 @@ import { RealtimeService } from '../realtime/realtime.service.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import {
   AUTO_CLOSE_MINUTE,
+  applyTimeOverride,
   DEFAULT_ATTENDANCE_CONFIG,
   PUNCH_COOLDOWN_SECONDS,
   decidePunch,
@@ -71,6 +72,11 @@ export interface AttendanceDayCell {
   shiftSource: ShiftSource | null;
   /** Cách hiểu ca khác cho số giờ tăng ca khác, cần Admin xem lại; null nếu không mập mờ */
   alternative: { shiftStart: number; shift: string; overtimeHours: number } | null;
+  /** Admin đã sửa giờ vào / giờ ra của ngày này (firstAt / lastAt là giờ đã sửa) */
+  timeEdited: boolean;
+  /** Giờ vào / ra gốc theo máy chấm công, để đối chiếu khi đã sửa */
+  punchFirstAt: string | null;
+  punchLastAt: string | null;
 }
 
 /** Admin xem được mọi nhân viên; người khác chỉ xem được chính mình (không lộ công của đồng nghiệp) */
@@ -275,8 +281,13 @@ export class AttendanceService {
     // Lượt hệ thống tự chấm ra lúc 23:59 không phải lượt quẹt thật: chỉ dùng để biết người đó đã bị tự chấm ra
     const autoClosedBy = new Set(punchRows.filter((p) => p.auto).map((p) => p.userId));
     const punches = punchRows.filter((p) => !p.auto);
-    const overrides: Array<{ userId: number; overrideCong: string | null }> = await this.dataSource.query(
-      `SELECT "userId", "overrideCong" FROM "attendance_days" WHERE "day" = $1`,
+    const overrides: Array<{
+      userId: number;
+      overrideCong: string | null;
+      overrideIn: number | null;
+      overrideOut: number | null;
+    }> = await this.dataSource.query(
+      `SELECT "userId", "overrideCong", "overrideIn", "overrideOut" FROM "attendance_days" WHERE "day" = $1`,
       [target],
     );
 
@@ -287,6 +298,7 @@ export class AttendanceService {
       punchesBy.set(p.userId, list);
     }
     const overrideBy = new Map(overrides.map((o) => [o.userId, o.overrideCong]));
+    const timeBy = new Map(overrides.map((o) => [o.userId, o]));
     const [defaultShifts, shiftOverrides] = await Promise.all([
       this.loadShiftMap(DEFAULT_SHIFT_KEY),
       this.loadShiftMap(shiftOverrideKey(target.slice(0, 7))),
@@ -297,13 +309,22 @@ export class AttendanceService {
       shifts: SHIFTS.map((sh) => ({ startMinute: sh.startMinute, label: sh.label })),
       staff: staff.map((u) => {
         const list = punchesBy.get(u.id) ?? [];
-        const result = evaluateDay(
+        const t = timeBy.get(u.id);
+        const span = applyTimeOverride(
+          target,
           {
             firstAt: list[0] ?? null,
             lastAt: list[list.length - 1] ?? null,
             punchCount: list.length,
-            isToday: target === today,
             autoClosed: autoClosedBy.has(u.id),
+          },
+          t?.overrideIn,
+          t?.overrideOut,
+        );
+        const result = evaluateDay(
+          {
+            ...span,
+            isToday: target === today,
             forcedShiftStart: shiftOverrides[`${u.id}|${target}`],
             defaultShiftStart: defaultShifts[String(u.id)],
           },
@@ -323,8 +344,8 @@ export class AttendanceService {
           earlyLeaveMinutes: result.earlyLeaveMinutes,
           overtimeMinutes: result.overtimeMinutes,
           overtimeHours: result.overtimeHours,
-          firstAt: list[0] ? list[0].toISOString() : null,
-          lastAt: list.length > 1 ? list[list.length - 1].toISOString() : null,
+          firstAt: span.firstAt ? span.firstAt.toISOString() : null,
+          lastAt: span.punchCount > 1 && span.lastAt ? span.lastAt.toISOString() : null,
           punches: list.map((d) => d.toISOString()),
         };
       }),
@@ -404,10 +425,12 @@ export class AttendanceService {
       legacyMinutes: string;
       overrideCong: string | null;
       overrideNote: string | null;
+      overrideIn: number | null;
+      overrideOut: number | null;
     }> = await this.dataSource.query(
       `SELECT "userId", to_char("day", 'YYYY-MM-DD') AS "day",
               ${LEGACY_MINUTES_SQL} AS "legacyMinutes",
-              "overrideCong", "overrideNote"
+              "overrideCong", "overrideNote", "overrideIn", "overrideOut"
          FROM "attendance_days"
         WHERE "day" >= $1 AND "day" <= $2`,
       [from, to],
@@ -430,15 +453,26 @@ export class AttendanceService {
       const p = punchBy.get(k);
       const d = dayBy.get(k);
 
+      const timeEdited = d?.overrideIn != null || d?.overrideOut != null;
+      // Giờ vào / ra đang dùng để tính công: theo máy chấm công, hoặc giờ Admin đã sửa
+      const span = applyTimeOverride(
+        day,
+        {
+          firstAt: p && Number(p.n) > 0 ? new Date(p.firstAt) : null,
+          lastAt: p && Number(p.n) > 0 ? new Date(p.lastAt) : null,
+          punchCount: p ? Number(p.n) : 0,
+          autoClosed: p?.autoClosed ?? false,
+        },
+        d?.overrideIn,
+        d?.overrideOut,
+      );
+
       let result: DayResult;
-      if (p && Number(p.n) > 0) {
+      if (span.punchCount > 0) {
         result = evaluateDay(
           {
-            firstAt: new Date(p.firstAt),
-            lastAt: new Date(p.lastAt),
-            punchCount: Number(p.n),
+            ...span,
             isToday: day === today,
-            autoClosed: p.autoClosed,
             forcedShiftStart: shiftOverrides[k],
             defaultShiftStart: defaultShifts[String(userId)],
           },
@@ -472,8 +506,8 @@ export class AttendanceService {
         note: d?.overrideNote ?? '',
         status: result.status,
         shift: result.shift?.label ?? null,
-        firstAt: p ? new Date(p.firstAt).toISOString() : null,
-        lastAt: p && Number(p.n) > 1 ? new Date(p.lastAt).toISOString() : null,
+        firstAt: span.firstAt ? span.firstAt.toISOString() : null,
+        lastAt: span.punchCount > 1 && span.lastAt ? span.lastAt.toISOString() : null,
         lateMinutes: result.lateMinutes,
         earlyLeaveMinutes: result.earlyLeaveMinutes,
         overtimeMinutes: result.overtimeMinutes,
@@ -487,6 +521,9 @@ export class AttendanceService {
               overtimeHours: result.alternative.overtimeHours,
             }
           : null,
+        timeEdited,
+        punchFirstAt: p && Number(p.n) > 0 ? new Date(p.firstAt).toISOString() : null,
+        punchLastAt: p && Number(p.n) > 1 ? new Date(p.lastAt).toISOString() : null,
       };
       byUser.set(userId, cells);
     }
@@ -511,6 +548,36 @@ export class AttendanceService {
         };
       }),
     };
+  }
+
+  /**
+   * Admin sửa giờ vào / giờ ra của một ngày (phút trong ngày, giờ VN); null = lấy theo máy chấm công.
+   * Không đụng tới lượt quẹt gốc; công, đi muộn, tăng ca được tính lại từ giờ đã sửa.
+   */
+  async setTimeOverride(
+    adminId: number,
+    userId: number,
+    day: string,
+    inMinute: number | null,
+    outMinute: number | null,
+  ) {
+    const target = await this.users.findOne({ where: { id: userId, role: UserRole.STAFF, deletedAt: IsNull() } });
+    if (!target) throw new BadRequestException('Không tìm thấy nhân viên.');
+    if (inMinute !== null && outMinute !== null && outMinute <= inMinute) {
+      throw new BadRequestException('Giờ ra phải sau giờ vào.');
+    }
+    if (day > vietnamClock().day) {
+      throw new BadRequestException('Không sửa giờ chấm công cho ngày chưa tới.');
+    }
+    await this.dataSource.query(
+      `INSERT INTO "attendance_days" ("userId", "day", "overrideIn", "overrideOut", "overrideBy")
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT ("userId", "day")
+       DO UPDATE SET "overrideIn" = EXCLUDED."overrideIn", "overrideOut" = EXCLUDED."overrideOut", "overrideBy" = EXCLUDED."overrideBy"`,
+      [userId, day, inMinute, outMinute, adminId],
+    );
+    this.realtime?.emit({ topic: 'attendance', actorId: adminId });
+    return { ok: true };
   }
 
   /** Admin chỉnh tay số công một ngày (null = bỏ chỉnh tay), có ghi chú để đối chiếu khi khiếu nại */

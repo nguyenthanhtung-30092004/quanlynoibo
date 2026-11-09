@@ -143,6 +143,8 @@ export default function LeavePage() {
     >();
     for (const d of data?.days ?? []) {
       for (const p of d.people) {
+        // Nhân viên chỉ xem được tổng hợp nghỉ của chính mình
+        if (!isAdmin && p.userId !== me?.id) continue;
         const cur = byUser.get(p.userId) ?? { userId: p.userId, fullName: p.fullName, days: 0, urgent: 0, dates: [] };
         cur.days += 1;
         if (p.urgent) cur.urgent += 1;
@@ -151,7 +153,7 @@ export default function LeavePage() {
       }
     }
     return [...byUser.values()].sort((a, b) => b.days - a.days || a.fullName.localeCompare(b.fullName, 'vi'));
-  }, [data]);
+  }, [data, isAdmin, me?.id]);
   const totalLeave = summary.reduce((n, s) => n + s.days, 0);
   const totalUrgent = summary.reduce((n, s) => n + s.urgent, 0);
   const quota = data?.quota ?? 4;
@@ -336,7 +338,9 @@ export default function LeavePage() {
 
       <Card title={`Bảng tổng hợp nghỉ ${monthLabel(month).toLowerCase()}`} className="mb-5">
         {summary.length === 0 ? (
-          <p className="text-sm text-slate-500 dark:text-slate-400">Tháng này chưa có ai đăng ký nghỉ.</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            {isAdmin ? 'Tháng này chưa có ai đăng ký nghỉ.' : 'Tháng này bạn chưa có ngày nghỉ nào.'}
+          </p>
         ) : (
           <>
             <div className="mb-3 flex flex-wrap gap-2 text-sm">

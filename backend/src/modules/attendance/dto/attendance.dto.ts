@@ -64,3 +64,25 @@ export class AttendanceDefaultShiftDto {
   @Max(1439)
   shiftStart?: number | null;
 }
+
+export class AttendanceTimeOverrideDto {
+  @IsInt({ message: 'Mã nhân viên không hợp lệ' })
+  userId: number;
+
+  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
+  day: string;
+
+  /** Giờ vào (phút trong ngày, giờ VN); null = lấy theo máy chấm công */
+  @IsOptional()
+  @IsInt({ message: 'Giờ vào không hợp lệ' })
+  @Min(0)
+  @Max(1439)
+  inMinute?: number | null;
+
+  /** Giờ ra (phút trong ngày, giờ VN); null = lấy theo máy chấm công */
+  @IsOptional()
+  @IsInt({ message: 'Giờ ra không hợp lệ' })
+  @Min(0)
+  @Max(1439)
+  outMinute?: number | null;
+}

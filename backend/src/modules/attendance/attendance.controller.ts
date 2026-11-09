@@ -30,6 +30,7 @@ import {
   AttendanceMonthQueryDto,
   AttendanceOverrideDto,
   AttendanceShiftOverrideDto,
+  AttendanceTimeOverrideDto,
   SaveAttendanceConfigDto,
 } from './dto/attendance.dto.js';
 
@@ -132,6 +133,23 @@ export class AttendanceController {
       statusCode: HttpStatus.OK,
       message: 'Đã chỉnh công',
       data: await this.attendanceService.setOverride(user.sub, dto.userId, dto.day, dto.cong ?? null, dto.note),
+    };
+  }
+
+  /** Admin sửa giờ vào / giờ ra khi máy chấm công ghi chưa đúng; hệ thống tự tính lại công, muộn, tăng ca */
+  @Put('time-override')
+  @Roles(UserRole.ADMIN)
+  async timeOverride(@Body() dto: AttendanceTimeOverrideDto, @CurrentUser() user: JwtPayload) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã sửa giờ chấm công',
+      data: await this.attendanceService.setTimeOverride(
+        user.sub,
+        dto.userId,
+        dto.day,
+        dto.inMinute ?? null,
+        dto.outMinute ?? null,
+      ),
     };
   }
 

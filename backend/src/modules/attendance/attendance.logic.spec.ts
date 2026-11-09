@@ -1,5 +1,6 @@
 import {
   DEFAULT_ATTENDANCE_CONFIG,
+  applyTimeOverride,
   SHIFTS,
   congForShift,
   congFromMinutes,
@@ -389,5 +390,40 @@ describe('evaluateDay: tăng ca', () => {
       DEFAULT_ATTENDANCE_CONFIG,
     );
     expect(r).toMatchObject({ overtimeHours: 0, shiftSource: 'forced' });
+  });
+});
+
+describe('applyTimeOverride (Admin sửa giờ vào / ra)', () => {
+  const day = '2026-10-13';
+  const machine = { firstAt: vn('07:30'), lastAt: vn('19:01'), punchCount: 2, autoClosed: false };
+
+  it('không sửa gì thì giữ nguyên lượt quẹt của máy', () => {
+    expect(applyTimeOverride(day, machine, null, null)).toBe(machine);
+  });
+
+  it('sửa giờ vào: công tính lại theo giờ mới, giờ ra vẫn theo máy', () => {
+    const before = evaluateDay({ ...machine, isToday: false, forcedShiftStart: hm(7) }, DEFAULT_ATTENDANCE_CONFIG);
+    expect(before.cong).toBe(0.5); // vào muộn 30 phút
+    const span = applyTimeOverride(day, machine, hm(7), null);
+    expect(span.firstAt).toEqual(vn('07:00'));
+    expect(span.lastAt).toEqual(vn('19:01'));
+    const after = evaluateDay({ ...span, isToday: false, forcedShiftStart: hm(7) }, DEFAULT_ATTENDANCE_CONFIG);
+    expect(after.lateMinutes).toBe(0);
+    expect(after.cong).toBe(1);
+  });
+
+  it('quên quẹt ra (hệ thống tự chấm ra): Admin nhập giờ ra thì ngày đó được tính công', () => {
+    const forgot = { firstAt: vn('07:00'), lastAt: vn('07:00'), punchCount: 1, autoClosed: true };
+    expect(evaluateDay({ ...forgot, isToday: false }, DEFAULT_ATTENDANCE_CONFIG).status).toBe('auto_out');
+    const span = applyTimeOverride(day, forgot, null, hm(16, 30));
+    expect(span).toMatchObject({ punchCount: 2, autoClosed: false });
+    expect(evaluateDay({ ...span, isToday: false }, DEFAULT_ATTENDANCE_CONFIG).status).toBe('done');
+  });
+
+  it('không quẹt lượt nào: Admin nhập đủ giờ vào và ra thì tính như đã quẹt', () => {
+    const none = { firstAt: null, lastAt: null, punchCount: 0, autoClosed: false };
+    expect(applyTimeOverride(day, none, hm(7), hm(16, 30))).toMatchObject({ punchCount: 2 });
+    // Chỉ có giờ ra mà không có giờ vào thì chưa tính được
+    expect(applyTimeOverride(day, none, null, hm(16, 30)).punchCount).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderForMobile } from './nav-order';
+import { orderForMobile, withReportsFourth } from './nav-order';
 
 const item = (href: string) => ({ href });
 const hrefs = (list: Array<{ href: string }>) => list.map((i) => i.href.replace('/xvip/', '').replace('/xvip', 'tong-quan'));
@@ -64,5 +64,24 @@ describe('orderForMobile', () => {
     expect(hrefs(orderForMobile([item('/xvip/quan-ly-ve'), item('/xvip/bao-cao')]))).toEqual(['quan-ly-ve', 'bao-cao']);
     expect(hrefs(orderForMobile([item('/xvip/nghi-phep')]))).toEqual(['nghi-phep']);
     expect(orderForMobile([])).toEqual([]);
+  });
+});
+
+describe('withReportsFourth', () => {
+  it('Admin máy tính: Báo cáo ngay sau Quản lý vé, ở vị trí thứ 4', () => {
+    const admin = ['/xvip', '/xvip/ty-le-tuyen', '/xvip/quan-ly-ve', '/xvip/tao-qr', '/xvip/bao-cao', '/xvip/cai-dat'].map(item);
+    expect(hrefs(withReportsFourth(admin))).toEqual(['tong-quan', 'ty-le-tuyen', 'quan-ly-ve', 'bao-cao', 'tao-qr', 'cai-dat']);
+  });
+
+  it('nhân viên điện thoại: vẫn là mục thứ 4 sau khi Đăng ký nghỉ lên thứ 2', () => {
+    const staff = ['/xvip/quan-ly-ve', '/xvip/tao-qr', '/xvip/doi-tac', '/xvip/cham-cong', '/xvip/nghi-phep', '/xvip/bao-cao'].map(item);
+    const out = hrefs(withReportsFourth(orderForMobile(staff)));
+    expect(out[3]).toBe('bao-cao');
+    expect(out).toHaveLength(staff.length);
+  });
+
+  it('danh sách ngắn hoặc không có Báo cáo thì không lỗi', () => {
+    expect(hrefs(withReportsFourth([item('/xvip/bao-cao'), item('/xvip/quan-ly-ve')]))).toEqual(['quan-ly-ve', 'bao-cao']);
+    expect(hrefs(withReportsFourth([item('/xvip/quan-ly-ve')]))).toEqual(['quan-ly-ve']);
   });
 });

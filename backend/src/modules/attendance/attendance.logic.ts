@@ -375,3 +375,41 @@ export function vietnamClock(now: Date = new Date()): { day: string; minuteOfDay
     minuteOfDay: Number(get('hour')) * 60 + Number(get('minute')),
   };
 }
+
+/** Thời điểm của phút `minute` trong ngày `day` theo giờ Việt Nam (UTC+7) */
+export function atVietnamMinute(day: string, minute: number): Date {
+  const hh = String(Math.floor(minute / 60)).padStart(2, '0');
+  const mm = String(minute % 60).padStart(2, '0');
+  return new Date(`${day}T${hh}:${mm}:00+07:00`);
+}
+
+export interface PunchSpan {
+  firstAt: Date | null;
+  lastAt: Date | null;
+  /** Số lượt quẹt thật */
+  punchCount: number;
+  autoClosed: boolean;
+}
+
+/**
+ * Giờ vào / giờ ra Admin sửa tay (phút trong ngày) thay cho lượt quẹt của máy chấm công.
+ * Chỉ sửa một đầu thì đầu còn lại vẫn lấy theo máy; đã sửa giờ ra thì không còn coi là "hệ thống tự chấm ra".
+ */
+export function applyTimeOverride(
+  day: string,
+  span: PunchSpan,
+  overrideIn: number | null | undefined,
+  overrideOut: number | null | undefined,
+): PunchSpan {
+  if (overrideIn == null && overrideOut == null) return span;
+  const firstAt = overrideIn != null ? atVietnamMinute(day, overrideIn) : span.firstAt;
+  const machineOut = span.punchCount > 1 ? span.lastAt : null;
+  const lastAt = overrideOut != null ? atVietnamMinute(day, overrideOut) : machineOut;
+  if (!firstAt) return { firstAt: null, lastAt: null, punchCount: 0, autoClosed: false };
+  return {
+    firstAt,
+    lastAt: lastAt ?? firstAt,
+    punchCount: lastAt ? 2 : 1,
+    autoClosed: overrideOut != null ? false : span.autoClosed,
+  };
+}
