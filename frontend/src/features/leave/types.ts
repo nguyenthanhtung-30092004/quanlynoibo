@@ -35,6 +35,8 @@ export interface LeaveMonth {
   /** Ngày sớm nhất nhân viên được tự đăng ký nghỉ (hôm nay đi làm thì không xin nghỉ ngày mai được) */
   staffFirstDay: string;
   config: LeaveConfig;
+  /** Quy định đăng ký nghỉ do Admin viết, đúng thứ tự hiển thị */
+  rules: string[];
   /** Số ngày nghỉ tối đa mỗi người trong một tháng; vượt thì cảnh báo */
   quota: number;
   days: LeaveDay[];

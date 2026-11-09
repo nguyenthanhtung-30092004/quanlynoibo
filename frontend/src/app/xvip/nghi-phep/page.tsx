@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   CalendarBlank,
+  ArrowDown,
+  ArrowUp,
   CaretDown,
   CaretLeft,
   CaretRight,
@@ -12,6 +14,9 @@ import {
   Lock,
   LockOpen,
   MagnifyingGlass,
+  NotePencil,
+  Plus,
+  Scroll,
   Money,
   SlidersHorizontal,
   Trash,
@@ -30,6 +35,7 @@ import {
   useRegisterLeaveForStaff,
   useRemoveLeave,
   useSaveLeaveConfig,
+  useSaveLeaveRules,
   useSetDayLimit,
   useSetPayday,
 } from '@/features/leave/hooks';
@@ -87,6 +93,7 @@ export default function LeavePage() {
   const { data: activeStaff = [] } = useActiveStaff(isAdmin);
   const removeLeave = useRemoveLeave();
   const saveConfig = useSaveLeaveConfig();
+  const saveRules = useSaveLeaveRules();
   const setDayLimit = useSetDayLimit();
   const setPayday = useSetPayday();
 
@@ -204,6 +211,17 @@ export default function LeavePage() {
     }
   };
 
+  const submitRules = async (rules: string[]) => {
+    try {
+      await saveRules.mutateAsync(rules);
+      showToast('Đã lưu quy định đăng ký nghỉ.');
+      return true;
+    } catch (err) {
+      showToast(`Lỗi: ${errText(err, 'Không lưu được quy định.')}`);
+      return false;
+    }
+  };
+
   const changeLimit = async (day: string, max: number | null) => {
     try {
       await setDayLimit.mutateAsync({ day, max });
@@ -241,6 +259,10 @@ export default function LeavePage() {
       >
         Đăng ký nghỉ
       </PageTitle>
+
+      {data && (isAdmin || data.rules.length > 0) && (
+        <LeaveRulesCard rules={data.rules} isAdmin={isAdmin} saving={saveRules.isPending} onSave={submitRules} />
+      )}
 
       <Card title={isAdmin ? 'Lịch nghỉ của nhân viên' : 'Chọn ngày muốn nghỉ'} className="mb-5">
         {isLoading ? (
@@ -456,6 +478,159 @@ export default function LeavePage() {
         </Modal>
       )}
     </>
+  );
+}
+
+const RULE_EXAMPLES = [
+  'Đăng ký nghỉ trước tối thiểu 1 ngày',
+  'Mỗi tuần được đăng ký 1 buổi tự chọn',
+  '1 tháng không được đăng ký nghỉ quá 4 buổi',
+];
+
+/**
+ * Bảng quy định đăng ký nghỉ: nhân viên đọc (danh sách đánh số), Admin bấm "Sửa" để viết thêm,
+ * sửa, xóa, đổi thứ tự rồi lưu một lần.
+ */
+function LeaveRulesCard({
+  rules,
+  isAdmin,
+  saving,
+  onSave,
+}: {
+  rules: string[];
+  isAdmin: boolean;
+  saving: boolean;
+  onSave: (rules: string[]) => Promise<boolean>;
+}) {
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const editing = draft !== null;
+  const startEdit = () => setDraft(rules.length > 0 ? [...rules] : ['']);
+  const update = (i: number, v: string) => setDraft((d) => d && d.map((x, j) => (j === i ? v : x)));
+  const remove = (i: number) => setDraft((d) => d && d.filter((_, j) => j !== i));
+  const move = (i: number, delta: number) =>
+    setDraft((d) => {
+      if (!d) return d;
+      const j = i + delta;
+      if (j < 0 || j >= d.length) return d;
+      const next = [...d];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  const cleaned = (draft ?? []).map((r) => r.trim()).filter(Boolean);
+  const dirty = editing && JSON.stringify(cleaned) !== JSON.stringify(rules);
+
+  return (
+    <section className="mb-5 overflow-hidden rounded-2xl border border-indigo-200 bg-white shadow-sm dark:border-indigo-900/60 dark:bg-slate-900/60">
+      <header className="flex items-center gap-3 bg-gradient-to-r from-indigo-50 to-white px-4 py-3 dark:from-indigo-950/40 dark:to-transparent">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow">
+          <Scroll size={20} weight="fill" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-black text-slate-900 dark:text-white">Quy định đăng ký nghỉ</h2>
+          {!editing && (
+            <p className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+              {rules.length > 0 ? `${rules.length} điều · đọc kỹ trước khi đăng ký` : 'Chưa có quy định nào'}
+            </p>
+          )}
+        </div>
+        {isAdmin && !editing && (
+          <button type="button" onClick={startEdit} className="btn-3d btn-3d-white inline-flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-sm">
+            <NotePencil size={15} weight="bold" />
+            {rules.length > 0 ? 'Sửa' : 'Viết quy định'}
+          </button>
+        )}
+      </header>
+
+      <div className="px-4 py-3.5">
+        {!editing ? (
+          rules.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              Bấm &ldquo;Viết quy định&rdquo; để thêm các điều nhân viên cần biết khi xin nghỉ.
+            </p>
+          ) : (
+            <ol className="space-y-2">
+              {rules.map((r, i) => (
+                <li key={i} className="flex items-start gap-3">
+                  <span className="tnum mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                    {i + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words text-sm font-semibold leading-relaxed text-slate-800 dark:text-slate-100">
+                    {r}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )
+        ) : (
+          <div className="space-y-2.5">
+            {draft.map((r, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="tnum mt-2.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-black text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300">
+                  {i + 1}
+                </span>
+                <textarea
+                  rows={2}
+                  maxLength={300}
+                  className="input-3d min-h-[2.75rem] min-w-0 flex-1 resize-y py-2 text-sm"
+                  placeholder={`VD: ${RULE_EXAMPLES[i % RULE_EXAMPLES.length]}`}
+                  value={r}
+                  onChange={(e) => update(i, e.target.value)}
+                />
+                <div className="flex shrink-0 flex-col gap-1">
+                  <button type="button" onClick={() => move(i, -1)} disabled={i === 0} className="btn-3d-mini disabled:opacity-30" aria-label="Đưa lên">
+                    <ArrowUp size={14} weight="bold" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => move(i, 1)}
+                    disabled={i === draft.length - 1}
+                    className="btn-3d-mini disabled:opacity-30"
+                    aria-label="Đưa xuống"
+                  >
+                    <ArrowDown size={14} weight="bold" />
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => remove(i)}
+                  className="mt-1.5 shrink-0 rounded-lg p-2 text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/40"
+                  aria-label={`Xóa điều ${i + 1}`}
+                >
+                  <Trash size={16} weight="bold" />
+                </button>
+              </div>
+            ))}
+            {draft.length < 30 && (
+              <button
+                type="button"
+                onClick={() => setDraft((d) => d && [...d, ''])}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-indigo-300 px-3 py-2 text-sm font-bold text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+              >
+                <Plus size={15} weight="bold" />
+                Thêm điều
+              </button>
+            )}
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+              <span className="mr-auto text-xs text-slate-500 dark:text-slate-400">Dòng để trống sẽ tự bỏ khi lưu.</span>
+              <button type="button" onClick={() => setDraft(null)} className="btn-3d btn-3d-white px-4 py-2 text-sm">
+                Hủy
+              </button>
+              <button
+                type="button"
+                disabled={saving || !dirty}
+                onClick={async () => {
+                  if (await onSave(cleaned)) setDraft(null);
+                }}
+                className="btn-3d btn-3d-blue inline-flex items-center gap-1.5 px-4 py-2 text-sm disabled:opacity-50"
+              >
+                <FloppyDisk size={15} weight="bold" />
+                {saving ? 'Đang lưu...' : 'Lưu quy định'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

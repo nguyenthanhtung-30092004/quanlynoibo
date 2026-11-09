@@ -15,10 +15,13 @@ import {
   isRealDay,
   limitForDay,
   sanitizeLeaveConfig,
+  sanitizeLeaveRules,
   type LeaveConfig,
 } from './leave.logic.js';
 
 const CONFIG_KEY = 'leave_config';
+/** Quy định đăng ký nghỉ Admin tự viết (mảng chuỗi JSON) */
+const RULES_KEY = 'leave_rules';
 /** Chỉ cho đăng ký nghỉ trước tối đa chừng này ngày để tránh đặt kín cả năm */
 const MAX_DAYS_AHEAD = 120;
 /** Mỗi nhân viên được nghỉ tối đa chừng này ngày/tháng; vượt thì giao diện cảnh báo */
@@ -85,6 +88,23 @@ export class LeaveService {
     return config;
   }
 
+  async loadRules(): Promise<string[]> {
+    const row = await this.settings.findOne({ where: { key: RULES_KEY } });
+    if (!row?.value) return [];
+    try {
+      return sanitizeLeaveRules(JSON.parse(row.value));
+    } catch {
+      return [];
+    }
+  }
+
+  /** Admin lưu lại toàn bộ danh sách quy định (đúng thứ tự hiển thị) */
+  async saveRules(input: string[]): Promise<string[]> {
+    const rules = sanitizeLeaveRules(input);
+    await this.settings.save(this.settings.create({ key: RULES_KEY, value: JSON.stringify(rules) }));
+    return rules;
+  }
+
   /** Lịch nghỉ của một tháng: số người đã đăng ký / giới hạn từng ngày; kèm tên những người đã đăng ký */
   async month(month: string, actor: JwtPayload) {
     const first = `${month}-01`;
@@ -92,8 +112,9 @@ export class LeaveService {
     const daysInMonth: string[] = [];
     for (let d = first; d.slice(0, 7) === month; d = addDays(d, 1)) daysInMonth.push(d);
 
-    const [config, rows, overrides, paydayRows] = await Promise.all([
+    const [config, rules, rows, overrides, paydayRows] = await Promise.all([
       this.loadConfig(),
+      this.loadRules(),
       this.requests
         .createQueryBuilder('r')
         .innerJoin('r.user', 'u')
@@ -154,6 +175,7 @@ export class LeaveService {
       // Ngày sớm nhất nhân viên được tự đăng ký nghỉ, để giao diện làm mờ đúng các ngày bị chặn
       staffFirstDay: addDays(today, STAFF_MIN_DAYS_AHEAD),
       config,
+      rules,
       quota: MONTHLY_LEAVE_QUOTA,
       days,
     };

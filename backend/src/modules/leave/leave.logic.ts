@@ -79,3 +79,17 @@ export function isRealDay(day: string): boolean {
   const date = new Date(Date.UTC(y, m - 1, d));
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
+
+/** Tối đa bao nhiêu điều quy định và mỗi điều dài tối đa bao nhiêu ký tự */
+export const MAX_LEAVE_RULES = 30;
+export const MAX_LEAVE_RULE_LENGTH = 300;
+
+/** Quy định đăng ký nghỉ do Admin viết: bỏ dòng trống, cắt khoảng trắng thừa, giới hạn số điều và độ dài */
+export function sanitizeLeaveRules(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((r): r is string => typeof r === 'string')
+    .map((r) => r.replace(/\s+/g, ' ').trim().slice(0, MAX_LEAVE_RULE_LENGTH))
+    .filter((r) => r.length > 0)
+    .slice(0, MAX_LEAVE_RULES);
+}

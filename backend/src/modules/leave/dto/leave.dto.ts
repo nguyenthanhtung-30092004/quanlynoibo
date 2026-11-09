@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
+import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -60,4 +60,13 @@ export class SetPaydayDto {
   /** true = đánh dấu ngày nhận lương; false = bỏ đánh dấu */
   @IsBoolean()
   payday: boolean;
+}
+
+export class SaveLeaveRulesDto {
+  /** Các điều quy định theo đúng thứ tự hiển thị */
+  @IsArray({ message: 'Quy định không hợp lệ' })
+  @ArrayMaxSize(30, { message: 'Tối đa 30 điều quy định' })
+  @IsString({ each: true, message: 'Quy định không hợp lệ' })
+  @MaxLength(300, { each: true, message: 'Mỗi điều tối đa 300 ký tự' })
+  rules: string[];
 }

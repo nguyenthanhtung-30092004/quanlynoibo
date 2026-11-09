@@ -29,6 +29,10 @@ export const leaveApi = {
       (r) => r.data,
     ),
 
+  /** Admin lưu toàn bộ bảng quy định đăng ký nghỉ */
+  saveRules: (rules: string[]) =>
+    api<ApiResponse<string[]>>('leave/rules', { method: 'PUT', body: { rules } }).then((r) => r.data),
+
   setDayLimit: (day: string, max: number | null) =>
     api<ApiResponse<{ day: string }>>('leave/day-limit', { method: 'PUT', body: { day, max } }).then((r) => r.data),
 };

@@ -68,3 +68,8 @@ export function useSetPayday() {
     onSuccess: invalidate,
   });
 }
+
+export function useSaveLeaveRules() {
+  const invalidate = useInvalidate();
+  return useMutation({ mutationFn: (rules: string[]) => leaveApi.saveRules(rules), onSuccess: invalidate });
+}

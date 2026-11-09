@@ -5,6 +5,7 @@ import {
   isRealDay,
   limitForDay,
   sanitizeLeaveConfig,
+  sanitizeLeaveRules,
   weekdayOf,
 } from './leave.logic.js';
 
@@ -94,5 +95,22 @@ describe('leave.logic', () => {
   it('nhận biết ngày không tồn tại', () => {
     expect(isRealDay('2026-02-30')).toBe(false);
     expect(isRealDay('2026-02-28')).toBe(true);
+  });
+});
+
+describe('sanitizeLeaveRules', () => {
+  it('bỏ dòng trống và khoảng trắng thừa, giữ đúng thứ tự', () => {
+    expect(sanitizeLeaveRules(['  Đăng ký trước   tối thiểu 1 ngày ', '', '   ', 'Mỗi tháng tối đa 4 buổi'])).toEqual([
+      'Đăng ký trước tối thiểu 1 ngày',
+      'Mỗi tháng tối đa 4 buổi',
+    ]);
+  });
+
+  it('dữ liệu lạ thì trả về rỗng; giới hạn số điều và độ dài', () => {
+    expect(sanitizeLeaveRules(null)).toEqual([]);
+    expect(sanitizeLeaveRules('abc')).toEqual([]);
+    expect(sanitizeLeaveRules([1, 'ok'])).toEqual(['ok']);
+    expect(sanitizeLeaveRules(Array.from({ length: 40 }, (_, i) => `Điều ${i}`))).toHaveLength(30);
+    expect(sanitizeLeaveRules(['x'.repeat(500)])[0]).toHaveLength(300);
   });
 });

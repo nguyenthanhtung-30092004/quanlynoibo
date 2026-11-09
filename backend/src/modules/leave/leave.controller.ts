@@ -9,6 +9,7 @@ import {
   LeaveMonthQueryDto,
   RegisterLeaveDto,
   SaveLeaveConfigDto,
+  SaveLeaveRulesDto,
   SetDayLimitDto,
   SetPaydayDto,
 } from './dto/leave.dto.js';
@@ -58,6 +59,17 @@ export class LeaveController {
       statusCode: HttpStatus.OK,
       message: 'Đã lưu giới hạn số người nghỉ',
       data: await this.leaveService.saveConfig(dto),
+    };
+  }
+
+  /** Admin viết / sửa bảng quy định đăng ký nghỉ (mọi người xem trong lịch nghỉ) */
+  @Put('rules')
+  @Roles(UserRole.ADMIN)
+  async saveRules(@Body() dto: SaveLeaveRulesDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Đã lưu quy định đăng ký nghỉ',
+      data: await this.leaveService.saveRules(dto.rules),
     };
   }
 
