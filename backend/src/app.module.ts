@@ -44,6 +44,7 @@ import { OrderPhoneKey1710000000022 } from './migrations/1710000000022-OrderPhon
 import { OrderReminder1710000000023 } from './migrations/1710000000023-OrderReminder.js';
 import { LeavePayday1710000000024 } from './migrations/1710000000024-LeavePayday.js';
 import { StaffPayday1710000000025 } from './migrations/1710000000025-StaffPayday.js';
+import { LeavePaydayByDate1710000000026 } from './migrations/1710000000026-LeavePaydayByDate.js';
 
 @Module({
   imports: [
@@ -89,6 +90,7 @@ import { StaffPayday1710000000025 } from './migrations/1710000000025-StaffPayday
           OrderReminder1710000000023,
           LeavePayday1710000000024,
           StaffPayday1710000000025,
+          LeavePaydayByDate1710000000026,
         ],
         extra: {
           max: Number(config.get<string>('DATABASE_POOL_MAX', '25')),

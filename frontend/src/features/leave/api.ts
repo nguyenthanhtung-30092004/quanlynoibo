@@ -1,5 +1,5 @@
 import { api, type ApiResponse } from '@/lib/api-client';
-import type { LeaveConfig, LeaveHistoryEntry, LeaveMonth, StaffPaydayRow } from './types';
+import type { LeaveConfig, LeaveHistoryEntry, LeaveMonth } from './types';
 
 export const leaveApi = {
   month: (month: string, signal?: AbortSignal) =>
@@ -23,23 +23,11 @@ export const leaveApi = {
   saveConfig: (config: LeaveConfig) =>
     api<ApiResponse<LeaveConfig>>('leave/config', { method: 'PUT', body: config }).then((r) => r.data),
 
-  /** Admin: ngày nhận lương hằng tháng của từng nhân viên đang làm */
-  paydays: (signal?: AbortSignal) =>
-    api<ApiResponse<StaffPaydayRow[]>>('leave/paydays', { signal }).then((r) => r.data),
-
-  /** Admin đặt cùng một ngày nhận lương hằng tháng cho nhiều nhân viên */
-  setStaffPaydays: (userIds: number[], dayOfMonth: number) =>
-    api<ApiResponse<{ userIds: number[]; dayOfMonth: number }>>('leave/paydays', {
-      method: 'PUT',
-      body: { userIds, dayOfMonth },
-    }).then((r) => r.data),
-
-  /** Admin đặt ngày nhận lương (1-31) cho nhân viên; null = bỏ */
-  setStaffPayday: (userId: number, dayOfMonth: number | null) =>
-    api<ApiResponse<{ userId: number; dayOfMonth: number | null }>>('leave/payday', {
-      method: 'PUT',
-      body: { userId, dayOfMonth },
-    }).then((r) => r.data),
+  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương */
+  setPayday: (day: string, payday: boolean) =>
+    api<ApiResponse<{ day: string; payday: boolean }>>('leave/payday', { method: 'PUT', body: { day, payday } }).then(
+      (r) => r.data,
+    ),
 
   setDayLimit: (day: string, max: number | null) =>
     api<ApiResponse<{ day: string }>>('leave/day-limit', { method: 'PUT', body: { day, max } }).then((r) => r.data),

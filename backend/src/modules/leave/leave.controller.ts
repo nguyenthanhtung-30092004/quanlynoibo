@@ -10,8 +10,7 @@ import {
   RegisterLeaveDto,
   SaveLeaveConfigDto,
   SetDayLimitDto,
-  SetStaffPaydayDto,
-  SetStaffPaydaysDto,
+  SetPaydayDto,
 } from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
@@ -72,36 +71,14 @@ export class LeaveController {
     };
   }
 
-  /** Admin xem ngày nhận lương hằng tháng của từng nhân viên đang làm */
-  @Get('paydays')
-  @Roles(UserRole.ADMIN)
-  async paydays() {
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Lấy ngày nhận lương thành công',
-      data: await this.leaveService.staffPaydays(),
-    };
-  }
-
-  /** Admin đặt / bỏ ngày nhận lương hằng tháng cho một nhân viên */
+  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương (chung cho mọi người) */
   @Put('payday')
   @Roles(UserRole.ADMIN)
-  async setPayday(@Body() dto: SetStaffPaydayDto) {
+  async setPayday(@Body() dto: SetPaydayDto) {
     return {
       statusCode: HttpStatus.OK,
-      message: dto.dayOfMonth ? 'Đã lưu ngày nhận lương' : 'Đã bỏ ngày nhận lương',
-      data: await this.leaveService.setStaffPayday(dto.userId, dto.dayOfMonth ?? null),
-    };
-  }
-
-  /** Admin chọn nhiều nhân viên cùng nhận lương vào một ngày trong tháng (ai đã có ngày khác thì chuyển sang ngày này) */
-  @Put('paydays')
-  @Roles(UserRole.ADMIN)
-  async setPaydays(@Body() dto: SetStaffPaydaysDto) {
-    return {
-      statusCode: HttpStatus.OK,
-      message: `Đã đặt ngày nhận lương cho ${dto.userIds.length} nhân viên`,
-      data: await this.leaveService.setStaffPaydays(dto.userIds, dto.dayOfMonth),
+      message: dto.payday ? 'Đã đặt ngày nhận lương' : 'Đã bỏ ngày nhận lương',
+      data: await this.leaveService.setPayday(dto.day, dto.payday),
     };
   }
 
