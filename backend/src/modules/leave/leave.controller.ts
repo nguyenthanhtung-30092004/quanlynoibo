@@ -10,6 +10,7 @@ import {
   RegisterLeaveDto,
   SaveLeaveConfigDto,
   SetDayLimitDto,
+  SetPaydayDto,
 } from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
@@ -67,6 +68,17 @@ export class LeaveController {
       statusCode: HttpStatus.OK,
       message: 'Đã chỉnh giới hạn cho ngày này',
       data: await this.leaveService.setDayLimit(dto.day, dto.max),
+    };
+  }
+
+  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương trên lịch nghỉ */
+  @Put('payday')
+  @Roles(UserRole.ADMIN)
+  async setPayday(@Body() dto: SetPaydayDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: dto.payday ? 'Đã đánh dấu ngày nhận lương' : 'Đã bỏ đánh dấu ngày nhận lương',
+      data: await this.leaveService.setPayday(dto.day, dto.payday, dto.note),
     };
   }
 

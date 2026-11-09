@@ -23,6 +23,8 @@ export interface LeaveDay {
   customLimit: boolean;
   count: number;
   mine: boolean;
+  /** Ngày nhận lương: chú thích Admin ghi (có thể rỗng); null = không phải ngày nhận lương */
+  payday: string | null;
   /** Những người đã đăng ký nghỉ ngày này */
   people: LeavePerson[];
 }
@@ -30,6 +32,8 @@ export interface LeaveDay {
 export interface LeaveMonth {
   month: string;
   today: string;
+  /** Ngày sớm nhất nhân viên được tự đăng ký nghỉ (hôm nay đi làm thì không xin nghỉ ngày mai được) */
+  staffFirstDay: string;
   config: LeaveConfig;
   /** Số ngày nghỉ tối đa mỗi người trong một tháng; vượt thì cảnh báo */
   quota: number;

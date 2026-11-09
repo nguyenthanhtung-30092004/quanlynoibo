@@ -23,6 +23,13 @@ export const leaveApi = {
   saveConfig: (config: LeaveConfig) =>
     api<ApiResponse<LeaveConfig>>('leave/config', { method: 'PUT', body: config }).then((r) => r.data),
 
+  /** Admin đánh dấu (payday = true, kèm chú thích) hoặc bỏ đánh dấu ngày nhận lương */
+  setPayday: (day: string, payday: boolean, note?: string) =>
+    api<ApiResponse<{ day: string; payday: string | null }>>('leave/payday', {
+      method: 'PUT',
+      body: { day, payday, note },
+    }).then((r) => r.data),
+
   setDayLimit: (day: string, max: number | null) =>
     api<ApiResponse<{ day: string }>>('leave/day-limit', { method: 'PUT', body: { day, max } }).then((r) => r.data),
 };

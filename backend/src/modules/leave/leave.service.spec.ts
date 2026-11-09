@@ -63,6 +63,7 @@ function build(world: World = {}) {
     { findOne: async () => world.request ?? null } as never,
     {} as never,
     {} as never,
+    {} as never,
   );
   return { service, saved };
 }
@@ -70,10 +71,18 @@ function build(world: World = {}) {
 const staff = (id: number, fullName = 'Nhân viên') => ({ id, fullName, role: UserRole.STAFF, isActive: true });
 
 describe('nhân viên đăng ký nghỉ', () => {
-  it('không đăng ký được cho hôm nay, chỉ từ ngày mai', async () => {
+  it('không đăng ký được cho hôm nay và ngày mai, chỉ từ ngày kia', async () => {
     const { service } = build();
     await expect(service.register(staffUser, today())).rejects.toBeInstanceOf(BadRequestException);
     await expect(service.register(staffUser, addDays(today(), -1))).rejects.toBeInstanceOf(BadRequestException);
+    await expect(service.register(staffUser, addDays(today(), 1))).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('ngày kia vẫn đăng ký được', async () => {
+    const { service, saved } = build();
+    const day = addDays(today(), 2);
+    await expect(service.register(staffUser, day)).resolves.toMatchObject({ day });
+    expect(saved.some((x) => x.type === 'request' && x.value.day === day)).toBe(true);
   });
 });
 

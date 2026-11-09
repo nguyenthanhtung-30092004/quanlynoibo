@@ -7,6 +7,7 @@ import { AppSetting } from '../settings/entities/app-setting.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import { LeaveHistory } from './entities/leave-history.entity.js';
 import { LeaveDayLimit } from './entities/leave-day-limit.entity.js';
+import { LeavePayday } from './entities/leave-payday.entity.js';
 import { LeaveRequest } from './entities/leave-request.entity.js';
 import {
   DEFAULT_LEAVE_CONFIG,
@@ -22,6 +23,11 @@ const CONFIG_KEY = 'leave_config';
 const MAX_DAYS_AHEAD = 120;
 /** Mỗi nhân viên được nghỉ tối đa chừng này ngày/tháng; vượt thì giao diện cảnh báo */
 export const MONTHLY_LEAVE_QUOTA = 4;
+/**
+ * Nhân viên tự đăng ký nghỉ phải báo trước ít nhất chừng này ngày: hôm nay đi làm thì không xin nghỉ ngày mai được,
+ * sớm nhất là ngày kia (để tiệm kịp xếp người). Nghỉ gấp hơn thì báo quản lý đăng ký hộ.
+ */
+export const STAFF_MIN_DAYS_AHEAD = 2;
 
 export interface LeaveDay {
   day: string;
@@ -32,6 +38,8 @@ export interface LeaveDay {
   count: number;
   /** Người đang xem đã đăng ký nghỉ ngày này */
   mine: boolean;
+  /** Ngày nhận lương: chú thích Admin ghi (có thể rỗng); null = không phải ngày nhận lương */
+  payday: string | null;
   /** Ai đã đăng ký nghỉ ngày này (mọi người dùng đều xem được, chỉ Admin mới hủy được) */
   people: Array<{
     /** null với người được hệ thống tự ghi nhận nghỉ đột xuất (không có lượt đăng ký để hủy) */
@@ -58,6 +66,7 @@ export class LeaveService {
     @InjectRepository(LeaveRequest) private readonly requests: Repository<LeaveRequest>,
     @InjectRepository(LeaveDayLimit) private readonly limits: Repository<LeaveDayLimit>,
     @InjectRepository(LeaveHistory) private readonly history: Repository<LeaveHistory>,
+    @InjectRepository(LeavePayday) private readonly paydays: Repository<LeavePayday>,
   ) {}
 
   async loadConfig(): Promise<LeaveConfig> {
@@ -83,7 +92,7 @@ export class LeaveService {
     const daysInMonth: string[] = [];
     for (let d = first; d.slice(0, 7) === month; d = addDays(d, 1)) daysInMonth.push(d);
 
-    const [config, rows, overrides] = await Promise.all([
+    const [config, rows, overrides, paydayRows] = await Promise.all([
       this.loadConfig(),
       this.requests
         .createQueryBuilder('r')
@@ -96,7 +105,12 @@ export class LeaveService {
         .createQueryBuilder('l')
         .where('l.day >= :first AND l.day <= :last', { first, last })
         .getMany(),
+      this.paydays
+        .createQueryBuilder('p')
+        .where('p.day >= :first AND p.day <= :last', { first, last })
+        .getMany(),
     ]);
+    const paydayByDay = new Map(paydayRows.map((p) => [p.day, p.note]));
 
     const overrideByDay = new Map(overrides.map((o) => [o.day, o.maxOff]));
     const byDay = new Map<string, LeaveRequest[]>();
@@ -114,6 +128,7 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
+        payday: paydayByDay.get(day) ?? null,
         people: [
           ...list.map((r) => ({
             requestId: r.id,
@@ -133,7 +148,15 @@ export class LeaveService {
       };
     });
 
-    return { month, today, config, quota: MONTHLY_LEAVE_QUOTA, days };
+    return {
+      month,
+      today,
+      // Ngày sớm nhất nhân viên được tự đăng ký nghỉ, để giao diện làm mờ đúng các ngày bị chặn
+      staffFirstDay: addDays(today, STAFF_MIN_DAYS_AHEAD),
+      config,
+      quota: MONTHLY_LEAVE_QUOTA,
+      days,
+    };
   }
 
   /**
@@ -183,8 +206,10 @@ export class LeaveService {
       throw new BadRequestException('Ngày không hợp lệ');
     }
     const today = vietnamClock().day;
-    if (day <= today) {
-      throw new BadRequestException('Chỉ được đăng ký nghỉ từ ngày mai trở đi');
+    if (day < addDays(today, STAFF_MIN_DAYS_AHEAD)) {
+      throw new BadRequestException(
+        'Không tự đăng ký nghỉ được cho hôm nay và ngày mai, chỉ từ ngày kia trở đi. Cần nghỉ gấp hãy báo quản lý.',
+      );
     }
     if (day > addDays(today, MAX_DAYS_AHEAD)) {
       throw new BadRequestException(`Chỉ được đăng ký nghỉ trước tối đa ${MAX_DAYS_AHEAD} ngày`);
@@ -349,5 +374,19 @@ export class LeaveService {
       await this.limits.save(this.limits.create({ day, maxOff: max }));
     }
     return { day, max: max ?? null };
+  }
+
+  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương (kèm chú thích) để nhân viên thấy trên lịch nghỉ */
+  async setPayday(day: string, payday: boolean, note?: string) {
+    if (!isRealDay(day)) {
+      throw new BadRequestException('Ngày không hợp lệ');
+    }
+    if (!payday) {
+      await this.paydays.delete({ day });
+      return { day, payday: null };
+    }
+    const clean = (note ?? '').trim().slice(0, 100);
+    await this.paydays.save(this.paydays.create({ day, note: clean }));
+    return { day, payday: clean };
   }
 }

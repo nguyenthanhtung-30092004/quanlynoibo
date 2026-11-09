@@ -60,3 +60,12 @@ export function useSetDayLimit() {
     onSuccess: invalidate,
   });
 }
+
+export function useSetPayday() {
+  const invalidate = useInvalidate();
+  return useMutation({
+    mutationFn: ({ day, payday, note }: { day: string; payday: boolean; note?: string }) =>
+      leaveApi.setPayday(day, payday, note),
+    onSuccess: invalidate,
+  });
+}
