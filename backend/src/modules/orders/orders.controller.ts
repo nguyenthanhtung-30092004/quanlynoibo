@@ -211,7 +211,7 @@ export class OrdersController {
     };
   }
 
-  /** Admin sửa mọi đơn; nhân viên chỉ sửa được đơn của mình (service trả 404 với đơn người khác) */
+  /** Admin và nhân viên đều sửa được mọi đơn (kể cả đơn của nhân viên khác); lịch sử ghi người sửa */
   @Patch(':id')
   async update(
     @Param('id', ParseIntPipe) id: number,

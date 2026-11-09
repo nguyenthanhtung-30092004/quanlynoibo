@@ -134,8 +134,8 @@ export class OrdersQueryService {
   }
 
   /**
-   * Staff chỉ sửa/hủy được đơn của chính mình (trả 404 để không lộ sự tồn tại);
-   * `readOnly` cho phép xem chi tiết đơn của nhân viên khác (kết quả tìm kiếm).
+   * Mặc định Staff chỉ thao tác được đơn của chính mình (trả 404 để không lộ sự tồn tại);
+   * `readOnly` = true bỏ chặn này: xem chi tiết, sửa và hủy hộ đơn của nhân viên khác.
    */
   async findEntity(
     id: number,

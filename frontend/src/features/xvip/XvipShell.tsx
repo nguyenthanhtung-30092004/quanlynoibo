@@ -31,7 +31,7 @@ import { NotificationBell } from './NotificationBell';
 import { RealtimeProvider, useRealtimeConnected } from '@/features/realtime/RealtimeProvider';
 import { ThemeProvider, ThemeToggle } from './theme';
 import { DateFilterProvider } from './date-filter';
-import { orderForMobile } from './nav-order';
+import { orderForMobile, withReportsFourth } from './nav-order';
 
 interface NavItem {
   href: string;
@@ -96,6 +96,12 @@ function AdminOnlineIndicator() {
 }
 
 /** Khối người dùng ở header: bấm để mở menu có nút Đăng xuất */
+/** Chuông thông báo chỉ dành cho Admin; tài khoản nhân viên không hiện */
+function AdminNotificationBell() {
+  const { data: me } = useCurrentUser();
+  return me?.role === 'ADMIN' ? <NotificationBell /> : null;
+}
+
 function UserMenu() {
   const { data: me } = useCurrentUser();
   const logout = useLogout();
@@ -170,9 +176,12 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const isAdmin = me?.role === 'ADMIN';
 
   // Mục hiện ra theo quyền. Máy tính giữ thứ tự gốc; điện thoại (menu kéo) dùng thứ tự riêng nhờ CSS `order`,
-  // nên không phải dựng hai danh sách: Đăng ký nghỉ lên vị trí thứ 2, Đối tác / Tuyến đường xuống cuối
-  const visibleNav = NAV.filter((item) => (!item.adminOnly || isAdmin) && (!item.staffOnly || me?.role === 'STAFF'));
-  const mobileOrder = orderForMobile(visibleNav);
+  // nên không phải dựng hai danh sách: Đăng ký nghỉ lên vị trí thứ 2, Đối tác / Tuyến đường xuống cuối.
+  // Báo cáo luôn ở vị trí thứ 4 ở cả hai bản
+  const visibleNav = withReportsFourth(
+    NAV.filter((item) => (!item.adminOnly || isAdmin) && (!item.staffOnly || me?.role === 'STAFF')),
+  );
+  const mobileOrder = withReportsFourth(orderForMobile(visibleNav));
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gradient-to-b dark:from-[#091528] dark:via-xv-navy dark:to-[#060e1a] text-slate-800 dark:text-xv-text shadow-[2px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)] border-r border-slate-200 dark:border-[#1a2d4f] transition-colors duration-200">
@@ -309,7 +318,7 @@ export function XvipShell({ children }: { children: ReactNode }) {
               <div className="ml-auto flex items-center gap-2.5 sm:gap-3">
                 <StaffAttendance />
                 <AdminOnlineIndicator />
-                <NotificationBell />
+                <AdminNotificationBell />
                 <UserMenu />
               </div>
           </header>

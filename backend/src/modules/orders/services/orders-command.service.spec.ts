@@ -374,6 +374,15 @@ describe('sửa đơn', () => {
   });
 });
 
+describe('sửa vé của người khác', () => {
+  it('nhân viên được sửa vé của nhân viên khác', async () => {
+    const { service, findEntityCalls } = build({ id: 5, createdById: 99, cancelledAt: null });
+    await service.update(5, { note: 'Khách đổi số điện thoại' } as never, staff).catch(() => undefined);
+    // Tham số thứ 3 (readOnly = true) bỏ chặn "chỉ vé của mình"
+    expect(findEntityCalls[0][2]).toBe(true);
+  });
+});
+
 describe('hủy vé', () => {
   it('nhân viên được hủy hộ vé của người khác', async () => {
     const { service, updates, findEntityCalls } = build({ id: 5, createdById: 99, cancelledAt: null });

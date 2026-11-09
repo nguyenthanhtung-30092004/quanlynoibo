@@ -260,8 +260,9 @@ export class OrdersCommandService {
     return this.queryService.findOne(saved.id, actor);
   }
 
+  /** Nhân viên được sửa cả vé của nhân viên khác (giống hủy hộ); lịch sử vẫn ghi người sửa */
   async update(id: number, dto: UpdateOrderDto, actor: JwtPayload) {
-    const order = await this.queryService.findEntity(id, actor);
+    const order = await this.queryService.findEntity(id, actor, true);
     if (order.cancelledAt) {
       throw new BadRequestException('Vé đã hủy, không thể sửa.');
     }
