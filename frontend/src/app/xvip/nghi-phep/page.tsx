@@ -166,15 +166,30 @@ export default function LeavePage() {
   const quota = data?.quota ?? 4;
   const myDaysThisMonth = data?.days.filter((d) => d.mine).length ?? 0;
 
-  /** Admin đăng ký hộ nhân viên; giữ nguyên cửa sổ để thấy ngay người vừa thêm */
-  const registerStaff = async (day: string, userId: number) => {
-    try {
-      const res = await registerForStaff.mutateAsync({ day, userId });
-      const name = activeStaff.find((u) => u.id === userId)?.fullName ?? 'nhân viên';
-      showToast(res.urgent ? `Đã ghi nhận ${name} nghỉ đột xuất.` : `Đã đăng ký nghỉ cho ${name}.`);
-    } catch (err) {
-      showToast(`Lỗi: ${errText(err, 'Không đăng ký được.')}`);
+  /**
+   * Admin đăng ký hộ nhiều nhân viên: gửi lần lượt từng người (máy chủ kiểm tra giới hạn theo từng lượt).
+   * Trả về những người chưa đăng ký được; giữ nguyên cửa sổ để thấy ngay người vừa thêm
+   */
+  const registerStaff = async (day: string, userIds: number[]) => {
+    const failed: number[] = [];
+    let firstError = '';
+    let urgent = false;
+    for (const userId of userIds) {
+      try {
+        const res = await registerForStaff.mutateAsync({ day, userId });
+        urgent = res.urgent;
+      } catch (err) {
+        failed.push(userId);
+        firstError ||= errText(err, 'Không đăng ký được.');
+      }
     }
+    const done = userIds.length - failed.length;
+    if (failed.length === 0) {
+      showToast(urgent ? `Đã ghi nhận ${done} người nghỉ đột xuất.` : `Đã đăng ký nghỉ cho ${done} người.`);
+    } else {
+      showToast(`Đăng ký được ${done}/${userIds.length} người. Lỗi: ${firstError}`);
+    }
+    return failed;
   };
 
   const cancel = async (requestId: number) => {
@@ -193,10 +208,10 @@ export default function LeavePage() {
     try {
       await setStaffPaydays.mutateAsync({ userIds, dayOfMonth });
       showToast(`Đã đặt ${userIds.length} người nhận lương ngày ${dayOfMonth} hằng tháng.`);
-      return true;
+      return [];
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không lưu được ngày nhận lương.')}`);
-      return false;
+      return userIds;
     }
   };
 
@@ -470,7 +485,7 @@ export default function LeavePage() {
               payday: setStaffPayday.isPending || setStaffPaydays.isPending,
             }}
             onRegister={() => register(selected.day)}
-            onRegisterStaff={(userId) => registerStaff(selected.day, userId)}
+            onRegisterStaff={(ids) => registerStaff(selected.day, ids)}
             onCancel={async (id, closeAfter) => {
               if ((await cancel(id)) && closeAfter) setSelectedDay(null);
             }}
@@ -659,10 +674,12 @@ interface DayDetailProps {
   paydayOf: Map<number, number>;
   busy: { leave: boolean; limit: boolean; payday: boolean };
   onRegister: () => void;
-  onRegisterStaff: (userId: number) => void;
+  /** Trả về những người chưa đăng ký được */
+  onRegisterStaff: (userIds: number[]) => Promise<number[]>;
   onCancel: (requestId: number, closeAfter: boolean) => void;
   onChangeLimit: (max: number | null) => void;
-  onSetPaydays: (userIds: number[]) => Promise<boolean>;
+  /** Trả về những người chưa lưu được */
+  onSetPaydays: (userIds: number[]) => Promise<number[]>;
   onRemovePayday: (userId: number, fullName: string) => void;
 }
 
@@ -743,11 +760,21 @@ function DayDetail(p: DayDetailProps) {
             </ul>
           )}
           {isAdmin && (
-            <PaydayPicker
-              day={day}
-              staff={p.staff}
-              paydayOf={p.paydayOf}
+            <StaffPicker
+              tone="emerald"
+              title={`Thêm người nhận lương ngày ${Number(day.day.slice(8))} hằng tháng`}
+              candidates={p.staff.filter((u) => !day.paydayPeople.some((x) => x.userId === u.id))}
+              badgeOf={(id) => (p.paydayOf.has(id) ? `Đang nhận ngày ${p.paydayOf.get(id)}` : undefined)}
+              hint={(ids) => {
+                const moving = ids.filter((id) => p.paydayOf.has(id)).length;
+                return moving > 0 ? (
+                  <span className="text-amber-700 dark:text-amber-300">
+                    {moving} người đang nhận lương ngày khác sẽ được chuyển sang ngày {Number(day.day.slice(8))}.
+                  </span>
+                ) : null;
+              }}
               busy={p.busy.payday}
+              confirmLabel="Xác nhận"
               onConfirm={p.onSetPaydays}
             />
           )}
@@ -848,11 +875,12 @@ function StaffLeaveBlock({ day, today, staffFirstDay, meId, myDays, quota, busy,
 }
 
 function AdminLeaveBlock({ day, today, staff, busy, onRegisterStaff, onCancel }: DayDetailProps) {
-  const [pickId, setPickId] = useState('');
   const past = day.day < today;
   const isToday = day.day === today;
   const registeredIds = new Set(day.people.map((x) => x.userId));
   const available = staff.filter((u) => !registeredIds.has(u.id));
+  // Ngày sau hôm nay vẫn theo giới hạn số người; hôm nay là nghỉ đột xuất nên không giới hạn
+  const slots = isToday ? undefined : Math.max(0, day.limit - day.count);
 
   return (
     <>
@@ -877,75 +905,96 @@ function AdminLeaveBlock({ day, today, staff, busy, onRegisterStaff, onCancel }:
 
       {past ? (
         <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Ngày đã qua, chỉ xem được.</p>
+      ) : slots === 0 ? (
+        <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-600 dark:bg-slate-800/50 dark:text-slate-300">
+          {day.limit === 0 ? 'Ngày đang khóa.' : 'Ngày đã đủ người.'} Muốn đăng ký thêm hãy nâng giới hạn ở mục bên dưới.
+        </p>
       ) : (
-        <div className="mt-3 rounded-lg bg-slate-50 p-3 dark:bg-slate-800/40">
-          <div className="mb-1.5 text-xs font-bold text-slate-600 dark:text-slate-300">
-            {isToday ? 'Ghi nhận nghỉ đột xuất cho nhân viên' : 'Đăng ký nghỉ hộ nhân viên'}
-          </div>
-          <div className="flex gap-2">
-            <select className="input-3d !h-10 min-w-0 flex-1" value={pickId} onChange={(e) => setPickId(e.target.value)}>
-              <option value="">Chọn nhân viên…</option>
-              {available.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              disabled={busy.leave || !pickId}
-              onClick={() => {
-                onRegisterStaff(Number(pickId));
-                setPickId('');
-              }}
-              className="btn-3d btn-3d-blue shrink-0 px-4 py-2 text-sm disabled:opacity-50"
-            >
-              {isToday ? 'Ghi nhận' : 'Đăng ký'}
-            </button>
-          </div>
-          {isToday && (
-            <p className="mt-1.5 text-xs font-semibold text-rose-600 dark:text-rose-400">
-              Báo nghỉ ngay hôm nay được tính là NGHỈ ĐỘT XUẤT, kể cả khi ngày đã đủ người.
-            </p>
-          )}
-        </div>
+        <StaffPicker
+          tone="violet"
+          title={isToday ? 'Ghi nhận nghỉ đột xuất cho nhân viên' : 'Đăng ký nghỉ hộ nhân viên'}
+          candidates={available}
+          max={slots}
+          hint={() =>
+            isToday ? (
+              <span className="text-rose-600 dark:text-rose-400">
+                Báo nghỉ ngay hôm nay được tính là NGHỈ ĐỘT XUẤT, kể cả khi ngày đã đủ người.
+              </span>
+            ) : (
+              <span className="text-slate-500 dark:text-slate-400">Còn {slots} chỗ, chọn tối đa {slots} người.</span>
+            )
+          }
+          busy={busy.leave}
+          confirmLabel={isToday ? 'Ghi nhận' : 'Đăng ký'}
+          onConfirm={onRegisterStaff}
+        />
       )}
     </>
   );
 }
 
-/** Admin tìm và chọn nhiều nhân viên rồi xác nhận cùng nhận lương vào ngày này (hằng tháng) */
-function PaydayPicker({
-  day,
-  staff,
-  paydayOf,
+const PICKER_TONE = {
+  emerald: {
+    box: 'bg-emerald-50/60 ring-emerald-100 dark:bg-emerald-950/20 dark:ring-emerald-900/50',
+    title: 'text-emerald-900 dark:text-emerald-200',
+    chip: 'bg-emerald-600',
+    rowOn: 'bg-emerald-50 dark:bg-emerald-950/40',
+    check: 'border-emerald-600 bg-emerald-600',
+    button: 'btn-3d-green',
+  },
+  violet: {
+    box: 'bg-violet-50/60 ring-violet-100 dark:bg-violet-950/20 dark:ring-violet-900/50',
+    title: 'text-violet-900 dark:text-violet-200',
+    chip: 'bg-violet-600',
+    rowOn: 'bg-violet-50 dark:bg-violet-950/40',
+    check: 'border-violet-600 bg-violet-600',
+    button: 'btn-3d-blue',
+  },
+} as const;
+
+/**
+ * Tìm và tích chọn nhiều nhân viên rồi bấm xác nhận một lần.
+ * `onConfirm` trả về những người chưa lưu được (để giữ lại trong ô chọn cho người dùng xem lại).
+ */
+function StaffPicker({
+  title,
+  candidates,
+  badgeOf,
+  max,
+  hint,
+  tone,
   busy,
+  confirmLabel,
   onConfirm,
 }: {
-  day: LeaveDay;
-  staff: Array<{ id: number; fullName: string }>;
-  paydayOf: Map<number, number>;
+  title: string;
+  candidates: Array<{ id: number; fullName: string }>;
+  /** Nhãn nhỏ cạnh tên (VD "Đang nhận ngày 15") */
+  badgeOf?: (id: number) => string | undefined;
+  /** Chọn tối đa bao nhiêu người (undefined = không giới hạn) */
+  max?: number;
+  /** Ghi chú dưới danh sách, tính theo những người đang chọn */
+  hint?: (picked: number[]) => React.ReactNode;
+  tone: keyof typeof PICKER_TONE;
   busy: boolean;
-  onConfirm: (userIds: number[]) => Promise<boolean>;
+  confirmLabel: string;
+  onConfirm: (userIds: number[]) => Promise<number[]>;
 }) {
   const [query, setQuery] = useState('');
   const [picked, setPicked] = useState<number[]>([]);
-  const dayNum = Number(day.day.slice(8));
-  const already = new Set(day.paydayPeople.map((x) => x.userId));
-  const candidates = staff.filter((u) => !already.has(u.id));
+  const t = PICKER_TONE[tone];
   const q = fold(query.trim());
   const shown = q ? candidates.filter((u) => fold(u.fullName).includes(q)) : candidates;
-  const nameOf = new Map(staff.map((u) => [u.id, u.fullName]));
-  const toggle = (id: number) => setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]));
-  const moving = picked.filter((id) => paydayOf.has(id)).length;
-
-  if (candidates.length === 0) {
-    return <p className="mt-3 text-xs font-semibold text-slate-500 dark:text-slate-400">Tất cả nhân viên đã nhận lương ngày này.</p>;
-  }
+  const nameOf = new Map(candidates.map((u) => [u.id, u.fullName]));
+  // Người vừa được lưu thì biến khỏi danh sách; bỏ họ khỏi ô chọn luôn
+  const pickedNow = picked.filter((id) => nameOf.has(id));
+  const reachedMax = max !== undefined && pickedNow.length >= max;
+  const toggle = (id: number) =>
+    setPicked((cur) => (cur.includes(id) ? cur.filter((x) => x !== id) : reachedMax ? cur : [...cur, id]));
 
   return (
-    <div className="mt-3 rounded-lg bg-emerald-50/60 p-3 ring-1 ring-emerald-100 dark:bg-emerald-950/20 dark:ring-emerald-900/50">
-      <div className="mb-2 text-xs font-bold text-emerald-900 dark:text-emerald-200">Thêm người nhận lương ngày {dayNum} hằng tháng</div>
+    <div className={`mt-3 rounded-lg p-3 ring-1 ${t.box}`}>
+      <div className={`mb-2 text-xs font-bold ${t.title}`}>{title}</div>
       <div className="relative">
         <MagnifyingGlass size={16} weight="bold" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input
@@ -957,14 +1006,14 @@ function PaydayPicker({
         />
       </div>
 
-      {picked.length > 0 && (
+      {pickedNow.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
-          {picked.map((id) => (
+          {pickedNow.map((id) => (
             <button
               key={id}
               type="button"
               onClick={() => toggle(id)}
-              className="inline-flex items-center gap-1 rounded-full bg-emerald-600 py-1 pl-2.5 pr-1.5 text-xs font-bold text-white"
+              className={`inline-flex items-center gap-1 rounded-full py-1 pl-2.5 pr-1.5 text-xs font-bold text-white ${t.chip}`}
               aria-label={`Bỏ chọn ${nameOf.get(id)}`}
             >
               {nameOf.get(id)}
@@ -976,31 +1025,35 @@ function PaydayPicker({
 
       <ul className="mt-2 max-h-52 overflow-y-auto rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900">
         {shown.length === 0 ? (
-          <li className="px-3 py-3 text-center text-sm text-slate-500">Không tìm thấy nhân viên.</li>
+          <li className="px-3 py-3 text-center text-sm text-slate-500">
+            {candidates.length === 0 ? 'Không còn nhân viên nào để chọn.' : 'Không tìm thấy nhân viên.'}
+          </li>
         ) : (
           shown.map((u) => {
-            const on = picked.includes(u.id);
-            const current = paydayOf.get(u.id);
+            const on = pickedNow.includes(u.id);
+            const badge = badgeOf?.(u.id);
+            const disabled = !on && reachedMax;
             return (
               <li key={u.id} className="border-b border-slate-100 last:border-0 dark:border-slate-800">
                 <button
                   type="button"
+                  disabled={disabled}
                   onClick={() => toggle(u.id)}
-                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors ${
-                    on ? 'bg-emerald-50 dark:bg-emerald-950/40' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
+                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors disabled:opacity-40 ${
+                    on ? t.rowOn : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                   }`}
                 >
                   <span
                     className={`flex size-5 shrink-0 items-center justify-center rounded-md border-2 ${
-                      on ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-slate-300 dark:border-slate-600'
+                      on ? `${t.check} text-white` : 'border-slate-300 dark:border-slate-600'
                     }`}
                   >
                     {on && <Check size={12} weight="bold" />}
                   </span>
                   <span className="min-w-0 flex-1 break-words text-sm font-bold text-slate-900 dark:text-white">{u.fullName}</span>
-                  {current !== undefined && (
+                  {badge && (
                     <span className="shrink-0 rounded-md bg-amber-100 px-1.5 py-0.5 text-[11px] font-bold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
-                      Đang nhận ngày {current}
+                      {badge}
                     </span>
                   )}
                 </button>
@@ -1010,30 +1063,25 @@ function PaydayPicker({
         )}
       </ul>
 
-      {moving > 0 && (
-        <p className="mt-2 text-xs font-semibold text-amber-700 dark:text-amber-300">
-          {moving} người đang nhận lương ngày khác sẽ được chuyển sang ngày {dayNum}.
-        </p>
-      )}
+      {hint && <div className="mt-2 text-xs font-semibold">{hint(pickedNow)}</div>}
       <div className="mt-3 flex items-center justify-end gap-2">
-        {picked.length > 0 && (
+        {pickedNow.length > 0 && (
           <button type="button" onClick={() => setPicked([])} className="btn-3d btn-3d-white px-3.5 py-2 text-sm">
             Bỏ chọn
           </button>
         )}
         <button
           type="button"
-          disabled={busy || picked.length === 0}
+          disabled={busy || pickedNow.length === 0}
           onClick={async () => {
-            if (await onConfirm(picked)) {
-              setPicked([]);
-              setQuery('');
-            }
+            const failed = await onConfirm(pickedNow);
+            setPicked(failed);
+            if (failed.length === 0) setQuery('');
           }}
-          className="btn-3d btn-3d-green inline-flex items-center gap-1.5 px-4 py-2 text-sm disabled:opacity-50"
+          className={`btn-3d ${t.button} inline-flex items-center gap-1.5 px-4 py-2 text-sm disabled:opacity-50`}
         >
           <Check size={15} weight="bold" />
-          {busy ? 'Đang lưu...' : `Xác nhận${picked.length > 0 ? ` (${picked.length})` : ''}`}
+          {busy ? 'Đang lưu...' : `${confirmLabel}${pickedNow.length > 0 ? ` (${pickedNow.length})` : ''}`}
         </button>
       </div>
     </div>
