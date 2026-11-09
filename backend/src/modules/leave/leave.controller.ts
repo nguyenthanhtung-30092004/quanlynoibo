@@ -10,7 +10,7 @@ import {
   RegisterLeaveDto,
   SaveLeaveConfigDto,
   SetDayLimitDto,
-  SetPaydayDto,
+  SetStaffPaydayDto,
 } from './dto/leave.dto.js';
 import { LeaveService } from './leave.service.js';
 
@@ -71,14 +71,25 @@ export class LeaveController {
     };
   }
 
-  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương trên lịch nghỉ */
-  @Put('payday')
+  /** Admin xem ngày nhận lương hằng tháng của từng nhân viên đang làm */
+  @Get('paydays')
   @Roles(UserRole.ADMIN)
-  async setPayday(@Body() dto: SetPaydayDto) {
+  async paydays() {
     return {
       statusCode: HttpStatus.OK,
-      message: dto.payday ? 'Đã đánh dấu ngày nhận lương' : 'Đã bỏ đánh dấu ngày nhận lương',
-      data: await this.leaveService.setPayday(dto.day, dto.payday, dto.note),
+      message: 'Lấy ngày nhận lương thành công',
+      data: await this.leaveService.staffPaydays(),
+    };
+  }
+
+  /** Admin đặt / bỏ ngày nhận lương hằng tháng cho một nhân viên */
+  @Put('payday')
+  @Roles(UserRole.ADMIN)
+  async setPayday(@Body() dto: SetStaffPaydayDto) {
+    return {
+      statusCode: HttpStatus.OK,
+      message: dto.dayOfMonth ? 'Đã lưu ngày nhận lương' : 'Đã bỏ ngày nhận lương',
+      data: await this.leaveService.setStaffPayday(dto.userId, dto.dayOfMonth ?? null),
     };
   }
 

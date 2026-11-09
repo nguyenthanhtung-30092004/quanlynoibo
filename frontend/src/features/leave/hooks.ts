@@ -61,11 +61,20 @@ export function useSetDayLimit() {
   });
 }
 
-export function useSetPayday() {
+export function useStaffPaydays(enabled: boolean) {
+  return useQuery({
+    queryKey: [...KEY, 'paydays'],
+    queryFn: ({ signal }) => leaveApi.paydays(signal),
+    enabled,
+  });
+}
+
+export function useSetStaffPayday() {
   const invalidate = useInvalidate();
   return useMutation({
-    mutationFn: ({ day, payday, note }: { day: string; payday: boolean; note?: string }) =>
-      leaveApi.setPayday(day, payday, note),
+    mutationFn: ({ userId, dayOfMonth }: { userId: number; dayOfMonth: number | null }) =>
+      leaveApi.setStaffPayday(userId, dayOfMonth),
+    // Tải lại cả lịch tháng để ô ngày nhận lương cập nhật theo
     onSuccess: invalidate,
   });
 }

@@ -15,9 +15,10 @@ import {
   useRemoveLeave,
   useSaveLeaveConfig,
   useSetDayLimit,
-  useSetPayday,
+  useSetStaffPayday,
+  useStaffPaydays,
 } from '@/features/leave/hooks';
-import type { LeaveConfig, LeaveDay, LeaveHistoryEntry } from '@/features/leave/types';
+import type { LeaveConfig, LeaveDay, LeaveHistoryEntry, StaffPaydayRow } from '@/features/leave/types';
 import { Modal } from '@/features/xvip/Modal';
 import { useToast } from '@/features/xvip/toast';
 import { Avatar, Card, PageTitle } from '@/features/xvip/ui';
@@ -72,7 +73,8 @@ export default function LeavePage() {
   const removeLeave = useRemoveLeave();
   const saveConfig = useSaveLeaveConfig();
   const setDayLimit = useSetDayLimit();
-  const setPayday = useSetPayday();
+  const { data: staffPaydays = [], isLoading: paydaysLoading } = useStaffPaydays(isAdmin);
+  const setStaffPayday = useSetStaffPayday();
 
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
   const selected = data?.days.find((d) => d.day === selectedDay) ?? null;
@@ -80,7 +82,7 @@ export default function LeavePage() {
   // Nhân viên chỉ tự đăng ký từ ngày kia (hôm nay đi làm thì không xin nghỉ ngày mai)
   const staffFirstDay = data?.staffFirstDay ?? today;
   // Ngày nhận lương trong tháng đang xem, để liệt kê ngay dưới lịch
-  const paydays = data?.days.filter((d) => d.payday !== null) ?? [];
+  const paydays = data?.days.filter((d) => d.paydayPeople.length > 0) ?? [];
 
   // Giới hạn mặc định đang sửa (Admin)
   const [draft, setDraft] = useState<{ earlyMax: string; lateMax: string } | null>(null);
@@ -162,10 +164,12 @@ export default function LeavePage() {
     }
   };
 
-  const changePayday = async (day: string, payday: boolean, note?: string) => {
+  const changePayday = async (row: StaffPaydayRow, dayOfMonth: number | null) => {
     try {
-      await setPayday.mutateAsync({ day, payday, note });
-      showToast(payday ? 'Đã đánh dấu ngày nhận lương.' : 'Đã bỏ ngày nhận lương.');
+      await setStaffPayday.mutateAsync({ userId: row.userId, dayOfMonth });
+      showToast(
+        dayOfMonth ? `Đã đặt ${row.fullName} nhận lương ngày ${dayOfMonth} hằng tháng.` : `Đã bỏ ngày nhận lương của ${row.fullName}.`,
+      );
     } catch (err) {
       showToast(`Lỗi: ${errText(err, 'Không lưu được ngày nhận lương.')}`);
     }
@@ -253,8 +257,15 @@ export default function LeavePage() {
                     >
                       <Money size={18} weight="fill" className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
                       <span>
-                        <b>Nhận lương {dayLabel(p.day)}</b>
-                        {p.payday && <> · {p.payday}</>}
+                        <b>Nhận lương {dayLabel(p.day)}:</b>{' '}
+                        {p.paydayPeople.map((x, i) => (
+                          <span key={x.userId}>
+                            {i > 0 && ', '}
+                            <span className={x.userId === me?.id ? 'font-extrabold underline' : ''}>
+                              {x.userId === me?.id ? `${x.fullName} (bạn)` : x.fullName}
+                            </span>
+                          </span>
+                        ))}
                       </span>
                     </div>
                   ))}
@@ -312,6 +323,26 @@ export default function LeavePage() {
           </div>
           <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
             Thiếu người thì hạ số này xuống. Muốn chỉnh riêng một ngày hoặc khóa hẳn ngày đó, bấm vào ngày trên lịch.
+          </p>
+        </Card>
+      )}
+
+      {isAdmin && (
+        <Card title="Ngày nhận lương hằng tháng của nhân viên" className="mb-5">
+          {paydaysLoading ? (
+            <p className="text-sm text-slate-500">Đang tải...</p>
+          ) : staffPaydays.length === 0 ? (
+            <p className="text-sm text-slate-500 dark:text-slate-400">Chưa có nhân viên đang làm.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200 dark:divide-slate-800 dark:border-slate-700">
+              {staffPaydays.map((row) => (
+                <PaydayRow key={row.userId} row={row} busy={setStaffPayday.isPending} onSave={changePayday} />
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
+            Nhập ngày trong tháng (1-31) rồi bấm Lưu. Tháng nào không có ngày đó (VD 31) thì tính vào ngày cuối tháng. Nhân viên
+            xem lịch nghỉ sẽ thấy ngày nào ai nhận lương.
           </p>
         </Card>
       )}
@@ -409,12 +440,7 @@ export default function LeavePage() {
       {selected && (
         <Modal title={dayLabel(selected.day)} onClose={() => setSelectedDay(null)}>
           <div className="space-y-4">
-            {selected.payday !== null && (
-              <div className="flex items-start gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-900 ring-1 ring-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-100 dark:ring-emerald-700">
-                <Money size={18} weight="fill" className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <span>Ngày nhận lương{selected.payday ? `: ${selected.payday}` : ''}</span>
-              </div>
-            )}
+            {selected.paydayPeople.length > 0 && <PaydayPanel people={selected.paydayPeople} meId={me?.id} />}
             <div className="rounded-lg bg-slate-50 px-3 py-2.5 text-sm dark:bg-slate-800/50">
               {selected.limit === 0 ? (
                 <b>Ngày này không nhận đăng ký nghỉ.</b>
@@ -436,8 +462,6 @@ export default function LeavePage() {
                 defaultLimit={isLateWeekDay(selected.day) ? data!.config.lateMax : data!.config.earlyMax}
                 onCancel={cancel}
                 onChangeLimit={changeLimit}
-                paydayBusy={setPayday.isPending}
-                onChangePayday={changePayday}
               />
             ) : (
               <StaffDayPanel
@@ -498,12 +522,12 @@ function DayCell({ d, dimBefore, onClick }: { d: LeaveDay; dimBefore: string; on
     <button
       type="button"
       onClick={onClick}
-      title={d.payday !== null ? `Ngày nhận lương${d.payday ? `: ${d.payday}` : ''}` : undefined}
+      title={d.paydayPeople.length > 0 ? `Nhận lương: ${d.paydayPeople.map((p) => p.fullName).join(', ')}` : undefined}
       className={`relative flex min-h-14 flex-col items-center justify-center rounded-lg px-1 py-1.5 transition-transform hover:scale-[1.04] sm:min-h-16 ${
         d.mine ? mine : d.count > 0 ? taken : base
-      } ${past ? 'opacity-50' : ''} ${d.payday !== null ? '!ring-2 !ring-emerald-500' : ''}`}
+      } ${past ? 'opacity-50' : ''} ${d.paydayPeople.length > 0 ? '!ring-2 !ring-emerald-500' : ''}`}
     >
-      {d.payday !== null && (
+      {d.paydayPeople.length > 0 && (
         <span className="absolute -right-1 -top-1 flex size-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow sm:size-5">
           <Money size={11} weight="fill" />
         </span>
@@ -636,8 +660,6 @@ function AdminDayPanel({
   defaultLimit,
   onCancel,
   onChangeLimit,
-  paydayBusy,
-  onChangePayday,
 }: {
   day: LeaveDay;
   today: string;
@@ -649,8 +671,6 @@ function AdminDayPanel({
   defaultLimit: number;
   onCancel: (requestId: number) => void;
   onChangeLimit: (day: string, max: number | null) => void;
-  paydayBusy: boolean;
-  onChangePayday: (day: string, payday: boolean, note?: string) => void;
 }) {
   const [limitText, setLimitText] = useState(String(day.limit));
   useEffect(() => setLimitText(String(day.limit)), [day.limit]);
@@ -747,8 +767,6 @@ function AdminDayPanel({
         </div>
       )}
 
-      <PaydayEditor day={day} busy={paydayBusy} onChange={onChangePayday} />
-
       {past ? (
         <p className="border-t border-slate-100 pt-4 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:text-slate-400">
           Ngày này đã qua nên không đăng ký, hủy hay chỉnh giới hạn được nữa.
@@ -815,55 +833,73 @@ function AdminDayPanel({
   );
 }
 
-/** Admin đánh dấu ngày nhận lương kèm chú thích; nhân viên nhìn lịch nghỉ là thấy */
-function PaydayEditor({
-  day,
+/** Danh sách ai nhận lương trong ngày đang xem */
+function PaydayPanel({ people, meId }: { people: Array<{ userId: number; fullName: string }>; meId?: number }) {
+  return (
+    <div className="rounded-lg bg-emerald-50 px-3 py-2.5 ring-1 ring-emerald-300 dark:bg-emerald-950/40 dark:ring-emerald-700">
+      <div className="mb-2 flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-emerald-800 dark:text-emerald-200">
+        <Money size={16} weight="fill" className="text-emerald-600 dark:text-emerald-400" />
+        Nhận lương ngày này ({people.length})
+      </div>
+      <ul className="space-y-1.5">
+        {people.map((p) => (
+          <li key={p.userId} className="flex items-center gap-2.5">
+            <Avatar name={p.fullName} />
+            <span className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white">
+              {p.fullName}
+              {p.userId === meId && <span className="text-emerald-700 dark:text-emerald-300"> (bạn)</span>}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Một dòng cấu hình ngày nhận lương của nhân viên (Admin) */
+function PaydayRow({
+  row,
   busy,
-  onChange,
+  onSave,
 }: {
-  day: LeaveDay;
+  row: StaffPaydayRow;
   busy: boolean;
-  onChange: (day: string, payday: boolean, note?: string) => void;
+  onSave: (row: StaffPaydayRow, dayOfMonth: number | null) => void;
 }) {
-  const [note, setNote] = useState(day.payday ?? '');
-  useEffect(() => setNote(day.payday ?? ''), [day.payday]);
-  const isPayday = day.payday !== null;
-  const dirty = !isPayday || note.trim() !== day.payday;
+  const saved = row.dayOfMonth === null ? '' : String(row.dayOfMonth);
+  const [text, setText] = useState(saved);
+  useEffect(() => setText(saved), [saved]);
+  const n = Number(text);
+  const valid = text.trim() === '' || (Number.isInteger(n) && n >= 1 && n <= 31);
+  const dirty = text.trim() !== saved;
 
   return (
-    <div className="border-t border-slate-100 pt-4 dark:border-slate-800">
-      <Field label="Ngày nhận lương - chú thích cho nhân viên (VD: Lương tháng 10)">
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-3 py-2">
+      <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <Avatar name={row.fullName} />
+        <span className="min-w-0 break-words text-sm font-bold text-slate-900 dark:text-white">{row.fullName}</span>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">Ngày</span>
         <input
-          type="text"
-          maxLength={100}
-          className="input-3d !h-10"
-          placeholder="Lương tháng ..."
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
+          type="number"
+          min={1}
+          max={31}
+          placeholder="—"
+          className={`input-3d !h-9 !w-20 text-center ${valid ? '' : '!border-rose-400'}`}
+          value={text}
+          onChange={(e) => setText(e.target.value)}
         />
-      </Field>
-      <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
-        {isPayday && (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onChange(day.day, false)}
-            className="btn-3d btn-3d-white px-3.5 py-2 text-sm disabled:opacity-50"
-          >
-            Bỏ ngày nhận lương
-          </button>
-        )}
         <button
           type="button"
-          disabled={busy || !dirty}
-          onClick={() => onChange(day.day, true, note.trim())}
-          className="btn-3d btn-3d-blue inline-flex items-center gap-1.5 px-4 py-2 text-sm disabled:opacity-50"
+          disabled={busy || !dirty || !valid}
+          onClick={() => onSave(row, text.trim() === '' ? null : n)}
+          className="btn-3d btn-3d-blue px-3.5 py-1.5 text-sm disabled:opacity-50"
         >
-          <Money size={15} weight="bold" />
-          {isPayday ? 'Lưu chú thích' : 'Đặt là ngày nhận lương'}
+          Lưu
         </button>
       </div>
-    </div>
+    </li>
   );
 }
 

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsBoolean, IsInt, IsOptional, IsString, Matches, Max, MaxLength, Min } from 'class-validator';
+import { IsInt, IsOptional, Matches, Max, Min } from 'class-validator';
 
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
 const DAY = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
@@ -53,16 +53,16 @@ export class SetDayLimitDto {
   max?: number | null;
 }
 
-export class SetPaydayDto {
-  @Matches(DAY, { message: 'Ngày phải có dạng YYYY-MM-DD' })
-  day: string;
+export class SetStaffPaydayDto {
+  @Type(() => Number)
+  @IsInt({ message: 'Nhân viên không hợp lệ' })
+  @Min(1, { message: 'Nhân viên không hợp lệ' })
+  userId: number;
 
-  /** Có = đánh dấu ngày nhận lương với chú thích này; false = bỏ đánh dấu */
-  @IsBoolean()
-  payday: boolean;
-
+  /** Ngày nhận lương trong tháng (1-31); null = bỏ cấu hình */
   @IsOptional()
-  @IsString()
-  @MaxLength(100, { message: 'Chú thích tối đa 100 ký tự' })
-  note?: string;
+  @IsInt({ message: 'Ngày nhận lương phải là số nguyên' })
+  @Min(1, { message: 'Ngày nhận lương từ 1 đến 31' })
+  @Max(31, { message: 'Ngày nhận lương từ 1 đến 31' })
+  dayOfMonth?: number | null;
 }

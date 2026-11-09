@@ -23,8 +23,8 @@ export interface LeaveDay {
   customLimit: boolean;
   count: number;
   mine: boolean;
-  /** Ngày nhận lương: chú thích Admin ghi (có thể rỗng); null = không phải ngày nhận lương */
-  payday: string | null;
+  /** Những nhân viên nhận lương ngày này */
+  paydayPeople: Array<{ userId: number; fullName: string }>;
   /** Những người đã đăng ký nghỉ ngày này */
   people: LeavePerson[];
 }
@@ -49,4 +49,12 @@ export interface LeaveHistoryEntry {
   /** Người thao tác (có thể là Admin hủy hộ) */
   actorName: string;
   createdAt: string;
+}
+
+/** Ngày nhận lương hằng tháng của một nhân viên (Admin cấu hình) */
+export interface StaffPaydayRow {
+  userId: number;
+  fullName: string;
+  /** 1-31; null = chưa cấu hình */
+  dayOfMonth: number | null;
 }

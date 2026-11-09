@@ -7,7 +7,7 @@ import { AppSetting } from '../settings/entities/app-setting.entity.js';
 import { User, UserRole } from '../users/entities/user.entity.js';
 import { LeaveHistory } from './entities/leave-history.entity.js';
 import { LeaveDayLimit } from './entities/leave-day-limit.entity.js';
-import { LeavePayday } from './entities/leave-payday.entity.js';
+import { StaffPayday } from './entities/staff-payday.entity.js';
 import { LeaveRequest } from './entities/leave-request.entity.js';
 import {
   DEFAULT_LEAVE_CONFIG,
@@ -38,8 +38,8 @@ export interface LeaveDay {
   count: number;
   /** Người đang xem đã đăng ký nghỉ ngày này */
   mine: boolean;
-  /** Ngày nhận lương: chú thích Admin ghi (có thể rỗng); null = không phải ngày nhận lương */
-  payday: string | null;
+  /** Những nhân viên nhận lương ngày này (theo ngày nhận lương hằng tháng Admin cấu hình) */
+  paydayPeople: Array<{ userId: number; fullName: string }>;
   /** Ai đã đăng ký nghỉ ngày này (mọi người dùng đều xem được, chỉ Admin mới hủy được) */
   people: Array<{
     /** null với người được hệ thống tự ghi nhận nghỉ đột xuất (không có lượt đăng ký để hủy) */
@@ -66,7 +66,7 @@ export class LeaveService {
     @InjectRepository(LeaveRequest) private readonly requests: Repository<LeaveRequest>,
     @InjectRepository(LeaveDayLimit) private readonly limits: Repository<LeaveDayLimit>,
     @InjectRepository(LeaveHistory) private readonly history: Repository<LeaveHistory>,
-    @InjectRepository(LeavePayday) private readonly paydays: Repository<LeavePayday>,
+    @InjectRepository(StaffPayday) private readonly paydays: Repository<StaffPayday>,
   ) {}
 
   async loadConfig(): Promise<LeaveConfig> {
@@ -105,12 +105,15 @@ export class LeaveService {
         .createQueryBuilder('l')
         .where('l.day >= :first AND l.day <= :last', { first, last })
         .getMany(),
-      this.paydays
-        .createQueryBuilder('p')
-        .where('p.day >= :first AND p.day <= :last', { first, last })
-        .getMany(),
+      this.activePaydays(),
     ]);
-    const paydayByDay = new Map(paydayRows.map((p) => [p.day, p.note]));
+    // Tháng không có ngày đã cấu hình (VD 31 vào tháng 11) thì nhận lương ngày cuối tháng
+    const lastDayNum = daysInMonth.length;
+    const paydayByDayNum = new Map<number, Array<{ userId: number; fullName: string }>>();
+    for (const p of paydayRows) {
+      const n = Math.min(p.dayOfMonth, lastDayNum);
+      paydayByDayNum.set(n, [...(paydayByDayNum.get(n) ?? []), { userId: p.userId, fullName: p.fullName }]);
+    }
 
     const overrideByDay = new Map(overrides.map((o) => [o.day, o.maxOff]));
     const byDay = new Map<string, LeaveRequest[]>();
@@ -128,7 +131,7 @@ export class LeaveService {
         customLimit: override !== undefined,
         count: list.length,
         mine: list.some((r) => r.userId === actor.sub),
-        payday: paydayByDay.get(day) ?? null,
+        paydayPeople: paydayByDayNum.get(Number(day.slice(8))) ?? [],
         people: [
           ...list.map((r) => ({
             requestId: r.id,
@@ -376,17 +379,45 @@ export class LeaveService {
     return { day, max: max ?? null };
   }
 
-  /** Admin đánh dấu / bỏ đánh dấu ngày nhận lương (kèm chú thích) để nhân viên thấy trên lịch nghỉ */
-  async setPayday(day: string, payday: boolean, note?: string) {
-    if (!isRealDay(day)) {
-      throw new BadRequestException('Ngày không hợp lệ');
+  /** Ngày nhận lương của nhân viên đang làm (bỏ qua người đã nghỉ việc / bị khóa) */
+  private async activePaydays(): Promise<Array<{ userId: number; fullName: string; dayOfMonth: number }>> {
+    return this.dataSource.query(
+      `SELECT p."userId", p."dayOfMonth", u."fullName"
+         FROM "staff_paydays" p JOIN "users" u ON u."id" = p."userId"
+        WHERE u."isActive" = true AND u."role" = $1
+        ORDER BY u."fullName"`,
+      [UserRole.STAFF],
+    );
+  }
+
+  /** Admin xem ngày nhận lương của từng nhân viên đang làm (null = chưa cấu hình) */
+  async staffPaydays() {
+    const [staff, rows] = await Promise.all([
+      this.dataSource.getRepository(User).find({
+        where: { role: UserRole.STAFF, isActive: true },
+        select: { id: true, fullName: true },
+        order: { fullName: 'ASC' },
+      }),
+      this.paydays.find(),
+    ]);
+    const byUser = new Map(rows.map((r) => [r.userId, r.dayOfMonth]));
+    return staff.map((u) => ({ userId: u.id, fullName: u.fullName, dayOfMonth: byUser.get(u.id) ?? null }));
+  }
+
+  /** Admin đặt ngày nhận lương hằng tháng (1-31) cho một nhân viên; null = bỏ cấu hình */
+  async setStaffPayday(userId: number, dayOfMonth: number | null) {
+    const staff = await this.dataSource.getRepository(User).findOne({
+      where: { id: userId, isActive: true },
+      select: { id: true, role: true },
+    });
+    if (!staff || staff.role !== UserRole.STAFF) {
+      throw new BadRequestException('Nhân viên không tồn tại hoặc đã bị khóa');
     }
-    if (!payday) {
-      await this.paydays.delete({ day });
-      return { day, payday: null };
+    if (dayOfMonth === null) {
+      await this.paydays.delete({ userId });
+    } else {
+      await this.paydays.save(this.paydays.create({ userId, dayOfMonth }));
     }
-    const clean = (note ?? '').trim().slice(0, 100);
-    await this.paydays.save(this.paydays.create({ day, note: clean }));
-    return { day, payday: clean };
+    return { userId, dayOfMonth };
   }
 }
