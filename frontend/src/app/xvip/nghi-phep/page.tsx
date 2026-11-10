@@ -260,10 +260,6 @@ export default function LeavePage() {
         Đăng ký nghỉ
       </PageTitle>
 
-      {data && (isAdmin || data.rules.length > 0) && (
-        <LeaveRulesCard rules={data.rules} isAdmin={isAdmin} saving={saveRules.isPending} onSave={submitRules} />
-      )}
-
       <Card title={isAdmin ? 'Lịch nghỉ của nhân viên' : 'Chọn ngày muốn nghỉ'} className="mb-5">
         {isLoading ? (
           <p className="py-10 text-center text-sm text-slate-500">Đang tải lịch...</p>
@@ -318,6 +314,11 @@ export default function LeavePage() {
           </>
         )}
       </Card>
+
+      {/* Quy định đăng ký nghỉ: ngay dưới lịch */}
+      {data && (isAdmin || data.rules.length > 0) && (
+        <LeaveRulesCard rules={data.rules} isAdmin={isAdmin} saving={saveRules.isPending} onSave={submitRules} />
+      )}
 
       {isAdmin && (
         <Card title="Giới hạn số người nghỉ mỗi ngày" className="mb-5">
