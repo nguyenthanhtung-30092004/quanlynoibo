@@ -82,6 +82,10 @@ export interface AttendanceDayCell {
 /** Admin xem được mọi nhân viên; người khác chỉ xem được chính mình (không lộ công của đồng nghiệp) */
 const onlyOwn = (viewer: JwtPayload) => (viewer.role === UserRole.ADMIN ? {} : { id: viewer.sub });
 
+/** Admin xem được cả nhân viên đã nghỉ việc (isActive=false); người khác chỉ thấy nhân viên đang hoạt động */
+const onlyActiveUnlessAdmin = (viewer: JwtPayload) =>
+  viewer.role === UserRole.ADMIN ? {} : { isActive: true };
+
 interface PunchSummaryRow {
   userId: number;
   day: string;
@@ -269,7 +273,7 @@ export class AttendanceService {
     const target = day ?? today;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true, ...onlyOwn(viewer) },
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), ...onlyActiveUnlessAdmin(viewer), ...onlyOwn(viewer) },
       select: { id: true, fullName: true },
       order: { fullName: 'ASC' },
     });
@@ -403,7 +407,7 @@ export class AttendanceService {
     const to = `${month}-${String(daysInMonth).padStart(2, '0')}`;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true, ...onlyOwn(viewer) },
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), ...onlyActiveUnlessAdmin(viewer), ...onlyOwn(viewer) },
       select: { id: true, fullName: true, isActive: true },
       order: { fullName: 'ASC' },
     });
