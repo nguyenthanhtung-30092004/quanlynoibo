@@ -62,6 +62,7 @@ export class PayrollService {
       where: {
         role: UserRole.STAFF,
         deletedAt: IsNull(),
+        isActive: true,
         ...(onlyUserId !== undefined ? { id: onlyUserId } : {}),
       },
       select: { id: true, fullName: true, isActive: true },

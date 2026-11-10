@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Trash,
   UserCircle,
-  UsersThree,
 } from '@phosphor-icons/react';
 import type { User, UserRole } from '@/features/auth/types';
 import { useCurrentUser } from '@/features/auth/hooks';
@@ -207,7 +206,6 @@ function UsersPageContent() {
     });
   }, [usersList, search, roleFilter]);
 
-  const totalCount = usersList.length;
   const staffCount = usersList.filter((u) => u.role === 'STAFF').length;
   const adminCount = usersList.filter((u) => u.role === 'ADMIN').length;
 
@@ -328,23 +326,7 @@ function UsersPageContent() {
 
 
       {/* 3D KPI Metrics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div
-          style={{
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #1d4ed8, 0 12px 24px -4px rgba(15,23,42,0.18)',
-          }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-blue-600 to-blue-700 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
-        >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <UsersThree size={26} weight="fill" />
-          </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Tổng nhân sự</div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">{totalCount}</div>
-            <div className="text-[11px] font-medium text-white/90">Hệ thống quản lý nội bộ</div>
-          </div>
-        </div>
-
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div
           style={{
             boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #15803d, 0 12px 24px -4px rgba(15,23,42,0.18)',
@@ -355,7 +337,7 @@ function UsersPageContent() {
             <UserCircle size={26} weight="fill" />
           </span>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Nhân viên bán vé</div>
+            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Nhân viên tổng đài</div>
             <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">{staffCount}</div>
             <div className="text-[11px] font-medium text-white/90">Trực tổng đài &amp; nhận khách</div>
           </div>
@@ -597,7 +579,7 @@ function UsersPageContent() {
                 value={draft.role}
                 onChange={(e) => setDraft({ ...draft, role: e.target.value as UserRole })}
               >
-                <option value="STAFF">Nhân viên bán vé (STAFF)</option>
+                <option value="STAFF">Nhân viên tổng đài (STAFF)</option>
                 <option value="ADMIN">Quản trị viên toàn quyền (ADMIN)</option>
               </select>
             </Field>

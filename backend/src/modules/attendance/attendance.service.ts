@@ -403,7 +403,7 @@ export class AttendanceService {
     const to = `${month}-${String(daysInMonth).padStart(2, '0')}`;
 
     const staff = await this.users.find({
-      where: { role: UserRole.STAFF, deletedAt: IsNull(), ...onlyOwn(viewer) },
+      where: { role: UserRole.STAFF, deletedAt: IsNull(), isActive: true, ...onlyOwn(viewer) },
       select: { id: true, fullName: true, isActive: true },
       order: { fullName: 'ASC' },
     });
