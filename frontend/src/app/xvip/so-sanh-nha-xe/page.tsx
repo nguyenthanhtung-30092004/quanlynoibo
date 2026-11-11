@@ -77,7 +77,7 @@ function FileDropCard({
       }}
       className={`group relative flex flex-1 flex-col justify-between rounded-2xl border-2 border-dashed p-4 sm:p-5 transition-all duration-200 ${
         isDragOver
-          ? 'border-xv-blue bg-blue-50/60 shadow-lg dark:border-blue-400 dark:bg-blue-950/20'
+          ? 'border-blue-600 bg-blue-50/60 shadow-lg dark:border-blue-400 dark:bg-blue-950/20'
           : file
           ? 'border-emerald-400/80 bg-emerald-50/30 shadow-sm dark:border-emerald-600/60 dark:bg-emerald-950/10'
           : 'border-slate-300 bg-white hover:border-slate-400 hover:bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/50 dark:hover:border-slate-600'
@@ -129,7 +129,7 @@ function FileDropCard({
           ) : (
             <div>
               <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">
-                Kéo thả hoặc <span className="text-xv-blue underline underline-offset-2">chọn file Excel</span>
+                Kéo thả hoặc <span className="text-blue-600 underline underline-offset-2">chọn file Excel</span>
               </p>
               <p className="text-xs text-slate-400 dark:text-slate-500">Định dạng .xlsx hoặc .xls</p>
             </div>
@@ -631,7 +631,7 @@ export default function TicketComparePage() {
             type="button"
             disabled={loading || !fileA || !fileB}
             onClick={handleCompare}
-            className="flex items-center gap-2 rounded-xl bg-xv-blue px-6 py-2.5 text-sm font-bold text-white shadow-[0_2px_0_#1d4ed8] transition hover:bg-blue-700 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
+            className="flex items-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-bold text-white shadow-[0_2px_0_#1d4ed8] transition hover:bg-blue-700 active:translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none"
           >
             <ArrowsLeftRight className={`size-4 ${loading ? 'animate-spin' : ''}`} weight="bold" />
             {loading ? 'Đang xử lý đối chiếu...' : 'Bắt đầu so sánh'}
@@ -811,7 +811,7 @@ export default function TicketComparePage() {
                       placeholder="Tìm theo SĐT hoặc tên..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-xv-blue focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+                      className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                     />
                     {searchQuery && (
                       <button

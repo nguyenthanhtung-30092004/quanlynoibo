@@ -408,7 +408,7 @@ export default function RoutesPage() {
                     <td className={`${TD} font-semibold text-slate-500 dark:text-slate-400`}>{index + 1}</td>
                     <td className={TD}>
                       <div className="flex items-center gap-2.5">
-                        <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-blue-500 to-xv-blue text-white shadow-[0_2px_0_#1d4ed8]">
+                        <span className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-b from-blue-500 to-blue-600 text-white shadow-[0_2px_0_#1d4ed8]">
                           <MapPin size={18} weight="bold" />
                         </span>
                         <div>
