@@ -48,6 +48,11 @@ docker compose up -d --remove-orphans
 if [ "$CODE_CHANGED" = true ] && git diff --name-only "$OLD_HEAD" "$NEW_HEAD" | grep -q '^nginx/'; then
   echo "$(ts) cấu hình nginx đổi, tạo lại nginx"
   docker compose up -d --force-recreate nginx
+else
+  # Nginx tra IP của backend / frontend một lần lúc khởi động rồi nhớ luôn. Container vừa tạo lại có thể
+  # được cấp IP mới, nginx vẫn gọi IP cũ nên cả trang báo 502. Reload để nginx tra lại (không rớt kết nối).
+  echo "$(ts) reload nginx để nhận IP mới của container"
+  docker compose exec -T nginx nginx -s reload || docker compose restart nginx
 fi
 
 docker image prune -f >/dev/null
