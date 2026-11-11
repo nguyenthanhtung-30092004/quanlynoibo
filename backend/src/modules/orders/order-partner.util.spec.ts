@@ -40,10 +40,7 @@ describe('matchCanonicalPartner', () => {
 });
 
 describe('filterOrdersByPartner', () => {
-  const partners = [
-    { name: 'Sao Việt' },
-    { name: 'Cửa Ông' },
-  ];
+  const partners = [{ name: 'Sao Việt' }, { name: 'Cửa Ông' }];
 
   it('giữ lại đơn không có đối tác và đơn khớp bảng đối tác, loại đơn đối tác lạ', () => {
     const orders = [
@@ -65,10 +62,7 @@ describe('filterOrdersByPartner', () => {
 });
 
 describe('findUnlistedPartners', () => {
-  const partners = [
-    { name: 'Sao Việt' },
-    { name: 'Cửa Ông' },
-  ];
+  const partners = [{ name: 'Sao Việt' }, { name: 'Cửa Ông' }];
 
   it('gom nhóm đối tác lạ không phân biệt hoa thường và sắp theo số đơn giảm dần', () => {
     const orders = [
@@ -111,7 +105,9 @@ describe('applyImportPartnerAlias', () => {
 
   it('tên khác hoặc đã đầy đủ thì giữ nguyên', () => {
     expect(applyImportPartnerAlias('Anh Huy 92')).toBe('Anh Huy 92');
-    expect(applyImportPartnerAlias('Anh Huy Đất Cảng')).toBe('Anh Huy Đất Cảng');
+    expect(applyImportPartnerAlias('Anh Huy Đất Cảng')).toBe(
+      'Anh Huy Đất Cảng',
+    );
     expect(applyImportPartnerAlias('X.E Việt Nam')).toBe('X.E Việt Nam');
     expect(applyImportPartnerAlias('Sao Việt')).toBe('Sao Việt');
   });
@@ -121,13 +117,21 @@ describe('matchCanonicalPartner - lệch mã hóa / khoảng trắng / dấu', (
   const partners = [{ name: 'Hoàng Phương' }, { name: 'Sao Việt' }];
 
   it('khớp dù dấu tiếng Việt ở dạng dấu rời (NFD)', () => {
-    expect(matchCanonicalPartner('Hoàng Phương'.normalize('NFD'), partners)).toBe('Hoàng Phương');
+    expect(
+      matchCanonicalPartner('Hoàng Phương'.normalize('NFD'), partners),
+    ).toBe('Hoàng Phương');
   });
 
   it('khớp dù có khoảng trắng đặc biệt hoặc thừa ở giữa', () => {
-    expect(matchCanonicalPartner('Hoàng Phương', partners)).toBe('Hoàng Phương');
-    expect(matchCanonicalPartner('Hoàng   Phương', partners)).toBe('Hoàng Phương');
-    expect(matchCanonicalPartner('​Hoàng Phương', partners)).toBe('Hoàng Phương');
+    expect(matchCanonicalPartner('Hoàng Phương', partners)).toBe(
+      'Hoàng Phương',
+    );
+    expect(matchCanonicalPartner('Hoàng   Phương', partners)).toBe(
+      'Hoàng Phương',
+    );
+    expect(matchCanonicalPartner('​Hoàng Phương', partners)).toBe(
+      'Hoàng Phương',
+    );
   });
 
   it('tên trong hệ thống bị dấu rời / khoảng trắng đặc biệt vẫn khớp tên gõ bình thường', () => {
@@ -136,7 +140,9 @@ describe('matchCanonicalPartner - lệch mã hóa / khoảng trắng / dấu', (
   });
 
   it('chỉ lệch dấu và duy nhất một đối tác thì vẫn khớp', () => {
-    expect(matchCanonicalPartner('Hoang Phuong', partners)).toBe('Hoàng Phương');
+    expect(matchCanonicalPartner('Hoang Phuong', partners)).toBe(
+      'Hoàng Phương',
+    );
   });
 
   it('lệch dấu nhưng mơ hồ giữa nhiều đối tác thì không khớp', () => {
