@@ -75,8 +75,9 @@ export class OrdersExportService {
     const cancelledCount = orders.length - activeCount;
 
     // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
-    // Nhờ thu, hoa hồng chỉ ghi ở dòng đầu để tổng không bị tính đôi; tiền cọc ghi riêng từng
-    // dòng (số ghế x giá bán) không cần đối chiếu lại với tiền cọc gốc của đơn.
+    // Cọc, nhờ thu, hoa hồng là của cả vé (không phải riêng loại cabin nào) nên chỉ ghi 1 lần;
+    // riêng ô "ĐÃ CỌC" còn được gộp (merge) các dòng của cùng 1 vé lại thành 1 ô cho khỏi phải
+    // thấy dòng sau ghi 0 - xem đoạn gộp ô ĐÃ CỌC ngay sau khi ghi xong dữ liệu.
     // unit: đơn giá 1 cabin của dòng cabin; hai cột GIÁ NHẬP / GIÁ BÁN ghi đơn giá này (giống form nhập)
     type Row = {
       order: Order;
@@ -109,7 +110,7 @@ export class OrdersExportService {
           // view giữ tổng tiền của dòng (đơn giá x số lượng) để cộng tổng; ô hiển thị lấy từ unit
           costPrice: line.costPrice * line.quantity,
           sellPrice: line.sellPrice * line.quantity,
-          deposit: o.deposit > 0 ? line.quantity * line.sellPrice : 0,
+          deposit: i === 0 ? o.deposit : 0,
           collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
           commission: i === 0 ? o.commission : 0,
         }),
@@ -280,6 +281,23 @@ export class OrdersExportService {
       status.font = { bold: true, color: { argb: cancelled ? RED : 'FFFFFFFF' } };
       status.fill = solid(cancelled ? 'FFFFFFFF' : GREEN);
     });
+
+    // Đơn cabin tách nhiều dòng: gộp ô "ĐÃ CỌC" của các dòng cùng 1 vé lại thành 1 ô (tiền cọc
+    // là của cả vé, không phải riêng từng loại cabin), để không thấy dòng sau ghi 0 thừa thãi.
+    if (hasSplitRows) {
+      const depositCol = COLS.findIndex((c) => c.header === 'ĐÃ CỌC') + 1;
+      for (let i = 0; i < rows.length; ) {
+        let j = i;
+        while (j + 1 < rows.length && rows[j + 1].orderIndex === rows[i].orderIndex) j++;
+        if (j > i) {
+          const top = HEADER_ROW + 1 + i;
+          const bottom = HEADER_ROW + 1 + j;
+          sheet.mergeCells(top, depositCol, bottom, depositCol);
+          sheet.getCell(top, depositCol).alignment = { horizontal: 'right', vertical: 'middle' };
+        }
+        i = j + 1;
+      }
+    }
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)
     const first = HEADER_ROW + 1;

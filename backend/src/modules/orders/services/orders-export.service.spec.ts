@@ -110,7 +110,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(cabinOrder.commission).toBe(1_050_000);
   });
 
-  it('đơn cabin tách 3 dòng, cọc từng dòng = số ghế x giá bán, hoa hồng chỉ ở dòng đầu, tổng các dòng khớp đơn', async () => {
+  it('đơn cabin tách 3 dòng: cọc là tiền thật của cả vé, ghi ở dòng đầu và gộp ô với 2 dòng sau; hoa hồng chỉ ở dòng đầu; tổng khớp đơn', async () => {
     const sheet = await exportRows([cabinOrder]);
     const rows = [5, 6, 7].map((r) => sheet.getRow(r));
     const col = (name: string) => {
@@ -128,8 +128,17 @@ describe('xuất Excel: tiền và tách dòng', () => {
     // dòng cabin ghi đơn giá 1 cabin (không nhân số lượng)
     expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([800, 500, 700]);
     expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([1_000, 650, 900]);
-    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([2_000, 1_950, 900]);
+    // Cọc là tiền thật của cả vé (500), ghi ở dòng đầu rồi gộp ô với 2 dòng sau: đọc .value ở ô
+    // đã gộp trả về giá trị của ô gốc (dòng đầu) chứ không phải giá trị 0 ban đầu ghi ở dòng đó
+    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500, 500, 500]);
     expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
+    // 3 dòng của cùng 1 vé: ô "ĐÃ CỌC" được gộp lại thành 1 ô duy nhất (dòng đầu là ô gốc)
+    const depositCol = col('ĐÃ CỌC');
+    expect(sheet.getCell(5, depositCol).isMerged).toBe(true);
+    expect(sheet.getCell(6, depositCol).isMerged).toBe(true);
+    expect(sheet.getCell(7, depositCol).isMerged).toBe(true);
+    expect(sheet.getCell(6, depositCol).master.address).toBe(sheet.getCell(5, depositCol).address);
+    expect(sheet.getCell(7, depositCol).master.address).toBe(sheet.getCell(5, depositCol).address);
     // STT giống nhau vì cùng một đơn
     expect(new Set(rows.map((r) => r.getCell(1).value)).size).toBe(1);
     // cả 3 dòng đều nền vàng vì đơn đã cọc
@@ -146,8 +155,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(result('SỐ GHẾ')).toBe(cabinOrder.seatCount);
     expect(result('GIÁ NHẬP')).toBe(cabinOrder.costPrice / 1000);
     expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice / 1000);
-    // cọc từng dòng = số ghế x giá bán nên tổng cọc = tổng giá bán
-    expect(result('ĐÃ CỌC')).toBe(cabinOrder.sellPrice / 1000);
+    expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit / 1000);
     expect(result('HOA HỒNG')).toBe(cabinOrder.commission / 1000);
   });
 
@@ -168,7 +176,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(result('SỐ GHẾ')).toBe(6 + 2 + 0);
     expect(result('GIÁ NHẬP')).toBe((3_800_000 + 300_000 + 800_000) / 1000);
     expect(result('GIÁ BÁN')).toBe((4_850_000 + 400_000 + 1_000_000) / 1000);
-    expect(result('ĐÃ CỌC')).toBe(4_850);
+    expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit / 1000);
     expect(result('HOA HỒNG')).toBe((1_050_000 + 20_000 + 50_000) / 1000);
 
     const cancelledRow = sheet.getRow(9);
