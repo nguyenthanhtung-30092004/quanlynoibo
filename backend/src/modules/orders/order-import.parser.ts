@@ -103,7 +103,7 @@ function isRealDate(y: number, m: number, d: number): boolean {
   );
 }
 
-function cellText(v: ExcelJS.CellValue): string {
+export function cellText(v: ExcelJS.CellValue): string {
   if (v === null || v === undefined) return '';
   if (v instanceof Date) return '';
   if (typeof v === 'string') return v.trim();
@@ -119,14 +119,14 @@ function cellText(v: ExcelJS.CellValue): string {
 }
 
 /** Giá trị gốc của ô (giải công thức về kết quả) */
-function rawValue(v: ExcelJS.CellValue): ExcelJS.CellValue {
+export function rawValue(v: ExcelJS.CellValue): ExcelJS.CellValue {
   if (v && typeof v === 'object' && !(v instanceof Date) && 'result' in v) {
     return v.result as ExcelJS.CellValue;
   }
   return v;
 }
 
-function parseDate(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
+export function parseDate(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
   const raw = rawValue(v);
   if (raw === null || raw === undefined || raw === '') return {};
   if (raw instanceof Date) {
@@ -156,7 +156,7 @@ function parseDate(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
   return s ? { error: true } : {};
 }
 
-function parseTime(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
+export function parseTime(v: ExcelJS.CellValue): { value?: string; error?: boolean } {
   const raw = rawValue(v);
   if (raw === null || raw === undefined || raw === '') return {};
   let h: number;
@@ -189,7 +189,7 @@ function parseCount(v: ExcelJS.CellValue): { value: number; error?: boolean } {
 }
 
 /** Số điện thoại: bỏ khoảng trắng; ô dạng số bị mất số 0 đầu thì bù lại */
-function parsePhone(v: ExcelJS.CellValue): string {
+export function parsePhone(v: ExcelJS.CellValue): string {
   const raw = rawValue(v);
   let s = typeof raw === 'number' ? String(Math.round(raw)) : cellText(raw);
   s = s.replace(/[\s.\-()]/g, '');

@@ -13,6 +13,7 @@ import { CarriersModule } from './modules/carriers/carriers.module.js';
 import { DeliveriesModule } from './modules/deliveries/deliveries.module.js';
 import { LeaveModule } from './modules/leave/leave.module.js';
 import { OrdersModule } from './modules/orders/orders.module.js';
+import { TicketCompareModule } from './modules/orders/ticket-compare/ticket-compare.module.js';
 import { PartnersModule } from './modules/partners/partners.module.js';
 import { PayrollModule } from './modules/payroll/payroll.module.js';
 import { RealtimeModule } from './modules/realtime/realtime.module.js';
@@ -106,6 +107,7 @@ import { AttendanceTimeOverride1710000000027 } from './migrations/1710000000027-
     UsersModule,
     AuthModule,
     OrdersModule,
+    TicketCompareModule,
     CarriersModule,
     PartnersModule,
     DeliveriesModule,
