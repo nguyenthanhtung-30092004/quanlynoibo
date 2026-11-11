@@ -168,11 +168,13 @@ function MoneyInput({
   onChange,
   className,
   required,
+  disabled,
 }: {
   value: number;
   onChange: (n: number) => void;
   className?: string;
   required?: boolean;
+  disabled?: boolean;
 }) {
   const fmt = (n: number) => (n ? n.toLocaleString('vi-VN') : '');
   const [text, setText] = useState(fmt(value));
@@ -185,10 +187,11 @@ function MoneyInput({
 
   return (
     <input
-      className={className}
+      className={`${className ?? ''} ${disabled ? 'cursor-not-allowed opacity-60' : ''}`}
       type="text"
       inputMode="numeric"
       required={required}
+      disabled={disabled}
       value={text}
       onChange={(e) => {
         const n = Number(e.target.value.replace(/\D/g, '').slice(0, 10) || 0);
@@ -764,6 +767,7 @@ export function OrderFormModal({
                 quantity: Number(formState.cabin[kind].quantity) || 0,
                 costPrice: Number(formState.cabin[kind].costPrice) || 0,
                 sellPrice: Number(formState.cabin[kind].sellPrice) || 0,
+                deposit: Number(formState.cabin[kind].deposit) || 0,
               }),
             ),
           }
@@ -798,7 +802,7 @@ export function OrderFormModal({
           : isGoods
             ? 0
             : Number(formState.costPrice) || 0,
-      deposit: Number(formState.deposit) || 0,
+      deposit: isCabin ? cabinSum.deposit : Number(formState.deposit) || 0,
       collectOnDelivery: Number(formState.collectOnDelivery) || 0,
       commission: Number(formState.commission) || 0,
       pickupPoint: formState.pickupPoint.trim(),
@@ -1133,16 +1137,17 @@ export function OrderFormModal({
                 </Field>
               ) : isCabin ? (
                 <div className="space-y-2">
-                  <div className="hidden grid-cols-[5rem_4.5rem_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
+                  <div className="hidden grid-cols-[5rem_4.5rem_1fr_1fr_1fr] items-center gap-2 px-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:grid">
                     <span>Loại</span>
                     <span className="text-center">Số lượng</span>
                     <span>Giá nhập (1 cabin)</span>
                     <span>Giá bán (1 cabin)</span>
+                    <span>Đã cọc (dòng này)</span>
                   </div>
                   {CABIN_KINDS.map((kind) => (
                     <div
                       key={kind}
-                      className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/60 sm:grid-cols-[5rem_4.5rem_1fr_1fr] sm:items-center"
+                      className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200 bg-white p-2 dark:border-slate-700 dark:bg-slate-800/60 sm:grid-cols-[5rem_4.5rem_1fr_1fr_1fr] sm:items-center"
                     >
                       <span className="text-xs font-bold uppercase tracking-wide text-slate-600 dark:text-slate-300">
                         {CABIN_LABELS[kind]}
@@ -1174,8 +1179,19 @@ export function OrderFormModal({
                           onChange={(n) => updateCabin(kind, { sellPrice: n })}
                         />
                       </label>
+                      <label className="block min-w-0">
+                        <span className="mb-1 block text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 sm:hidden">Đã cọc (dòng này)</span>
+                        <MoneyInput
+                          className="input-3d min-w-0 text-right font-bold"
+                          value={formState.cabin[kind].deposit}
+                          onChange={(n) => updateCabin(kind, { deposit: n })}
+                        />
+                      </label>
                     </div>
                   ))}
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Mỗi loại cabin có thể được khách cọc một số tiền khác nhau; tổng cọc của đơn = cộng các dòng trên.
+                  </p>
                 </div>
               ) : (
               <>
@@ -1303,11 +1319,20 @@ export function OrderFormModal({
                   </>
                 )}
 
-                <Field label={<>Đã cọc <span className="font-black text-red-600 dark:text-red-400">XVIP</span></>}>
+                <Field
+                  label={
+                    isCabin ? (
+                      <>Đã cọc <span className="font-black text-red-600 dark:text-red-400">XVIP</span> (tổng các dòng cabin)</>
+                    ) : (
+                      <>Đã cọc <span className="font-black text-red-600 dark:text-red-400">XVIP</span></>
+                    )
+                  }
+                >
                   <MoneyInput
                     className="input-3d"
                     value={formState.deposit}
                     onChange={(n) => setFormState((p) => ({ ...p, deposit: n }))}
+                    disabled={isCabin}
                   />
                 </Field>
 

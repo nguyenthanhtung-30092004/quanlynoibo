@@ -75,9 +75,9 @@ export class OrdersExportService {
     const cancelledCount = orders.length - activeCount;
 
     // Đơn "Xe Cabin" có cả cabin đơn và cabin đôi được tách thành mỗi loại một dòng.
-    // Cọc, nhờ thu, hoa hồng là của cả vé (không phải riêng loại cabin nào) nên chỉ ghi 1 lần;
-    // riêng ô "ĐÃ CỌC" còn được gộp (merge) các dòng của cùng 1 vé lại thành 1 ô cho khỏi phải
-    // thấy dòng sau ghi 0 - xem đoạn gộp ô ĐÃ CỌC ngay sau khi ghi xong dữ liệu.
+    // Nhờ thu, hoa hồng là của cả vé (không phải riêng loại cabin nào) nên chỉ ghi 1 lần ở dòng đầu;
+    // riêng ĐÃ CỌC là tiền cọc thật của từng dòng cabin (mỗi loại cabin có thể cọc khác nhau) nên ghi
+    // đúng theo từng dòng, không gộp.
     // unit: đơn giá 1 cabin của dòng cabin; hai cột GIÁ NHẬP / GIÁ BÁN ghi đơn giá này (giống form nhập)
     type Row = {
       order: Order;
@@ -110,7 +110,7 @@ export class OrdersExportService {
           // view giữ tổng tiền của dòng (đơn giá x số lượng) để cộng tổng; ô hiển thị lấy từ unit
           costPrice: line.costPrice * line.quantity,
           sellPrice: line.sellPrice * line.quantity,
-          deposit: i === 0 ? o.deposit : 0,
+          deposit: line.deposit ?? 0,
           collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
           commission: i === 0 ? o.commission : 0,
         }),
@@ -253,8 +253,8 @@ export class OrdersExportService {
       const row = sheet.getRow(HEADER_ROW + 1 + idx);
       row.height = 21;
       const cancelled = isCancelled(o);
-      // Đã cọc theo cả đơn: đơn tách nhiều dòng thì dòng nào cũng vàng dù tiền cọc chỉ ghi ở dòng đầu
-      const deposited = !cancelled && order.deposit > 0;
+      // Đã cọc theo từng dòng: đơn cabin tách dòng thì chỉ dòng có cọc thật mới tô vàng
+      const deposited = !cancelled && o.deposit > 0;
       COLS.forEach((c, i) => {
         const cell = row.getCell(i + 1);
         cell.value = c.value(o, idx);
@@ -281,23 +281,6 @@ export class OrdersExportService {
       status.font = { bold: true, color: { argb: cancelled ? RED : 'FFFFFFFF' } };
       status.fill = solid(cancelled ? 'FFFFFFFF' : GREEN);
     });
-
-    // Đơn cabin tách nhiều dòng: gộp ô "ĐÃ CỌC" của các dòng cùng 1 vé lại thành 1 ô (tiền cọc
-    // là của cả vé, không phải riêng từng loại cabin), để không thấy dòng sau ghi 0 thừa thãi.
-    if (hasSplitRows) {
-      const depositCol = COLS.findIndex((c) => c.header === 'ĐÃ CỌC') + 1;
-      for (let i = 0; i < rows.length; ) {
-        let j = i;
-        while (j + 1 < rows.length && rows[j + 1].orderIndex === rows[i].orderIndex) j++;
-        if (j > i) {
-          const top = HEADER_ROW + 1 + i;
-          const bottom = HEADER_ROW + 1 + j;
-          sheet.mergeCells(top, depositCol, bottom, depositCol);
-          sheet.getCell(top, depositCol).alignment = { horizontal: 'right', vertical: 'middle' };
-        }
-        i = j + 1;
-      }
-    }
 
     // ---- dòng tổng (chỉ tính vé hợp lệ)
     const first = HEADER_ROW + 1;

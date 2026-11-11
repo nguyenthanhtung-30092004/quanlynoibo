@@ -93,20 +93,26 @@ export function resolveSeats(
 const CABIN_ORDER: CabinKind[] = [CabinKind.SINGLE, CabinKind.SINGLE_FLOOR1, CabinKind.DOUBLE];
 
 /** Sắp xếp dòng cabin theo thứ tự cố định; không có dòng nào thì trả null */
-export function sortCabinLines(lines: readonly CabinLine[] | null | undefined): CabinLine[] | null {
+export function sortCabinLines<T extends { kind: CabinKind }>(
+  lines: readonly T[] | null | undefined,
+): T[] | null {
   if (!lines || lines.length === 0) return null;
   return [...lines].sort((a, b) => CABIN_ORDER.indexOf(a.kind) - CABIN_ORDER.indexOf(b.kind));
 }
 
-/** Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng (đơn giá 1 cabin nhân số lượng) */
+/**
+ * Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng (đơn giá 1 cabin nhân số lượng).
+ * Cọc thì cộng thẳng từng dòng (không nhân số lượng): mỗi dòng cabin có thể được cọc một số tiền khác nhau.
+ */
 export function cabinTotals(lines: readonly CabinLine[]) {
   return lines.reduce(
     (acc, l) => ({
       seatCount: acc.seatCount + l.quantity,
       costPrice: acc.costPrice + l.costPrice * l.quantity,
       sellPrice: acc.sellPrice + l.sellPrice * l.quantity,
+      deposit: acc.deposit + (l.deposit ?? 0),
     }),
-    { seatCount: 0, costPrice: 0, sellPrice: 0 },
+    { seatCount: 0, costPrice: 0, sellPrice: 0, deposit: 0 },
   );
 }
 

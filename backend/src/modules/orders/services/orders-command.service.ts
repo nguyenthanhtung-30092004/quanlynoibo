@@ -123,16 +123,18 @@ export class OrdersCommandService {
     if (new Set(sorted.map((l) => l.kind)).size !== sorted.length) {
       throw new BadRequestException('Mỗi loại cabin chỉ được có một dòng.');
     }
-    const totals = cabinTotals(sorted);
-    if (totals.costPrice > MONEY_COLUMN_MAX || totals.sellPrice > MONEY_COLUMN_MAX) {
-      throw new BadRequestException('Tổng giá nhập hoặc giá bán của các dòng cabin quá lớn.');
-    }
-    return sorted.map((l) => ({
+    const normalized: CabinLine[] = sorted.map((l) => ({
       kind: l.kind,
       quantity: l.quantity,
       costPrice: l.costPrice,
       sellPrice: l.sellPrice,
+      deposit: l.deposit ?? 0,
     }));
+    const totals = cabinTotals(normalized);
+    if (totals.costPrice > MONEY_COLUMN_MAX || totals.sellPrice > MONEY_COLUMN_MAX) {
+      throw new BadRequestException('Tổng giá nhập hoặc giá bán của các dòng cabin quá lớn.');
+    }
+    return normalized;
   }
 
   /**
@@ -246,7 +248,8 @@ export class OrdersCommandService {
         ...seats,
         costPrice,
         sellPrice,
-        deposit: dto.deposit ?? 0,
+        // Xe cabin: cọc là tổng cọc riêng của từng dòng cabin, không dùng ô cọc chung của đơn
+        deposit: cabin ? cabin.deposit : (dto.deposit ?? 0),
         collectOnDelivery: dto.collectOnDelivery ?? 0,
         commission: dto.commission ?? 0,
         partner: canonicalPartner,
@@ -353,7 +356,7 @@ export class OrdersCommandService {
       ...nextSeats,
       costPrice: cabin ? cabin.costPrice : (dto.costPrice ?? order.costPrice),
       sellPrice: cabin ? cabin.sellPrice : (dto.sellPrice ?? order.sellPrice),
-      deposit: dto.deposit ?? order.deposit,
+      deposit: cabin ? cabin.deposit : (dto.deposit ?? order.deposit),
       collectOnDelivery: dto.collectOnDelivery ?? order.collectOnDelivery,
       partner: nextPartner,
       pickupPoint:

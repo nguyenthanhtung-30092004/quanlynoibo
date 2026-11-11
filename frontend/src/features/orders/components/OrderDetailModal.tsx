@@ -108,7 +108,9 @@ export function OrderDetailModal({
             <DetailRow
               key={l.kind}
               label={CABIN_LABELS[l.kind]}
-              value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ / cabin`}
+              value={`${l.quantity} cabin - nhập ${money(l.costPrice)}đ - bán ${money(l.sellPrice)}đ / cabin${
+                l.deposit > 0 ? ` - đã cọc ${money(l.deposit)}đ` : ''
+              }`}
             />
           ))}
           {order.goods && (
@@ -144,7 +146,10 @@ export function OrderDetailModal({
           {priceRows.map((r) => (
             <DetailRow key={r.label} label={r.label} value={r.value} />
           ))}
-          <DetailRow label="Đã cọc" value={`${money(order.deposit)}đ`} />
+          <DetailRow
+            label={(order.cabinLines?.length ?? 0) > 1 ? 'Đã cọc (tổng các dòng)' : 'Đã cọc'}
+            value={`${money(order.deposit)}đ`}
+          />
           <DetailRow label="Nhờ thu" value={`${money(order.collectOnDelivery)}đ`} />
           <DetailRow label="Hoa hồng" value={`${money(order.commission)}đ`} />
         </DetailGroup>

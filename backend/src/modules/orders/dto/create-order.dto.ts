@@ -47,6 +47,14 @@ export class CabinLineDto {
   @Min(0, { message: 'Giá bán không được âm' })
   @Max(MONEY_MAX, { message: 'Giá bán quá lớn' })
   sellPrice: number;
+
+  @ApiPropertyOptional({ description: 'Đã cọc riêng cho dòng cabin này (VNĐ)', example: 350000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'Tiền cọc phải là số nguyên' })
+  @Min(0, { message: 'Tiền cọc không được âm' })
+  @Max(MONEY_MAX, { message: 'Tiền cọc quá lớn' })
+  deposit?: number;
 }
 
 /** Chi tiết hàng hóa của đơn "Gửi Hàng" */

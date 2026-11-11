@@ -181,12 +181,13 @@ export const CABIN_LABELS: Record<CabinKind, string> = {
   DOUBLE: 'Cabin Đôi',
 };
 
-/** Một dòng chi tiết cabin; giá nhập / giá bán là tổng tiền của dòng đó */
+/** Một dòng chi tiết cabin; giá nhập / giá bán là tổng tiền của dòng đó; deposit là cọc riêng của dòng (không nhân số lượng) */
 export interface CabinLine {
   kind: CabinKind;
   quantity: number;
   costPrice: number;
   sellPrice: number;
+  deposit: number;
 }
 
 /** Chi tiết hàng hóa của đơn "Gửi Hàng"; cước phí là giá bán của đơn */

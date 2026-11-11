@@ -9,15 +9,20 @@ import {
 } from './cabin-pricing';
 
 const lines = [
-  { kind: 'SINGLE' as const, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000 },
-  { kind: 'DOUBLE' as const, quantity: 1, costPrice: 700_000, sellPrice: 900_000 },
-  { kind: 'SINGLE_FLOOR1' as const, quantity: 3, costPrice: 500_000, sellPrice: 650_000 },
+  { kind: 'SINGLE' as const, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000, deposit: 300_000 },
+  { kind: 'DOUBLE' as const, quantity: 1, costPrice: 700_000, sellPrice: 900_000, deposit: 0 },
+  { kind: 'SINGLE_FLOOR1' as const, quantity: 3, costPrice: 500_000, sellPrice: 650_000, deposit: 200_000 },
 ];
 
 describe('cabin pricing', () => {
-  it('điền cả 3 loại: hoa hồng là tổng lãi của 3 dòng', () => {
+  it('điền cả 3 loại: hoa hồng là tổng lãi của 3 dòng, cọc cộng thẳng từng dòng', () => {
     const cabin = cabinFromLines(lines);
-    expect(cabinTotals(cabin)).toEqual({ seatCount: 6, costPrice: 3_800_000, sellPrice: 4_850_000 });
+    expect(cabinTotals(cabin)).toEqual({
+      seatCount: 6,
+      costPrice: 3_800_000,
+      sellPrice: 4_850_000,
+      deposit: 500_000,
+    });
     // 2 x 200k + 1 x 200k + 3 x 150k
     expect(cabinCommission(cabin)).toBe(1_050_000);
   });
@@ -37,13 +42,13 @@ describe('cabin pricing', () => {
   });
 
   it('bán thấp hơn nhập: dòng lỗ trừ vào tổng, tổng âm thì hoa hồng là 0', () => {
-    const loss = { kind: 'SINGLE' as const, quantity: 1, costPrice: 900_000, sellPrice: 800_000 };
+    const loss = { kind: 'SINGLE' as const, quantity: 1, costPrice: 900_000, sellPrice: 800_000, deposit: 0 };
     expect(cabinCommission(cabinFromLines([loss, lines[1]]))).toBe(100_000); // 200k - 100k
     expect(cabinCommission(cabinFromLines([loss]))).toBe(0);
   });
 
   it('chưa nhập gì thì mọi số là 0', () => {
-    expect(cabinTotals(cabinFromLines(null))).toEqual({ seatCount: 0, costPrice: 0, sellPrice: 0 });
+    expect(cabinTotals(cabinFromLines(null))).toEqual({ seatCount: 0, costPrice: 0, sellPrice: 0, deposit: 0 });
     expect(cabinCommission(cabinFromLines(null))).toBe(0);
   });
 });

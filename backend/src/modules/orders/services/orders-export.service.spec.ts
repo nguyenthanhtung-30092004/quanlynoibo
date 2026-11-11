@@ -32,11 +32,11 @@ const base = {
   cancelledAt: null,
 };
 
-/** Đơn cabin đủ 3 loại: giá là đơn giá 1 cabin, tổng và hoa hồng tính từ các dòng */
+/** Đơn cabin đủ 3 loại: giá là đơn giá 1 cabin, tổng và hoa hồng tính từ các dòng; mỗi dòng cọc riêng */
 const cabinLines = [
-  { kind: CabinKind.SINGLE, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000 },
-  { kind: CabinKind.DOUBLE, quantity: 1, costPrice: 700_000, sellPrice: 900_000 },
-  { kind: CabinKind.SINGLE_FLOOR1, quantity: 3, costPrice: 500_000, sellPrice: 650_000 },
+  { kind: CabinKind.SINGLE, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000, deposit: 300_000 },
+  { kind: CabinKind.DOUBLE, quantity: 1, costPrice: 700_000, sellPrice: 900_000, deposit: 200_000 },
+  { kind: CabinKind.SINGLE_FLOOR1, quantity: 3, costPrice: 500_000, sellPrice: 650_000, deposit: 0 },
 ];
 const cabin = cabinTotals(cabinLines);
 
@@ -48,7 +48,8 @@ const cabinOrder = {
   seatCount: cabin.seatCount,
   costPrice: cabin.costPrice,
   sellPrice: cabin.sellPrice,
-  deposit: 500_000,
+  // Đơn cabin: cọc của đơn là tổng cọc từng dòng (giống service thật tính)
+  deposit: cabin.deposit,
   commission: cabin.sellPrice - cabin.costPrice,
 };
 const normalOrder = {
@@ -106,11 +107,11 @@ async function exportRows(orders: unknown[]) {
 
 describe('xuất Excel: tiền và tách dòng', () => {
   it('tổng đơn cabin = đơn giá x số lượng; hoa hồng = tổng bán - tổng nhập', () => {
-    expect(cabin).toEqual({ seatCount: 6, costPrice: 3_800_000, sellPrice: 4_850_000 });
+    expect(cabin).toEqual({ seatCount: 6, costPrice: 3_800_000, sellPrice: 4_850_000, deposit: 500_000 });
     expect(cabinOrder.commission).toBe(1_050_000);
   });
 
-  it('đơn cabin tách 3 dòng: cọc là tiền thật của cả vé, ghi ở dòng đầu và gộp ô với 2 dòng sau; hoa hồng chỉ ở dòng đầu; tổng khớp đơn', async () => {
+  it('đơn cabin tách 3 dòng: mỗi dòng ghi cọc riêng của nó, không gộp ô; hoa hồng chỉ ở dòng đầu; tổng khớp đơn', async () => {
     const sheet = await exportRows([cabinOrder]);
     const rows = [5, 6, 7].map((r) => sheet.getRow(r));
     const col = (name: string) => {
@@ -128,23 +129,20 @@ describe('xuất Excel: tiền và tách dòng', () => {
     // dòng cabin ghi đơn giá 1 cabin (không nhân số lượng)
     expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([800, 500, 700]);
     expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([1_000, 650, 900]);
-    // Cọc là tiền thật của cả vé (500), ghi ở dòng đầu rồi gộp ô với 2 dòng sau: đọc .value ở ô
-    // đã gộp trả về giá trị của ô gốc (dòng đầu) chứ không phải giá trị 0 ban đầu ghi ở dòng đó
-    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([500, 500, 500]);
+    // Mỗi dòng cabin có cọc riêng (300k Cabin Đơn, 0 Cabin Đơn Tầng 1, 200k Cabin Đôi), ghi đúng từng dòng
+    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([300, 0, 200]);
     expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
-    // 3 dòng của cùng 1 vé: ô "ĐÃ CỌC" được gộp lại thành 1 ô duy nhất (dòng đầu là ô gốc)
+    // Không còn gộp ô: mỗi dòng là một ô "ĐÃ CỌC" độc lập
     const depositCol = col('ĐÃ CỌC');
-    expect(sheet.getCell(5, depositCol).isMerged).toBe(true);
-    expect(sheet.getCell(6, depositCol).isMerged).toBe(true);
-    expect(sheet.getCell(7, depositCol).isMerged).toBe(true);
-    expect(sheet.getCell(6, depositCol).master.address).toBe(sheet.getCell(5, depositCol).address);
-    expect(sheet.getCell(7, depositCol).master.address).toBe(sheet.getCell(5, depositCol).address);
+    expect(sheet.getCell(5, depositCol).isMerged).toBe(false);
+    expect(sheet.getCell(6, depositCol).isMerged).toBe(false);
+    expect(sheet.getCell(7, depositCol).isMerged).toBe(false);
     // STT giống nhau vì cùng một đơn
     expect(new Set(rows.map((r) => r.getCell(1).value)).size).toBe(1);
-    // cả 3 dòng đều nền vàng vì đơn đã cọc
-    for (const r of rows) {
-      expect(r.getCell(5).fill).toMatchObject({ fgColor: { argb: 'FFFFF176' } });
-    }
+    // chỉ dòng có cọc thật (> 0) mới nền vàng; dòng Cabin Đơn Tầng 1 cọc 0 thì không
+    expect(rows[0].getCell(5).fill).toMatchObject({ fgColor: { argb: 'FFFFF176' } });
+    expect(rows[1].getCell(5).fill).not.toMatchObject({ fgColor: { argb: 'FFFFF176' } });
+    expect(rows[2].getCell(5).fill).toMatchObject({ fgColor: { argb: 'FFFFF176' } });
     // tổng cột khớp tổng của đơn
     const total = sheet.getRow(8);
     const result = (name: string) => {

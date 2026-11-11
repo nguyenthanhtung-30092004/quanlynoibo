@@ -1,21 +1,27 @@
 import { CABIN_KINDS, type CabinKind, type CabinLine } from './types';
 
-/** Số lượng, giá nhập, giá bán (đơn giá 1 cabin) cho từng loại cabin */
-export type CabinState = Record<CabinKind, { quantity: number; costPrice: number; sellPrice: number }>;
+/** Số lượng, giá nhập, giá bán (đơn giá 1 cabin) và tiền cọc riêng cho từng loại cabin */
+export type CabinState = Record<
+  CabinKind,
+  { quantity: number; costPrice: number; sellPrice: number; deposit: number }
+>;
 
 export function cabinFromLines(lines: CabinLine[] | null | undefined): CabinState {
   const out: CabinState = {
-    SINGLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
-    SINGLE_FLOOR1: { quantity: 0, costPrice: 0, sellPrice: 0 },
-    DOUBLE: { quantity: 0, costPrice: 0, sellPrice: 0 },
+    SINGLE: { quantity: 0, costPrice: 0, sellPrice: 0, deposit: 0 },
+    SINGLE_FLOOR1: { quantity: 0, costPrice: 0, sellPrice: 0, deposit: 0 },
+    DOUBLE: { quantity: 0, costPrice: 0, sellPrice: 0, deposit: 0 },
   };
   for (const l of lines ?? []) {
-    out[l.kind] = { quantity: l.quantity, costPrice: l.costPrice, sellPrice: l.sellPrice };
+    out[l.kind] = { quantity: l.quantity, costPrice: l.costPrice, sellPrice: l.sellPrice, deposit: l.deposit ?? 0 };
   }
   return out;
 }
 
-/** Tổng số ghế, tổng giá nhập, tổng giá bán = đơn giá x số lượng của từng dòng */
+/**
+ * Tổng số ghế, tổng giá nhập, tổng giá bán = đơn giá x số lượng của từng dòng.
+ * Cọc thì cộng thẳng từng dòng (không nhân số lượng): mỗi loại cabin có thể được cọc khác nhau.
+ */
 export function cabinTotals(cabin: CabinState) {
   return CABIN_KINDS.reduce(
     (acc, k) => {
@@ -24,9 +30,10 @@ export function cabinTotals(cabin: CabinState) {
         seatCount: acc.seatCount + quantity,
         costPrice: acc.costPrice + (Number(cabin[k].costPrice) || 0) * quantity,
         sellPrice: acc.sellPrice + (Number(cabin[k].sellPrice) || 0) * quantity,
+        deposit: acc.deposit + (Number(cabin[k].deposit) || 0),
       };
     },
-    { seatCount: 0, costPrice: 0, sellPrice: 0 },
+    { seatCount: 0, costPrice: 0, sellPrice: 0, deposit: 0 },
   );
 }
 
