@@ -11,6 +11,7 @@ import {
   describeGoods,
   neutralizeFormula,
   seatsOf,
+  cabinLinesWithDeposit,
   sortCabinLines,
   toExcelDate,
 } from '../mappers/order.mapper.js';
@@ -92,7 +93,7 @@ export class OrdersExportService {
     const rows: Row[] = orders.flatMap((o, orderIndex) => {
       const group = staffGroup[orderIndex];
       const groupStart = orderIndex > 0 && group !== staffGroup[orderIndex - 1];
-      const lines = sortCabinLines(o.cabinLines);
+      const lines = cabinLinesWithDeposit(o.cabinLines, o.deposit);
       if (!lines) return [{ order: o, view: o, orderIndex, group, groupStart }];
       return lines.map((line, i): Row => ({
         order: o,
@@ -110,7 +111,7 @@ export class OrdersExportService {
           // view giữ tổng tiền của dòng (đơn giá x số lượng) để cộng tổng; ô hiển thị lấy từ unit
           costPrice: line.costPrice * line.quantity,
           sellPrice: line.sellPrice * line.quantity,
-          deposit: line.deposit ?? 0,
+          deposit: line.deposit,
           collectOnDelivery: i === 0 ? o.collectOnDelivery : 0,
           commission: i === 0 ? o.commission : 0,
         }),
@@ -185,7 +186,8 @@ export class OrdersExportService {
       { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
       { header: 'GIÁ NHẬP', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.costPrice), value: (o, i) => toThousands(rows[i].unit?.cost ?? o.costPrice) },
       { header: 'GIÁ BÁN', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.sellPrice), value: (o, i) => toThousands(rows[i].unit?.sell ?? o.sellPrice) },
-      { header: 'ĐÃ CỌC', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.deposit) },
+      // Dòng nào không có cọc thì để trống (không ghi 0): đơn cabin chỉ dòng được điền cọc mới có số
+      { header: 'ĐÃ CỌC', width: 16, align: 'right', money: true, sum: true, value: (o) => (o.deposit > 0 ? toThousands(o.deposit) : '') },
       { header: 'NHỜ THU', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.collectOnDelivery) },
       { header: 'HOA HỒNG', width: 16, align: 'right', money: true, sum: true, value: (o) => toThousands(o.commission) },
       { header: 'ĐỐI TÁC', width: 24, value: (o) => neutralizeFormula(o.partner ?? '') },

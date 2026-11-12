@@ -101,6 +101,25 @@ export function sortCabinLines<T extends { kind: CabinKind }>(
 }
 
 /**
+ * Dòng cabin kèm tiền cọc của từng dòng, đã sắp xếp.
+ * Vé cabin tạo trước khi có "cọc riêng từng dòng" không có trường `deposit` ở dòng nào: tiền cọc khi đó
+ * chỉ nằm ở cọc chung của vé. Gán cọc chung đó vào dòng đầu (các dòng sau 0) để tiền cọc không biến mất
+ * khi xuất Excel, khi mở form sửa vé, và khi sửa vé mà không đụng tới các dòng cabin.
+ */
+export function cabinLinesWithDeposit(
+  lines: readonly CabinLine[] | null | undefined,
+  orderDeposit: number,
+): CabinLine[] | null {
+  const sorted = sortCabinLines(lines);
+  if (!sorted) return null;
+  const legacy = sorted.every((l) => l.deposit === undefined || l.deposit === null);
+  return sorted.map((l, i) => ({
+    ...l,
+    deposit: legacy ? (i === 0 ? orderDeposit || 0 : 0) : (l.deposit ?? 0),
+  }));
+}
+
+/**
  * Số ghế, giá nhập, giá bán của đơn cabin = tổng các dòng (đơn giá 1 cabin nhân số lượng).
  * Cọc thì cộng thẳng từng dòng (không nhân số lượng): mỗi dòng cabin có thể được cọc một số tiền khác nhau.
  */
@@ -196,7 +215,7 @@ export function toOrderView(order: Order, orderCount?: number) {
     departureTime: order.departureTime,
     departureDate: order.departureDate,
     vehicleType: order.vehicleType,
-    cabinLines: sortCabinLines(order.cabinLines),
+    cabinLines: cabinLinesWithDeposit(order.cabinLines, order.deposit),
     goods: order.goods ?? null,
     vehicleCount: order.vehicleCount,
     seatZone: order.seatZone,

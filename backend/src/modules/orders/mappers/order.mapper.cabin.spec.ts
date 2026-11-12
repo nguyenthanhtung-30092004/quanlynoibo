@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CabinKind, type CabinLine } from '../entities/order.entity.js';
-import { cabinTotals, describeCabinLines, sortCabinLines } from './order.mapper.js';
+import { cabinLinesWithDeposit, cabinTotals, describeCabinLines, sortCabinLines } from './order.mapper.js';
 
 const double: CabinLine = { kind: CabinKind.DOUBLE, quantity: 1, costPrice: 700_000, sellPrice: 900_000, deposit: 200_000 };
 const single: CabinLine = { kind: CabinKind.SINGLE, quantity: 2, costPrice: 800_000, sellPrice: 1_000_000, deposit: 300_000 };
@@ -35,5 +35,26 @@ describe('cabin lines', () => {
   it('mô tả dòng cabin cho lịch sử', () => {
     expect(describeCabinLines([double, single])).toBe('Cabin Đơn x2; Cabin Đôi x1');
     expect(describeCabinLines(null)).toBeNull();
+  });
+});
+
+describe('cabinLinesWithDeposit', () => {
+  it('dòng đã có cọc riêng: giữ nguyên cọc từng dòng', () => {
+    expect(cabinLinesWithDeposit([double, single], 500_000)?.map((l) => l.deposit)).toEqual([300_000, 200_000]);
+  });
+
+  it('vé cũ (dòng chưa có trường cọc): cọc chung của vé dồn vào dòng đầu, tổng cọc không đổi', () => {
+    const legacy = [double, single].map(({ deposit: _d, ...l }) => l) as CabinLine[];
+    const out = cabinLinesWithDeposit(legacy, 500_000)!;
+    expect(out.map((l) => [l.kind, l.deposit])).toEqual([
+      [CabinKind.SINGLE, 500_000],
+      [CabinKind.DOUBLE, 0],
+    ]);
+    expect(cabinTotals(out).deposit).toBe(500_000);
+  });
+
+  it('không có dòng nào thì trả null', () => {
+    expect(cabinLinesWithDeposit(null, 100_000)).toBeNull();
+    expect(cabinLinesWithDeposit([], 100_000)).toBeNull();
   });
 });

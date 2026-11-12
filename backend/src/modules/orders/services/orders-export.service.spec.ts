@@ -129,8 +129,9 @@ describe('xuất Excel: tiền và tách dòng', () => {
     // dòng cabin ghi đơn giá 1 cabin (không nhân số lượng)
     expect(rows.map((r) => r.getCell(col('GIÁ NHẬP')).value)).toEqual([800, 500, 700]);
     expect(rows.map((r) => r.getCell(col('GIÁ BÁN')).value)).toEqual([1_000, 650, 900]);
-    // Mỗi dòng cabin có cọc riêng (300k Cabin Đơn, 0 Cabin Đơn Tầng 1, 200k Cabin Đôi), ghi đúng từng dòng
-    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([300, 0, 200]);
+    // Mỗi dòng cabin có cọc riêng (300k Cabin Đơn, Cabin Đơn Tầng 1 không cọc, 200k Cabin Đôi):
+    // dòng có cọc ghi số, dòng không cọc để trống
+    expect(rows.map((r) => r.getCell(col('ĐÃ CỌC')).value)).toEqual([300, '', 200]);
     expect(rows.map((r) => r.getCell(col('HOA HỒNG')).value)).toEqual([1_050, 0, 0]);
     // Không còn gộp ô: mỗi dòng là một ô "ĐÃ CỌC" độc lập
     const depositCol = col('ĐÃ CỌC');
@@ -155,6 +156,19 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(result('GIÁ BÁN')).toBe(cabinOrder.sellPrice / 1000);
     expect(result('ĐÃ CỌC')).toBe(cabinOrder.deposit / 1000);
     expect(result('HOA HỒNG')).toBe(cabinOrder.commission / 1000);
+  });
+
+  it('vé cabin cũ (các dòng chưa có cọc riêng): cọc chung của vé vẫn hiện, ghi ở dòng đầu', async () => {
+    // Vé tạo trước khi có cọc riêng từng dòng: trong dữ liệu các dòng cabin không có trường deposit
+    const legacyLines = cabinLines.map(({ deposit: _d, ...l }) => l);
+    const legacy = { ...cabinOrder, cabinLines: legacyLines, deposit: 700_000 };
+    const sheet = await exportRows([legacy as never]);
+    const header = sheet.getRow(4);
+    let depositCol = 0;
+    for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === 'ĐÃ CỌC') depositCol = c;
+    expect([5, 6, 7].map((r) => sheet.getRow(r).getCell(depositCol).value)).toEqual([700, '', '']);
+    const total = sheet.getRow(8).getCell(depositCol).value as { result: number } | number;
+    expect(typeof total === 'number' ? total : total.result).toBe(700);
   });
 
   it('dòng TỔNG bỏ vé đã hủy, xe riêng không tính ghế, vé hủy chữ đỏ nền trắng và còn border', async () => {

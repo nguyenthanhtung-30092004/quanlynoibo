@@ -38,6 +38,7 @@ import {
   normalizeGoods,
   resolveSeats,
   seatsOf,
+  cabinLinesWithDeposit,
   sortCabinLines,
   titleCaseName,
   TRACKED_FIELDS,
@@ -309,7 +310,8 @@ export class OrdersCommandService {
       dto.cabinLines !== undefined
         ? dto.cabinLines
         : (nextVehicleType ?? '').trim() === CABIN_VEHICLE_TYPE
-          ? order.cabinLines
+          ? // Vé cabin cũ chưa có cọc riêng từng dòng: giữ cọc chung của vé, không để sửa vé làm mất cọc
+            cabinLinesWithDeposit(order.cabinLines, order.deposit)
           : null,
     );
     const cabin = nextCabinLines ? cabinTotals(nextCabinLines) : null;

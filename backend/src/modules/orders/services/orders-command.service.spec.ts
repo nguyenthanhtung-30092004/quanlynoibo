@@ -321,6 +321,13 @@ describe('sửa đơn', () => {
     route: { name: 'Tuyến' },
   };
 
+  it('vé cabin cũ (dòng chưa có cọc riêng): sửa trường khác không làm mất cọc của vé', async () => {
+    // `lines` ở đây vốn là dạng cũ: các dòng không có trường deposit
+    const { service, updates } = build({ ...cabinOrder, cabinLines: lines, deposit: 700_000 });
+    await service.update(1, { note: 'Khách đổi số điện thoại' } as never, admin);
+    expect(updates[0]).toMatchObject({ deposit: 700_000 });
+  });
+
   it('đổi giá một dòng cabin thì tổng đơn tính lại đúng', async () => {
     const { service, updates } = build(cabinOrder);
     await service.update(
