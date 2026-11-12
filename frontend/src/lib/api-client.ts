@@ -97,6 +97,21 @@ export async function apiDownload(
   return { blob: await res.blob(), filename };
 }
 
+/** Gửi file lên (multipart) và nhận về một file (ví dụ báo cáo Excel) kèm tên file lấy từ header */
+export async function apiUploadDownload(
+  path: string,
+  formData: FormData,
+): Promise<{ blob: Blob; filename: string }> {
+  const res = await fetch(buildUrl(path), { method: 'POST', body: formData });
+  if (!res.ok) {
+    if (res.status === 401) handleUnauthorized(path);
+    throw await readError(res);
+  }
+  const disposition = res.headers.get('content-disposition') ?? '';
+  const filename = /filename="?([^";]+)"?/.exec(disposition)?.[1] ?? 'download';
+  return { blob: await res.blob(), filename };
+}
+
 /** fetch không báo tiến trình tải lên, nên dùng XMLHttpRequest khi cần thanh tiến trình */
 function uploadWithProgress<T>(
   path: string,

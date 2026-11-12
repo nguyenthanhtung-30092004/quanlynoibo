@@ -535,27 +535,24 @@ export default function TicketComparePage() {
     setExpandedKeys(new Set());
   };
 
-  const handleExportCsv = () => {
-    if (!result || allItems.length === 0) return;
-    const header = ['Số điện thoại', 'Tên khách', 'Phân loại', 'Vé file A', 'Vé file B', 'Chênh lệch'];
-    const rows = allItems.map((item) => [
-      `"${item.phone}"`,
-      `"${(item.customerName ?? '').replace(/"/g, '""')}"`,
-      item.category === 'onlyA' ? `Chỉ có ở ${nameA}` : item.category === 'onlyB' ? `Chỉ có ở ${nameB}` : 'Lệch số vé',
-      item.countA,
-      item.countB,
-      item.delta,
-    ]);
-
-    const csvContent = '\uFEFF' + [header.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Ket_qua_so_sanh_${new Date().toISOString().slice(0, 10)}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
-    showToast('Đã xuất báo cáo CSV thành công!', 'success');
+  const [exporting, setExporting] = useState(false);
+  const handleExportExcel = async () => {
+    if (!result || !fileA || !fileB) return;
+    setExporting(true);
+    try {
+      const { blob, filename } = await ticketCompareApi.exportExcel(fileA, fileB);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Đã xuất báo cáo Excel.', 'success');
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Không xuất được file Excel.', 'error');
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
@@ -566,11 +563,12 @@ export default function TicketComparePage() {
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={handleExportCsv}
-                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                onClick={handleExportExcel}
+                disabled={exporting}
+                className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-xs font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700 disabled:opacity-50"
               >
                 <Export className="size-4 text-emerald-600 dark:text-emerald-400" weight="bold" />
-                Xuất file CSV
+                {exporting ? 'Đang xuất...' : 'Xuất Excel'}
               </button>
             </div>
           ) : null
