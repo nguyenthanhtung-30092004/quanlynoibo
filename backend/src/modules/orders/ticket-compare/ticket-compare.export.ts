@@ -8,18 +8,44 @@ const WHITE = 'FFFFFFFF';
 const LINE = 'FFCBD5E1';
 const BAND = 'FFF8FAFC';
 const MUTED = 'FF64748B';
+const GREEN = 'FF059669';
 
-/** Màu của từng nhóm chênh lệch: nền nhãn, chữ nhãn, nền nhạt của dòng */
+type Names = { a: string; b: string };
+
+/** Mỗi nhóm chênh lệch một sheet: tên sheet, tiêu đề, mô tả, màu nhãn và màu nền nhạt */
 const CATEGORY = {
-  onlyA: { label: 'Chỉ có ở file A', chip: 'FF2563EB', tint: 'FFEFF6FF' },
-  onlyB: { label: 'Chỉ có ở file B', chip: 'FFD97706', tint: 'FFFFFBEB' },
-  mismatched: { label: 'Lệch số vé', chip: 'FFDC2626', tint: 'FFFEF2F2' },
+  mismatched: {
+    sheet: 'Lệch số vé',
+    title: 'Lệch số vé giữa 2 file',
+    describe: (_n: Names) => 'Số điện thoại có ở cả 2 file nhưng số vé khác nhau',
+    chip: 'FFDC2626',
+    tint: 'FFFEF2F2',
+  },
+  onlyA: {
+    sheet: 'Có ở A, thiếu ở B',
+    title: 'Có ở file A, thiếu ở file B',
+    describe: (n: Names) => `Số điện thoại có trong file A (${n.a}) nhưng không có trong file B (${n.b})`,
+    chip: 'FF2563EB',
+    tint: 'FFEFF6FF',
+  },
+  onlyB: {
+    sheet: 'Có ở B, thiếu ở A',
+    title: 'Có ở file B, thiếu ở file A',
+    describe: (n: Names) => `Số điện thoại có trong file B (${n.b}) nhưng không có trong file A (${n.a})`,
+    chip: 'FFD97706',
+    tint: 'FFFFFBEB',
+  },
 } as const;
 type Category = keyof typeof CATEGORY;
 
 const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
 const thin = { style: 'thin', color: { argb: LINE } } as const;
 const box: Partial<ExcelJS.Borders> = { top: thin, left: thin, bottom: thin, right: thin };
+
+const SHEET_OPTS: Partial<ExcelJS.AddWorksheetOptions> = {
+  views: [{ showGridLines: false }],
+  pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
+};
 
 /** Ô bắt đầu bằng = + - @ bị Excel hiểu là công thức: thêm dấu nháy để luôn là chữ */
 const safeText = (s: string | undefined) => {
@@ -59,104 +85,80 @@ export function displayName(fileName: string | undefined, fallback: string): str
   return (name || fallback).slice(0, 60);
 }
 
-/**
- * Báo cáo đối chiếu vé dạng Excel: tiêu đề, khối tổng quan (thẻ số liệu) và bảng chi tiết
- * các SĐT chênh lệch, chia nhóm theo màu (chỉ có ở A / chỉ có ở B / lệch số vé).
- */
-export async function buildCompareWorkbook(
-  result: TicketCompareResponse,
-  names: { a: string; b: string },
-  exportedAt: Date = new Date(),
-): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = 'XVIP';
-  wb.created = exportedAt;
-  const sheet = wb.addWorksheet('Đối chiếu vé', {
-    views: [{ showGridLines: false }],
-    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 },
-  });
+/** Tên sheet kèm số lượng; Excel giới hạn 31 ký tự và cấm các ký tự : \ / ? * [ ] */
+export function sheetName(base: string, count: number): string {
+  return `${base} (${count})`.replace(/[:\\/?*[\]]/g, '').slice(0, 31);
+}
 
-  const COLS = [
-    { header: 'STT', width: 7 },
-    { header: 'SỐ ĐIỆN THOẠI', width: 16 },
-    { header: 'TÊN KHÁCH', width: 24 },
-    { header: 'PHÂN LOẠI', width: 18 },
-    { header: `VÉ FILE A`, width: 11 },
-    { header: `VÉ FILE B`, width: 11 },
-    { header: 'CHÊNH LỆCH', width: 12 },
-    { header: `CHI TIẾT VÉ FILE A`, width: 46 },
-    { header: `CHI TIẾT VÉ FILE B`, width: 46 },
-  ];
-  const N = COLS.length;
-  COLS.forEach((c, i) => (sheet.getColumn(i + 1).width = c.width));
-
-  // ---- Tiêu đề
-  sheet.mergeCells(1, 1, 1, N);
-  const title = sheet.getCell(1, 1);
-  title.value = 'BÁO CÁO ĐỐI CHIẾU VÉ NHÀ XE';
-  title.font = { bold: true, size: 16, color: { argb: WHITE } };
-  title.fill = solid(NAVY);
-  title.alignment = { horizontal: 'center', vertical: 'middle' };
+/** Dòng tiêu đề lớn (nền màu) và dòng mô tả (chữ xám) ở đầu mỗi sheet */
+function writeTitle(sheet: ExcelJS.Worksheet, cols: number, title: string, subtitle: string, color: string) {
+  sheet.mergeCells(1, 1, 1, cols);
+  const t = sheet.getCell(1, 1);
+  t.value = title;
+  t.font = { bold: true, size: 16, color: { argb: WHITE } };
+  t.fill = solid(color);
+  t.alignment = { horizontal: 'center', vertical: 'middle' };
   sheet.getRow(1).height = 32;
 
-  sheet.mergeCells(2, 1, 2, N);
+  sheet.mergeCells(2, 1, 2, cols);
   const sub = sheet.getCell(2, 1);
-  sub.value = `File A: ${safeText(names.a)}     •     File B: ${safeText(names.b)}     •     Xuất lúc ${vnStamp(exportedAt)}`;
+  sub.value = subtitle;
   sub.font = { italic: true, size: 10, color: { argb: MUTED } };
-  sub.alignment = { horizontal: 'center', vertical: 'middle' };
-  sheet.getRow(2).height = 20;
+  sub.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+  sheet.getRow(2).height = 30;
+}
 
-  // ---- Khối tổng quan: mỗi thẻ gồm nhãn (trên) và con số (dưới), chiếm 1-2 cột
-  const totalDiff = result.onlyInA.length + result.onlyInB.length + result.mismatched.length;
-  const cards: Array<{ label: string; value: number; color: string; from: number; to: number }> = [
-    { label: 'SĐT khớp', value: result.matchedPhones, color: 'FF059669', from: 1, to: 2 },
-    { label: 'Chỉ có ở A', value: result.onlyInA.length, color: CATEGORY.onlyA.chip, from: 3, to: 3 },
-    { label: 'Chỉ có ở B', value: result.onlyInB.length, color: CATEGORY.onlyB.chip, from: 4, to: 4 },
-    { label: 'Lệch số vé', value: result.mismatched.length, color: CATEGORY.mismatched.chip, from: 5, to: 7 },
-    { label: `Vé file A (${result.totalPhonesA} SĐT)`, value: result.totalTicketsA, color: NAVY, from: 8, to: 8 },
-    { label: `Vé file B (${result.totalPhonesB} SĐT)`, value: result.totalTicketsB, color: NAVY, from: 9, to: 9 },
+type Column = {
+  header: string;
+  width: number;
+  center?: boolean;
+  wrap?: boolean;
+  value: (d: PhoneDiff) => string | number;
+};
+
+/** Cột của từng sheet: sheet chỉ có một bên thì bỏ hẳn cột của bên kia (toàn số 0 / trống) */
+function columnsFor(category: Category): Column[] {
+  const cols: Column[] = [
+    { header: 'STT', width: 7, center: true, value: () => 0 },
+    { header: 'SỐ ĐIỆN THOẠI', width: 16, value: (d) => d.phone },
+    { header: 'TÊN KHÁCH', width: 26, value: (d) => safeText(d.customerName) },
   ];
-  const LABEL_ROW = 4;
-  const VALUE_ROW = 5;
-  for (const c of cards) {
-    if (c.to > c.from) {
-      sheet.mergeCells(LABEL_ROW, c.from, LABEL_ROW, c.to);
-      sheet.mergeCells(VALUE_ROW, c.from, VALUE_ROW, c.to);
-    }
-    const label = sheet.getCell(LABEL_ROW, c.from);
-    label.value = c.label.toUpperCase();
-    label.font = { bold: true, size: 9, color: { argb: WHITE } };
-    label.fill = solid(c.color);
-    label.alignment = { horizontal: 'center', vertical: 'middle' };
-    const value = sheet.getCell(VALUE_ROW, c.from);
-    value.value = c.value;
-    value.numFmt = '#,##0';
-    value.font = { bold: true, size: 18, color: { argb: c.color } };
-    value.alignment = { horizontal: 'center', vertical: 'middle' };
-    for (let col = c.from; col <= c.to; col++) {
-      sheet.getCell(LABEL_ROW, col).border = { top: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
-      sheet.getCell(VALUE_ROW, col).border = { bottom: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
-      sheet.getCell(VALUE_ROW, col).fill = solid(WHITE);
-    }
+  if (category === 'mismatched') {
+    return [
+      ...cols,
+      { header: 'VÉ FILE A', width: 11, center: true, value: (d) => d.countA },
+      { header: 'VÉ FILE B', width: 11, center: true, value: (d) => d.countB },
+      { header: 'CHÊNH LỆCH\n(A - B)', width: 13, center: true, value: (d) => (d.delta > 0 ? `+${d.delta}` : String(d.delta)) },
+      { header: 'CHI TIẾT VÉ FILE A', width: 46, wrap: true, value: (d) => safeText(describeTickets(d.ticketsA)) || '—' },
+      { header: 'CHI TIẾT VÉ FILE B', width: 46, wrap: true, value: (d) => safeText(describeTickets(d.ticketsB)) || '—' },
+    ];
   }
-  sheet.getRow(LABEL_ROW).height = 20;
-  sheet.getRow(VALUE_ROW).height = 34;
+  const side = category === 'onlyA' ? 'A' : 'B';
+  const count = (d: PhoneDiff) => (category === 'onlyA' ? d.countA : d.countB);
+  const tickets = (d: PhoneDiff) => (category === 'onlyA' ? d.ticketsA : d.ticketsB);
+  return [
+    ...cols,
+    { header: `SỐ VÉ FILE ${side}`, width: 13, center: true, value: count },
+    { header: `CHI TIẾT VÉ FILE ${side}`, width: 64, wrap: true, value: (d) => safeText(describeTickets(tickets(d))) || '—' },
+  ];
+}
 
-  const cancelled = result.cancelledCountA + result.cancelledCountB;
-  sheet.mergeCells(6, 1, 6, N);
-  const note = sheet.getCell(6, 1);
-  note.value =
-    `Có ${totalDiff} số điện thoại chênh lệch.` +
-    (cancelled > 0 ? `  Đã bỏ qua vé hủy: ${result.cancelledCountA} ở file A, ${result.cancelledCountB} ở file B.` : '') +
-    '  Chênh lệch = vé file A - vé file B.';
-  note.font = { size: 10, color: { argb: MUTED } };
-  note.alignment = { vertical: 'middle' };
-  sheet.getRow(6).height = 20;
+/** Một sheet danh sách SĐT của đúng một nhóm chênh lệch */
+function writeGroupSheet(wb: ExcelJS.Workbook, category: Category, list: PhoneDiff[], names: Names, stamp: string) {
+  const meta = CATEGORY[category];
+  const sheet = wb.addWorksheet(sheetName(meta.sheet, list.length), {
+    ...SHEET_OPTS,
+    properties: { tabColor: { argb: meta.chip } },
+  });
+  const cols = columnsFor(category);
+  const N = cols.length;
+  cols.forEach((c, i) => (sheet.getColumn(i + 1).width = c.width));
 
-  // ---- Bảng chi tiết
-  const HEADER_ROW = 8;
+  writeTitle(sheet, N, meta.title.toUpperCase(), `${meta.describe(names)}     •     Xuất lúc ${stamp}`, meta.chip);
+
+  const HEADER_ROW = 4;
   const header = sheet.getRow(HEADER_ROW);
-  COLS.forEach((c, i) => {
+  cols.forEach((c, i) => {
     const cell = header.getCell(i + 1);
     cell.value = c.header;
     cell.font = { bold: true, size: 10, color: { argb: WHITE } };
@@ -164,83 +166,159 @@ export async function buildCompareWorkbook(
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = box;
   });
-  header.height = 30;
+  header.height = 32;
 
+  if (list.length === 0) {
+    sheet.mergeCells(HEADER_ROW + 1, 1, HEADER_ROW + 1, N);
+    const none = sheet.getCell(HEADER_ROW + 1, 1);
+    none.value = 'Không có số điện thoại nào trong nhóm này.';
+    none.font = { bold: true, size: 11, color: { argb: GREEN } };
+    none.fill = solid('FFECFDF5');
+    none.alignment = { horizontal: 'center', vertical: 'middle' };
+    sheet.getRow(HEADER_ROW + 1).height = 28;
+  }
+
+  list.forEach((d, i) => {
+    const row = sheet.getRow(HEADER_ROW + 1 + i);
+    cols.forEach((c, ci) => {
+      const cell = row.getCell(ci + 1);
+      cell.value = ci === 0 ? i + 1 : c.value(d);
+      cell.border = box;
+      cell.fill = solid(i % 2 === 0 ? WHITE : BAND);
+      cell.font = { size: 10 };
+      cell.alignment = { vertical: 'middle', horizontal: c.center ? 'center' : 'left', wrapText: !!c.wrap };
+    });
+    // Số điện thoại luôn là chữ để không mất số 0 đầu
+    row.getCell(2).numFmt = '@';
+    row.getCell(2).font = { size: 10, bold: true };
+    if (category === 'mismatched') {
+      const delta = row.getCell(6);
+      delta.font = { size: 11, bold: true, color: { argb: d.delta > 0 ? CATEGORY.onlyA.chip : CATEGORY.mismatched.chip } };
+      delta.fill = solid(meta.tint);
+    }
+    const lines = Math.max(1, d.ticketsA.length, d.ticketsB.length);
+    row.height = Math.max(20, 15 * lines + 4);
+  });
+
+  sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW, showGridLines: false }];
+  if (list.length > 0) {
+    sheet.autoFilter = { from: { row: HEADER_ROW, column: 1 }, to: { row: HEADER_ROW + list.length, column: N } };
+  }
+  sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
+}
+
+/**
+ * Báo cáo đối chiếu vé dạng Excel, mỗi nhóm một sheet:
+ * "Tổng quan" (tên 2 file, thẻ số liệu, mục lục bấm được), "Lệch số vé",
+ * "Có ở A, thiếu ở B", "Có ở B, thiếu ở A" (tên sheet kèm số lượng).
+ */
+export async function buildCompareWorkbook(
+  result: TicketCompareResponse,
+  names: Names,
+  exportedAt: Date = new Date(),
+): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'XVIP';
+  wb.created = exportedAt;
+  const stamp = vnStamp(exportedAt);
   const groups: Array<{ category: Category; list: PhoneDiff[] }> = [
     { category: 'mismatched', list: result.mismatched },
     { category: 'onlyA', list: result.onlyInA },
     { category: 'onlyB', list: result.onlyInB },
   ];
 
-  let r = HEADER_ROW + 1;
-  let stt = 0;
-  for (const { category, list } of groups) {
-    if (list.length === 0) continue;
-    const meta = CATEGORY[category];
+  // ---- Sheet Tổng quan
+  const sheet = wb.addWorksheet('Tổng quan', { ...SHEET_OPTS, properties: { tabColor: { argb: NAVY } } });
+  const N = 6;
+  [24, 18, 18, 18, 18, 18].forEach((w, i) => (sheet.getColumn(i + 1).width = w));
+  writeTitle(sheet, N, 'BÁO CÁO ĐỐI CHIẾU VÉ NHÀ XE', `Xuất lúc ${stamp}`, NAVY);
 
-    // Dòng tiêu đề nhóm
-    sheet.mergeCells(r, 1, r, N);
-    const g = sheet.getCell(r, 1);
-    g.value = `${meta.label.toUpperCase()}  (${list.length} SĐT)`;
-    g.font = { bold: true, size: 11, color: { argb: WHITE } };
-    g.fill = solid(meta.chip);
-    g.alignment = { vertical: 'middle', indent: 1 };
+  // Hai file đem so
+  const files: Array<[string, string]> = [
+    ['File A', names.a],
+    ['File B', names.b],
+  ];
+  files.forEach(([label, name], i) => {
+    const r = 4 + i;
+    const l = sheet.getCell(r, 1);
+    l.value = label;
+    l.font = { bold: true, color: { argb: WHITE } };
+    l.fill = solid(NAVY);
+    l.alignment = { horizontal: 'center', vertical: 'middle' };
+    l.border = box;
+    sheet.mergeCells(r, 2, r, N);
+    const v = sheet.getCell(r, 2);
+    v.value = safeText(name);
+    v.font = { bold: true, size: 11 };
+    v.alignment = { vertical: 'middle', indent: 1 };
+    v.border = box;
     sheet.getRow(r).height = 22;
-    r++;
+  });
 
-    list.forEach((d, i) => {
-      stt++;
-      const row = sheet.getRow(r);
-      const values: Array<string | number> = [
-        stt,
-        d.phone,
-        safeText(d.customerName),
-        meta.label,
-        d.countA,
-        d.countB,
-        d.delta > 0 ? `+${d.delta}` : String(d.delta),
-        safeText(describeTickets(d.ticketsA)) || '—',
-        safeText(describeTickets(d.ticketsB)) || '—',
-      ];
-      const lines = Math.max(1, d.ticketsA.length, d.ticketsB.length);
-      values.forEach((v, c) => {
-        const cell = row.getCell(c + 1);
-        cell.value = v;
-        cell.border = box;
-        cell.fill = solid(i % 2 === 0 ? WHITE : BAND);
-        cell.font = { size: 10 };
-        cell.alignment = {
-          vertical: 'middle',
-          horizontal: [0, 4, 5, 6].includes(c) ? 'center' : 'left',
-          wrapText: c >= 7,
-        };
-      });
-      // Số điện thoại luôn là chữ để không mất số 0 đầu
-      row.getCell(2).numFmt = '@';
-      row.getCell(2).font = { size: 10, bold: true };
-      const chip = row.getCell(4);
-      chip.fill = solid(meta.tint);
-      chip.font = { size: 10, bold: true, color: { argb: meta.chip } };
-      const delta = row.getCell(7);
-      delta.font = { size: 11, bold: true, color: { argb: d.delta > 0 ? CATEGORY.onlyA.chip : CATEGORY.mismatched.chip } };
-      delta.fill = solid(meta.tint);
-      row.height = Math.max(20, 15 * lines + 4);
-      r++;
-    });
-  }
+  // Thẻ số liệu: nhãn (trên, nền màu) và con số (dưới)
+  const cards: Array<{ label: string; value: number; color: string }> = [
+    { label: 'SĐT khớp', value: result.matchedPhones, color: GREEN },
+    { label: 'Lệch số vé', value: result.mismatched.length, color: CATEGORY.mismatched.chip },
+    { label: 'Có ở A, thiếu ở B', value: result.onlyInA.length, color: CATEGORY.onlyA.chip },
+    { label: 'Có ở B, thiếu ở A', value: result.onlyInB.length, color: CATEGORY.onlyB.chip },
+    { label: `Tổng vé A (${result.totalPhonesA} SĐT)`, value: result.totalTicketsA, color: NAVY },
+    { label: `Tổng vé B (${result.totalPhonesB} SĐT)`, value: result.totalTicketsB, color: NAVY },
+  ];
+  const LABEL_ROW = 7;
+  const VALUE_ROW = 8;
+  cards.forEach((c, i) => {
+    const label = sheet.getCell(LABEL_ROW, i + 1);
+    label.value = c.label.toUpperCase();
+    label.font = { bold: true, size: 9, color: { argb: WHITE } };
+    label.fill = solid(c.color);
+    label.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+    label.border = { top: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
+    const value = sheet.getCell(VALUE_ROW, i + 1);
+    value.value = c.value;
+    value.numFmt = '#,##0';
+    value.font = { bold: true, size: 20, color: { argb: c.color } };
+    value.alignment = { horizontal: 'center', vertical: 'middle' };
+    value.border = { bottom: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
+  });
+  sheet.getRow(LABEL_ROW).height = 30;
+  sheet.getRow(VALUE_ROW).height = 38;
 
-  if (totalDiff === 0) {
-    sheet.mergeCells(r, 1, r, N);
-    const ok = sheet.getCell(r, 1);
-    ok.value = 'Hai file khớp hoàn toàn, không có số điện thoại nào chênh lệch.';
-    ok.font = { bold: true, size: 11, color: { argb: 'FF059669' } };
-    ok.fill = solid('FFECFDF5');
-    ok.alignment = { horizontal: 'center', vertical: 'middle' };
-    sheet.getRow(r).height = 28;
-  }
+  const cancelled = result.cancelledCountA + result.cancelledCountB;
+  sheet.mergeCells(9, 1, 9, N);
+  const note = sheet.getCell(9, 1);
+  note.value =
+    'Chênh lệch = vé file A - vé file B.' +
+    (cancelled > 0 ? `  Đã bỏ qua vé hủy: ${result.cancelledCountA} ở file A, ${result.cancelledCountB} ở file B.` : '');
+  note.font = { size: 10, color: { argb: MUTED } };
+  note.alignment = { vertical: 'middle', wrapText: true };
+  sheet.getRow(9).height = 22;
 
-  sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW, showGridLines: false }];
-  sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
+  // Mục lục: bấm tên sheet để nhảy sang sheet chi tiết
+  const TOC_ROW = 11;
+  sheet.mergeCells(TOC_ROW, 1, TOC_ROW, N);
+  const toc = sheet.getCell(TOC_ROW, 1);
+  toc.value = 'CÁC SHEET CHI TIẾT (bấm tên sheet để mở)';
+  toc.font = { bold: true, size: 11, color: { argb: NAVY } };
+  toc.border = { bottom: { style: 'medium', color: { argb: NAVY } } };
+  sheet.getRow(TOC_ROW).height = 22;
+  groups.forEach(({ category, list }, i) => {
+    const meta = CATEGORY[category];
+    const r = TOC_ROW + 1 + i;
+    const name = sheetName(meta.sheet, list.length);
+    const link = sheet.getCell(r, 1);
+    link.value = { text: name, hyperlink: `#'${name}'!A1` };
+    link.font = { bold: true, underline: true, color: { argb: meta.chip } };
+    link.alignment = { vertical: 'middle' };
+    sheet.mergeCells(r, 2, r, N);
+    const desc = sheet.getCell(r, 2);
+    desc.value = meta.describe(names);
+    desc.font = { size: 10, color: { argb: MUTED } };
+    desc.alignment = { vertical: 'middle', wrapText: true };
+    sheet.getRow(r).height = 30;
+  });
+
+  // ---- Mỗi nhóm một sheet
+  for (const { category, list } of groups) writeGroupSheet(wb, category, list, names, stamp);
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }
