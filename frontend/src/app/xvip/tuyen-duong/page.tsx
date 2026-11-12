@@ -5,7 +5,6 @@ import Link from 'next/link';
 import {
   CheckCircle,
   Clock,
-  CurrencyCircleDollar,
   Eye,
   FileXls,
   MagnifyingGlass,
@@ -140,11 +139,6 @@ export default function RoutesPage() {
 
   const totalCount = routesList.length;
   const activeCount = routesList.filter((r) => r.isActive).length;
-  const avgPrice = routesList.length
-    ? Math.round(
-        routesList.reduce((acc, r) => acc + (r.defaultPrice || 0), 0) / routesList.length
-      )
-    : 0;
   const inactiveCount = totalCount - activeCount;
 
   const handleOpenCreate = () => {
@@ -246,7 +240,7 @@ export default function RoutesPage() {
 
 
       {/* 3D KPI Metrics Cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className={`grid grid-cols-1 gap-4 sm:grid-cols-2 ${isAdmin ? 'xl:grid-cols-3' : ''}`}>
         <div
           onClick={() => {
             setStatusFilter('all');
@@ -288,26 +282,6 @@ export default function RoutesPage() {
             <div className="text-[11px] font-medium text-white/90">Mở bán vé trực tiếp cho khách</div>
           </div>
         </div>
-
-        {isAdmin && (
-        <div
-          onClick={() => showToast(`Mức giá vé trung bình niêm yết chuẩn: ${money(avgPrice)}đ.`)}
-          style={{
-            boxShadow: 'inset 0 1px 1px rgba(255,255,255,0.45), 0 5px 0 #b45309, 0 12px 24px -4px rgba(15,23,42,0.18)',
-          }}
-          className="group relative flex items-center gap-3.5 rounded-2xl bg-gradient-to-b from-amber-500 to-amber-600 p-4 text-white transition-all duration-100 hover:-translate-y-1 active:translate-y-1 cursor-pointer select-none"
-          title="Bấm để xem thống kê giá vé"
-        >
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-white/20 shadow-[inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-sm transition-transform group-hover:scale-110">
-            <CurrencyCircleDollar size={26} weight="fill" />
-          </span>
-          <div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-white/80">Giá vé trung bình</div>
-            <div className="tnum text-2xl font-black drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]">{money(avgPrice)}đ</div>
-            <div className="text-[11px] font-medium text-white/90">Mức giá niêm yết chuẩn</div>
-          </div>
-        </div>
-        )}
 
         {isAdmin && (
         <div
