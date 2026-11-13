@@ -156,6 +156,19 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
   const depositMismatched: PhoneDiff[] = [];
   let matchedPhones = 0;
 
+  // Tổng cọc theo chuyến (ngày + tuyến). Nhóm khách đi chung thường bị ghi cọc vào số điện thoại khác nhau
+  // ở mỗi bên (nội bộ ghi cho người đặt, nhà xe ghi cho một người đi cùng): lệch theo SĐT nhưng tổng cọc
+  // của chuyến vẫn bằng nhau thì không tính là lệch cọc.
+  const useRoute = rowsA.some((r) => r.route) && rowsB.some((r) => r.route);
+  const tripKey = (r: TicketCompareRow) =>
+    `${comparedByDay ? (r.day ?? '') : ''}|${useRoute ? (r.route ?? '').toLowerCase().replace(/\s+/g, ' ').trim() : ''}`;
+  const trips = new Map<string, number>();
+  for (const r of rowsA) trips.set(tripKey(r), (trips.get(tripKey(r)) ?? 0) + (r.deposit ?? 0));
+  for (const r of rowsB) trips.set(tripKey(r), (trips.get(tripKey(r)) ?? 0) - (r.deposit ?? 0));
+  const tripsOff = (rows: TicketCompareRow[]) => rows.some((r) => trips.get(tripKey(r)) !== 0);
+  const depositReallyOff = (a: Grouped | undefined, b: Grouped | undefined) =>
+    (a?.deposit ?? 0) !== (b?.deposit ?? 0) && tripsOff([...(a?.rows ?? []), ...(b?.rows ?? [])]);
+
   for (const [key, a] of mapA) {
     const b = mapB.get(key);
     if (!b) {
@@ -163,7 +176,7 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
       continue;
     }
     const ticketOff = a.quantity !== b.quantity;
-    const depositOff = a.deposit !== b.deposit;
+    const depositOff = depositReallyOff(a, b);
     if (!ticketOff && !depositOff) {
       matchedPhones++;
       continue;
@@ -199,12 +212,16 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
       d.ticketsB += r.quantity;
       d.depositB += r.deposit ?? 0;
     }
-    const diffs = new Set([...onlyInA, ...onlyInB, ...ticketMismatched, ...depositMismatched]);
-    for (const diff of diffs) {
-      const d = at(diff.day ?? '');
-      if (diff.delta !== 0) d.ticketDiffPhones++;
-      if (diff.depositDelta !== 0) d.depositDiffPhones++;
+    for (const diff of new Set([...onlyInA, ...onlyInB, ...ticketMismatched])) {
+      if (diff.delta !== 0) at(diff.day ?? '').ticketDiffPhones++;
     }
+    // Lệch cọc trong ngày: chỉ tính khách mà chuyến của họ thực sự lệch tổng cọc
+    const depositOffKeys = new Set(depositMismatched.map((d) => `${d.phone}|${d.day ?? ''}`));
+    for (const diff of [...onlyInA, ...onlyInB]) {
+      const g = diff.countA > 0 ? mapA.get(`${diff.phone}|${diff.day ?? ''}`) : mapB.get(`${diff.phone}|${diff.day ?? ''}`);
+      if (diff.depositDelta !== 0 && g && tripsOff(g.rows)) depositOffKeys.add(`${diff.phone}|${diff.day ?? ''}`);
+    }
+    for (const key of depositOffKeys) at(key.slice(key.indexOf('|') + 1)).depositDiffPhones++;
   }
 
   return {

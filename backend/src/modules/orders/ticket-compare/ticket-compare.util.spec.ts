@@ -112,6 +112,27 @@ describe('so theo ngày khởi hành và tiền cọc', () => {
     expect(r.ticketMismatched).toEqual([]);
   });
 
+  it('cọc của nhóm khách ghi vào SĐT khác nhau nhưng tổng cọc chuyến bằng nhau -> không tính lệch cọc', () => {
+    const trip = { day: '2026-10-10', route: 'Hà Nội - Hải Phòng' };
+    const r = compareTicketCounts(
+      [row('0903454850', 3, { ...trip, deposit: 260_000 })],
+      [row('0903454850', 1, { ...trip, deposit: 0 }), row('0983509898', 1, { ...trip, deposit: 260_000 })],
+    );
+    expect(r.depositMismatched).toEqual([]);
+    expect(r.ticketMismatched).toMatchObject([{ phone: '0903454850', delta: 2 }]);
+    expect(r.byDay[0]).toMatchObject({ depositDiffPhones: 0 });
+  });
+
+  it('tổng cọc của chuyến lệch thật -> vẫn báo lệch cọc', () => {
+    const trip = { day: '2026-10-10', route: 'Hà Nội - Hải Phòng' };
+    const r = compareTicketCounts(
+      [row('0901', 1, { ...trip, deposit: 260_000 })],
+      [row('0901', 1, { ...trip, deposit: 200_000 })],
+    );
+    expect(r.depositMismatched).toMatchObject([{ depositDelta: 60_000 }]);
+    expect(r.byDay[0]).toMatchObject({ depositDiffPhones: 1 });
+  });
+
   it('lệch cả số vé lẫn tiền cọc -> có ở cả 2 nhóm', () => {
     const r = compareTicketCounts(
       [row('0901', 2, { day: '2026-10-01', deposit: 300_000 })],
