@@ -14,7 +14,8 @@ describe('compareTicketCounts', () => {
     expect(result.matchedPhones).toBe(1);
     expect(result.onlyInA).toMatchObject([]);
     expect(result.onlyInB).toMatchObject([]);
-    expect(result.mismatched).toMatchObject([]);
+    expect(result.ticketMismatched).toMatchObject([]);
+    expect(result.depositMismatched).toMatchObject([]);
   });
 
   it('phone chỉ có ở file A -> vào onlyInA với countB = 0 và danh sách vé của file A', () => {
@@ -46,7 +47,8 @@ describe('compareTicketCounts', () => {
       [row('0901111111', 2)],
     );
     expect(result.matchedPhones).toBe(1);
-    expect(result.mismatched).toMatchObject([]);
+    expect(result.ticketMismatched).toMatchObject([]);
+    expect(result.depositMismatched).toMatchObject([]);
   });
 
   it('cùng phone nhưng tổng số vé khác nhau -> vào mismatched kèm delta đúng dấu và đủ chi tiết vé 2 bên', () => {
@@ -54,8 +56,8 @@ describe('compareTicketCounts', () => {
       [row('0901111111', 2, { route: 'HN-HP', ticketId: 'V1' })],
       [row('0901111111', 1, { route: 'HN-HP' })],
     );
-    expect(result.mismatched).toHaveLength(1);
-    const diff = result.mismatched[0];
+    expect(result.ticketMismatched).toHaveLength(1);
+    const diff = result.ticketMismatched[0];
     expect(diff).toMatchObject({ phone: '0901111111', countA: 2, countB: 1, delta: 1 });
     expect(diff.ticketsA).toMatchObject([{ quantity: 2, route: 'HN-HP', departure: undefined, ticketId: 'V1' }]);
     expect(diff.ticketsB).toMatchObject([{ quantity: 1, route: 'HN-HP', departure: undefined, ticketId: undefined }]);
@@ -66,7 +68,7 @@ describe('compareTicketCounts', () => {
       [row('0901111111', 1, { customerName: 'Nguyễn Văn A' })],
       [row('0901111111', 2, { customerName: 'Tên khác ở file B' })],
     );
-    expect(result.mismatched[0].customerName).toBe('Nguyễn Văn A');
+    expect(result.ticketMismatched[0].customerName).toBe('Nguyễn Văn A');
   });
 
   it('tổng hợp đúng số SĐT và tổng số vé của từng file', () => {
@@ -96,17 +98,27 @@ describe('so theo ngày khởi hành và tiền cọc', () => {
     const r = compareTicketCounts(a, b);
     expect(r.comparedByDay).toBe(true);
     // Theo SĐT thì 2 = 2 (khớp), nhưng theo ngày: 01/10 lệch 1 vé, 02/10 chỉ có ở A
-    expect(r.mismatched).toMatchObject([{ phone: '0901', day: '2026-10-01', countA: 1, countB: 2, delta: -1 }]);
+    expect(r.ticketMismatched).toMatchObject([{ phone: '0901', day: '2026-10-01', countA: 1, countB: 2, delta: -1 }]);
     expect(r.onlyInA).toMatchObject([{ phone: '0901', day: '2026-10-02', countA: 1 }]);
     expect(r.matchedPhones).toBe(0);
   });
 
-  it('cùng số vé nhưng khác tiền cọc -> lệch cọc, kèm chênh lệch tiền', () => {
+  it('cùng số vé nhưng khác tiền cọc -> chỉ vào nhóm lệch cọc, không vào nhóm lệch vé', () => {
     const r = compareTicketCounts(
       [row('0901', 1, { day: '2026-10-01', deposit: 260_000 })],
       [row('0901', 1, { day: '2026-10-01', deposit: 0 })],
     );
-    expect(r.mismatched).toMatchObject([{ delta: 0, depositA: 260_000, depositB: 0, depositDelta: 260_000 }]);
+    expect(r.depositMismatched).toMatchObject([{ delta: 0, depositA: 260_000, depositB: 0, depositDelta: 260_000 }]);
+    expect(r.ticketMismatched).toEqual([]);
+  });
+
+  it('lệch cả số vé lẫn tiền cọc -> có ở cả 2 nhóm', () => {
+    const r = compareTicketCounts(
+      [row('0901', 2, { day: '2026-10-01', deposit: 300_000 })],
+      [row('0901', 1, { day: '2026-10-01', deposit: 150_000 })],
+    );
+    expect(r.ticketMismatched).toMatchObject([{ delta: 1 }]);
+    expect(r.depositMismatched).toMatchObject([{ depositDelta: 150_000 }]);
   });
 
   it('khớp cả số vé lẫn tiền cọc -> khớp hoàn toàn', () => {
@@ -115,7 +127,8 @@ describe('so theo ngày khởi hành và tiền cọc', () => {
       [row('0901', 1, { day: '2026-10-01', deposit: 60_000 }), row('0901', 1, { day: '2026-10-01', deposit: 40_000 })],
     );
     expect(r.matchedPhones).toBe(1);
-    expect(r.mismatched).toEqual([]);
+    expect(r.ticketMismatched).toEqual([]);
+    expect(r.depositMismatched).toEqual([]);
   });
 
   it('bảng theo ngày: cộng vé, cọc hai bên và đếm SĐT lệch của từng ngày', () => {
@@ -124,8 +137,8 @@ describe('so theo ngày khởi hành và tiền cọc', () => {
       [row('0901', 1, { day: '2026-10-02', deposit: 200_000 }), row('0903', 1, { day: '2026-10-01', deposit: 50_000 })],
     );
     expect(r.byDay).toEqual([
-      { day: '2026-10-01', ticketsA: 2, ticketsB: 1, depositA: 0, depositB: 50_000, diffPhones: 2 },
-      { day: '2026-10-02', ticketsA: 1, ticketsB: 1, depositA: 200_000, depositB: 200_000, diffPhones: 0 },
+      { day: '2026-10-01', ticketsA: 2, ticketsB: 1, depositA: 0, depositB: 50_000, ticketDiffPhones: 2, depositDiffPhones: 1 },
+      { day: '2026-10-02', ticketsA: 1, ticketsB: 1, depositA: 200_000, depositB: 200_000, ticketDiffPhones: 0, depositDiffPhones: 0 },
     ]);
     expect(r.totalDepositA).toBe(200_000);
     expect(r.totalDepositB).toBe(250_000);

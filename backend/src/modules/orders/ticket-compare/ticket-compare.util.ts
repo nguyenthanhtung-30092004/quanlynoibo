@@ -41,8 +41,10 @@ export interface DaySummary {
   ticketsB: number;
   depositA: number;
   depositB: number;
-  /** Số SĐT lệch (chỉ có 1 bên, lệch vé hoặc lệch cọc) trong ngày */
-  diffPhones: number;
+  /** Số SĐT lệch số vé trong ngày (kể cả SĐT chỉ có ở 1 bên) */
+  ticketDiffPhones: number;
+  /** Số SĐT lệch tiền cọc trong ngày (kể cả SĐT chỉ có ở 1 bên mà có cọc) */
+  depositDiffPhones: number;
 }
 
 export interface TicketCompareResult {
@@ -60,8 +62,10 @@ export interface TicketCompareResult {
   onlyInA: PhoneDiff[];
   /** Chỉ có ở file B, sắp theo ngày rồi SĐT */
   onlyInB: PhoneDiff[];
-  /** Có ở cả 2 file nhưng lệch số vé hoặc lệch tiền cọc, sắp theo ngày rồi SĐT */
-  mismatched: PhoneDiff[];
+  /** Có ở cả 2 file nhưng lệch số vé, sắp theo ngày rồi SĐT */
+  ticketMismatched: PhoneDiff[];
+  /** Có ở cả 2 file nhưng lệch tiền cọc, sắp theo ngày rồi SĐT (một cặp lệch cả vé lẫn cọc có ở cả 2 nhóm) */
+  depositMismatched: PhoneDiff[];
   /** Tổng hợp theo từng ngày khởi hành (rỗng khi không so theo ngày), sắp theo ngày */
   byDay: DaySummary[];
 }
@@ -148,14 +152,25 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
 
   const onlyInA: PhoneDiff[] = [];
   const onlyInB: PhoneDiff[] = [];
-  const mismatched: PhoneDiff[] = [];
+  const ticketMismatched: PhoneDiff[] = [];
+  const depositMismatched: PhoneDiff[] = [];
   let matchedPhones = 0;
 
   for (const [key, a] of mapA) {
     const b = mapB.get(key);
-    if (!b) onlyInA.push(diffOf(a, undefined));
-    else if (a.quantity !== b.quantity || a.deposit !== b.deposit) mismatched.push(diffOf(a, b));
-    else matchedPhones++;
+    if (!b) {
+      onlyInA.push(diffOf(a, undefined));
+      continue;
+    }
+    const ticketOff = a.quantity !== b.quantity;
+    const depositOff = a.deposit !== b.deposit;
+    if (!ticketOff && !depositOff) {
+      matchedPhones++;
+      continue;
+    }
+    const diff = diffOf(a, b);
+    if (ticketOff) ticketMismatched.push(diff);
+    if (depositOff) depositMismatched.push(diff);
   }
   for (const [key, b] of mapB) {
     if (!mapA.has(key)) onlyInB.push(diffOf(undefined, b));
@@ -169,7 +184,7 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
     const at = (day: string) => {
       let d = days.get(day);
       if (!d) {
-        d = { day, ticketsA: 0, ticketsB: 0, depositA: 0, depositB: 0, diffPhones: 0 };
+        d = { day, ticketsA: 0, ticketsB: 0, depositA: 0, depositB: 0, ticketDiffPhones: 0, depositDiffPhones: 0 };
         days.set(day, d);
       }
       return d;
@@ -184,7 +199,12 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
       d.ticketsB += r.quantity;
       d.depositB += r.deposit ?? 0;
     }
-    for (const diff of [...onlyInA, ...onlyInB, ...mismatched]) at(diff.day ?? '').diffPhones++;
+    const diffs = new Set([...onlyInA, ...onlyInB, ...ticketMismatched, ...depositMismatched]);
+    for (const diff of diffs) {
+      const d = at(diff.day ?? '');
+      if (diff.delta !== 0) d.ticketDiffPhones++;
+      if (diff.depositDelta !== 0) d.depositDiffPhones++;
+    }
   }
 
   return {
@@ -198,7 +218,8 @@ export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketComp
     matchedPhones,
     onlyInA: onlyInA.sort(byDayThenPhone),
     onlyInB: onlyInB.sort(byDayThenPhone),
-    mismatched: mismatched.sort(byDayThenPhone),
+    ticketMismatched: ticketMismatched.sort(byDayThenPhone),
+    depositMismatched: depositMismatched.sort(byDayThenPhone),
     // Dòng không đọc được ngày ("") xếp cuối
     byDay: [...days.values()].sort((x, y) => (x.day || '9999').localeCompare(y.day || '9999')),
   };

@@ -29,7 +29,8 @@ import type { DaySummary, TicketCompareResult, TicketDetail } from '@/features/t
 import { useToast } from '@/features/xvip/toast';
 import { PageTitle } from '@/features/xvip/ui';
 
-type TabKey = 'all' | 'onlyA' | 'onlyB' | 'mismatched';
+type Category = 'onlyA' | 'onlyB' | 'ticketMismatch' | 'depositMismatch';
+type TabKey = 'all' | Category;
 
 function formatNumber(num: number): string {
   return new Intl.NumberFormat('vi-VN').format(num);
@@ -178,10 +179,16 @@ function StatBox({
   title: string;
   value: number;
   subtext?: string;
-  tone: 'emerald' | 'rose' | 'amber' | 'slate' | 'blue';
+  tone: 'emerald' | 'rose' | 'amber' | 'slate' | 'blue' | 'violet';
   icon: React.ElementType;
 }) {
   const toneClasses = {
+    violet: {
+      bg: 'bg-violet-50/70 dark:bg-violet-950/20',
+      border: 'border-violet-200 dark:border-violet-900/50',
+      iconBg: 'bg-violet-100 dark:bg-violet-900/50 text-violet-600 dark:text-violet-300',
+      text: 'text-violet-700 dark:text-violet-300',
+    },
     emerald: {
       bg: 'bg-emerald-50/70 dark:bg-emerald-950/20',
       border: 'border-emerald-200 dark:border-emerald-900/50',
@@ -284,7 +291,7 @@ interface UnifiedDiffItem {
   depositDelta: number;
   ticketsA: TicketDetail[];
   ticketsB: TicketDetail[];
-  category: 'onlyA' | 'onlyB' | 'mismatched';
+  category: Category;
 }
 
 function DiffItemRow({
@@ -311,9 +318,13 @@ function DiffItemRow({
       text: `Chỉ có ở ${nameB}`,
       class: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
     },
-    mismatched: {
-      text: item.delta !== 0 && item.depositDelta !== 0 ? 'Lệch vé và cọc' : item.delta !== 0 ? 'Lệch số vé' : 'Lệch tiền cọc',
+    ticketMismatch: {
+      text: 'Lệch số vé',
       class: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
+    },
+    depositMismatch: {
+      text: 'Lệch tiền cọc',
+      class: 'bg-violet-50 text-violet-700 border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800',
     },
   }[item.category];
 
@@ -499,8 +510,23 @@ function DaySummaryTable({
     ticketsB: sum((d) => d.ticketsB),
     depositA: sum((d) => d.depositA),
     depositB: sum((d) => d.depositB),
-    diffPhones: sum((d) => d.diffPhones),
+    ticketDiffPhones: sum((d) => d.ticketDiffPhones),
+    depositDiffPhones: sum((d) => d.depositDiffPhones),
   };
+  const DiffCount = ({ n, tone }: { n: number; tone: 'amber' | 'violet' }) =>
+    n > 0 ? (
+      <span
+        className={`rounded-full px-2 py-0.5 text-xs font-black ${
+          tone === 'amber'
+            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300'
+            : 'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-300'
+        }`}
+      >
+        {n}
+      </span>
+    ) : (
+      <CheckCircle className="mx-auto size-4 text-emerald-500" weight="fill" />
+    );
   const Delta = ({ n, unit }: { n: number; unit: string }) =>
     n === 0 ? (
       <span className="text-slate-300 dark:text-slate-600">0</span>
@@ -532,17 +558,20 @@ function DaySummaryTable({
         )}
       </div>
       <div className="max-h-[420px] overflow-auto">
-        <table className="w-full min-w-[720px] border-collapse text-sm">
+        <table className="w-full min-w-[860px] border-collapse text-sm">
           <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs dark:bg-slate-800/95">
             <tr>
               <th className={`${TH} text-left`}>Ngày</th>
               <th className={`${TH} text-center`} title={nameA}>Vé A</th>
               <th className={`${TH} text-center`} title={nameB}>Vé B</th>
               <th className={`${TH} text-center`}>Chênh vé</th>
-              <th className={`${TH} text-right`} title={nameA}>Cọc A</th>
+              <th className={`${TH} text-center`}>SĐT lệch vé</th>
+              <th className={`${TH} text-right border-l-2 border-l-violet-200 dark:border-l-violet-900`} title={nameA}>
+                Cọc A
+              </th>
               <th className={`${TH} text-right`} title={nameB}>Cọc B</th>
               <th className={`${TH} text-right`}>Chênh cọc</th>
-              <th className={`${TH} text-center`}>SĐT lệch</th>
+              <th className={`${TH} text-center`}>SĐT lệch cọc</th>
             </tr>
           </thead>
           <tbody>
@@ -562,19 +591,18 @@ function DaySummaryTable({
                   <td className="px-3 py-2 text-center tnum">
                     <Delta n={d.ticketsA - d.ticketsB} unit="" />
                   </td>
-                  <td className="px-3 py-2 text-right tnum">{formatNumber(d.depositA)}</td>
+                  <td className="px-3 py-2 text-center">
+                    <DiffCount n={d.ticketDiffPhones} tone="amber" />
+                  </td>
+                  <td className="border-l-2 border-l-violet-200 px-3 py-2 text-right tnum dark:border-l-violet-900">
+                    {formatNumber(d.depositA)}
+                  </td>
                   <td className="px-3 py-2 text-right tnum">{formatNumber(d.depositB)}</td>
                   <td className="px-3 py-2 text-right tnum">
                     <Delta n={d.depositA - d.depositB} unit="đ" />
                   </td>
                   <td className="px-3 py-2 text-center">
-                    {d.diffPhones > 0 ? (
-                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-black text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-                        {d.diffPhones}
-                      </span>
-                    ) : (
-                      <CheckCircle className="mx-auto size-4 text-emerald-500" weight="fill" />
-                    )}
+                    <DiffCount n={d.depositDiffPhones} tone="violet" />
                   </td>
                 </tr>
               );
@@ -588,12 +616,15 @@ function DaySummaryTable({
               <td className="px-3 py-2.5 text-center tnum">
                 <Delta n={total.ticketsA - total.ticketsB} unit="" />
               </td>
-              <td className="px-3 py-2.5 text-right tnum">{formatNumber(total.depositA)}</td>
+              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.ticketDiffPhones)}</td>
+              <td className="border-l-2 border-l-violet-200 px-3 py-2.5 text-right tnum dark:border-l-violet-900">
+                {formatNumber(total.depositA)}
+              </td>
               <td className="px-3 py-2.5 text-right tnum">{formatNumber(total.depositB)}</td>
               <td className="px-3 py-2.5 text-right tnum">
                 <Delta n={total.depositA - total.depositB} unit="đ" />
               </td>
-              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.diffPhones)}</td>
+              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.depositDiffPhones)}</td>
             </tr>
           </tfoot>
         </table>
@@ -659,11 +690,19 @@ export default function TicketComparePage() {
       });
     });
 
-    result.mismatched.forEach((r) => {
+    result.ticketMismatched.forEach((r) => {
       list.push({
         ...r,
-        key: `mismatch-${r.phone}-${r.day ?? ''}`,
-        category: 'mismatched',
+        key: `ticket-${r.phone}-${r.day ?? ''}`,
+        category: 'ticketMismatch',
+      });
+    });
+
+    result.depositMismatched.forEach((r) => {
+      list.push({
+        ...r,
+        key: `deposit-${r.phone}-${r.day ?? ''}`,
+        category: 'depositMismatch',
       });
     });
 
@@ -673,13 +712,7 @@ export default function TicketComparePage() {
   const filteredItems = useMemo(() => {
     let list = allItems;
 
-    if (activeTab === 'onlyA') {
-      list = list.filter((item) => item.category === 'onlyA');
-    } else if (activeTab === 'onlyB') {
-      list = list.filter((item) => item.category === 'onlyB');
-    } else if (activeTab === 'mismatched') {
-      list = list.filter((item) => item.category === 'mismatched');
-    }
+    if (activeTab !== 'all') list = list.filter((item) => item.category === activeTab);
 
     if (dayFilter !== null) list = list.filter((item) => (item.day ?? '') === dayFilter);
 
@@ -872,11 +905,11 @@ export default function TicketComparePage() {
           </div>
 
           {/* 4 Stat Cards */}
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
             <StatBox
               title="Khớp hoàn toàn"
               value={result.matchedPhones}
-              subtext="SĐT & số vé trùng khớp"
+              subtext="Trùng cả số vé lẫn tiền cọc"
               tone="emerald"
               icon={CheckCircle}
             />
@@ -895,11 +928,18 @@ export default function TicketComparePage() {
               icon={WarningCircle}
             />
             <StatBox
-              title="Lệch vé hoặc cọc"
-              value={result.mismatched.length}
-              subtext="Có ở cả 2 bên nhưng khác số vé / tiền cọc"
+              title="Lệch số vé"
+              value={result.ticketMismatched.length}
+              subtext="Có ở cả 2 bên nhưng khác số vé"
               tone="amber"
               icon={Warning}
+            />
+            <StatBox
+              title="Lệch tiền cọc"
+              value={result.depositMismatched.length}
+              subtext="Có ở cả 2 bên nhưng khác tiền cọc"
+              tone="violet"
+              icon={Coins}
             />
           </div>
 
@@ -1021,16 +1061,31 @@ export default function TicketComparePage() {
 
                   <button
                     type="button"
-                    onClick={() => setActiveTab('mismatched')}
+                    onClick={() => setActiveTab('ticketMismatch')}
                     className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                      activeTab === 'mismatched'
+                      activeTab === 'ticketMismatch'
                         ? 'bg-amber-600 text-white shadow-xs'
                         : 'bg-white text-amber-700 hover:bg-amber-50 border border-amber-200 dark:bg-slate-800 dark:text-amber-300 dark:border-amber-900'
                     }`}
                   >
-                    <span>Lệch vé / cọc</span>
+                    <span>Lệch số vé</span>
                     <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
-                      {result.mismatched.length}
+                      {result.ticketMismatched.length}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('depositMismatch')}
+                    className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition ${
+                      activeTab === 'depositMismatch'
+                        ? 'bg-violet-600 text-white shadow-xs'
+                        : 'bg-white text-violet-700 hover:bg-violet-50 border border-violet-200 dark:bg-slate-800 dark:text-violet-300 dark:border-violet-900'
+                    }`}
+                  >
+                    <span>Lệch tiền cọc</span>
+                    <span className="rounded-full bg-violet-100 px-1.5 py-0.2 text-[10px] text-violet-800 dark:bg-violet-900/60 dark:text-violet-200">
+                      {result.depositMismatched.length}
                     </span>
                   </button>
                 </div>

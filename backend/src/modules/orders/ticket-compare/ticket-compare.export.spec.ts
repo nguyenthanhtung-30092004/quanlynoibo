@@ -42,7 +42,7 @@ const result: TicketCompareResponse = {
   onlyInB: [
     diff({ phone: '0987654321', day: '2026-10-05', customerName: '=HACK()', countB: 1, delta: -1, ticketsB: [{ quantity: 1, ticketId: 'VX1' }] }),
   ],
-  mismatched: [
+  ticketMismatched: [
     diff({
       phone: '0901111222',
       day: '2026-10-01',
@@ -56,9 +56,20 @@ const result: TicketCompareResponse = {
       ticketsB: [{ quantity: 1, deposit: 170_000 }],
     }),
   ],
+  depositMismatched: [
+    diff({
+      phone: '0903333444',
+      day: '2026-10-04',
+      customerName: 'Lê C',
+      countA: 1,
+      countB: 1,
+      depositB: 170_000,
+      depositDelta: -170_000,
+    }),
+  ],
   byDay: [
-    { day: '2026-10-01', ticketsA: 10, ticketsB: 8, depositA: 170_000, depositB: 170_000, diffPhones: 1 },
-    { day: '2026-10-04', ticketsA: 15, ticketsB: 14, depositA: 260_000, depositB: 0, diffPhones: 2 },
+    { day: '2026-10-01', ticketsA: 10, ticketsB: 8, depositA: 170_000, depositB: 170_000, ticketDiffPhones: 1, depositDiffPhones: 0 },
+    { day: '2026-10-04', ticketsA: 15, ticketsB: 14, depositA: 260_000, depositB: 0, ticketDiffPhones: 2, depositDiffPhones: 1 },
   ],
 };
 
@@ -74,7 +85,8 @@ describe('buildCompareWorkbook', () => {
     expect(wb.worksheets.map((s) => s.name)).toEqual([
       'Tổng quan',
       'Theo ngày (2)',
-      'Lệch vé hoặc cọc (1)',
+      'Lệch số vé (1)',
+      'Lệch tiền cọc (1)',
       'Có ở A, thiếu ở B (1)',
       'Có ở B, thiếu ở A (1)',
     ]);
@@ -83,41 +95,34 @@ describe('buildCompareWorkbook', () => {
   it('không so được theo ngày thì không có sheet Theo ngày và không có cột ngày', async () => {
     const wb = await load(await buildCompareWorkbook({ ...result, comparedByDay: false, byDay: [] }, { a: 'A', b: 'B' }));
     expect(wb.worksheets.map((s) => s.name)).not.toContain('Theo ngày (0)');
-    expect(wb.getWorksheet('Lệch vé hoặc cọc (1)')!.getCell(4, 2).value).toBe('SỐ ĐIỆN THOẠI');
+    expect(wb.getWorksheet('Lệch số vé (1)')!.getCell(4, 2).value).toBe('SỐ ĐIỆN THOẠI');
   });
 
   it('Tổng quan: tên 2 file, thẻ vé, thẻ cọc và chênh lệch cọc, mục lục bấm sang sheet', async () => {
     const sheet = (await load(await buildCompareWorkbook(result, { a: 'Nội bộ T10', b: 'Nhà xe T10' }))).getWorksheet('Tổng quan')!;
     expect(sheet.getCell(4, 2).value).toBe('Nội bộ T10');
     expect(sheet.getCell(5, 2).value).toBe('Nhà xe T10');
-    expect([1, 2, 3, 4, 5, 6].map((c) => sheet.getCell(8, c).value)).toEqual([7, 1, 1, 1, 25, 22]);
-    expect([1, 2, 3, 4].map((c) => sheet.getCell(11, c).value)).toEqual([430_000, 170_000, 260_000, 3]);
+    expect([1, 2, 3, 4, 5].map((c) => sheet.getCell(8, c).value)).toEqual([7, 1, 1, 1, 1]);
+    expect([1, 2, 3, 4, 5, 6].map((c) => sheet.getCell(11, c).value)).toEqual([25, 22, 3, 430_000, 170_000, 260_000]);
     expect(String(sheet.getCell(13, 1).value)).toContain('Đã bỏ qua vé hủy: 2 ở file A');
     expect(sheet.getCell(16, 1).value).toEqual({ text: 'Theo ngày (2)', hyperlink: "#'Theo ngày (2)'!A1" });
   });
 
   it('sheet Theo ngày: mỗi ngày một dòng, chênh vé / chênh cọc có dấu, dòng TỔNG ở cuối', async () => {
     const sheet = (await load(await buildCompareWorkbook(result, { a: 'A', b: 'B' }))).getWorksheet('Theo ngày (2)')!;
-    expect((sheet.getRow(5).values as unknown[]).slice(1)).toEqual(['01/10/2026', 10, 8, 2, 170_000, 170_000, 0, 1]);
-    expect((sheet.getRow(6).values as unknown[]).slice(1)).toEqual(['04/10/2026', 15, 14, 1, 260_000, 0, 260_000, 2]);
-    expect((sheet.getRow(7).values as unknown[]).slice(1)).toEqual(['TỔNG', 25, 22, 3, 430_000, 170_000, 260_000, 3]);
+    expect((sheet.getRow(5).values as unknown[]).slice(1)).toEqual(['01/10/2026', 10, 8, 2, 1, 170_000, 170_000, 0, 0]);
+    expect((sheet.getRow(6).values as unknown[]).slice(1)).toEqual(['04/10/2026', 15, 14, 1, 2, 260_000, 0, 260_000, 1]);
+    expect((sheet.getRow(7).values as unknown[]).slice(1)).toEqual(['TỔNG', 25, 22, 3, 3, 430_000, 170_000, 260_000, 1]);
   });
 
-  it('sheet Lệch vé hoặc cọc: có ngày, vé và cọc hai bên, chi tiết vé kèm cọc', async () => {
-    const sheet = (await load(await buildCompareWorkbook(result, { a: 'A', b: 'B' }))).getWorksheet('Lệch vé hoặc cọc (1)')!;
-    expect((sheet.getRow(5).values as unknown[]).slice(1, 11)).toEqual([
-      1,
-      '01/10/2026',
-      '0901111222',
-      'Trần B',
-      3,
-      1,
-      2,
-      170_000,
-      170_000,
-      0,
-    ]);
-    expect(sheet.getCell(5, 11).value).toBe('1 vé · Cọc 170.000\n2 vé · Hà Nội - Hà Giang');
+  it('sheet Lệch số vé chỉ có cột vé, sheet Lệch tiền cọc chỉ có cột cọc', async () => {
+    const wb = await load(await buildCompareWorkbook(result, { a: 'A', b: 'B' }));
+    const tickets = wb.getWorksheet('Lệch số vé (1)')!;
+    expect((tickets.getRow(5).values as unknown[]).slice(1, 8)).toEqual([1, '01/10/2026', '0901111222', 'Trần B', 3, 1, 2]);
+    expect(tickets.getCell(5, 8).value).toBe('1 vé · Cọc 170.000\n2 vé · Hà Nội - Hà Giang');
+    const deposits = wb.getWorksheet('Lệch tiền cọc (1)')!;
+    expect((deposits.getRow(4).values as unknown[]).slice(5, 8)).toEqual(['CỌC\nFILE A', 'CỌC\nFILE B', 'CHÊNH CỌC\n(A - B)']);
+    expect((deposits.getRow(5).values as unknown[]).slice(1, 8)).toEqual([1, '04/10/2026', '0903333444', 'Lê C', 0, 170_000, -170_000]);
   });
 
   it('sheet một bên chỉ có cột của bên đó; tên bắt đầu bằng "=" không thành công thức', async () => {
@@ -139,8 +144,8 @@ describe('buildCompareWorkbook', () => {
   });
 
   it('nhóm rỗng vẫn có sheet và báo không có số điện thoại nào', async () => {
-    const wb = await load(await buildCompareWorkbook({ ...result, mismatched: [] }, { a: 'A', b: 'B' }));
-    expect(wb.getWorksheet('Lệch vé hoặc cọc (0)')!.getCell(5, 1).value).toBe('Không có số điện thoại nào trong nhóm này.');
+    const wb = await load(await buildCompareWorkbook({ ...result, ticketMismatched: [] }, { a: 'A', b: 'B' }));
+    expect(wb.getWorksheet('Lệch số vé (0)')!.getCell(5, 1).value).toBe('Không có số điện thoại nào trong nhóm này.');
   });
 
   it('sheetName cắt còn 31 ký tự và bỏ ký tự Excel cấm; vnDay đổi ngày sang dd/mm/yyyy', () => {

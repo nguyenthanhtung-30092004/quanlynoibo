@@ -35,7 +35,10 @@ export interface TicketCompareResult {
   matchedPhones: number;
   onlyInA: PhoneDiff[];
   onlyInB: PhoneDiff[];
-  mismatched: PhoneDiff[];
+  /** Có ở cả 2 file nhưng lệch số vé */
+  ticketMismatched: PhoneDiff[];
+  /** Có ở cả 2 file nhưng lệch tiền cọc (cặp lệch cả hai thì có ở cả 2 danh sách) */
+  depositMismatched: PhoneDiff[];
   cancelledCountA: number;
   cancelledCountB: number;
   /** Tổng hợp theo từng ngày khởi hành */
@@ -49,6 +52,8 @@ export interface DaySummary {
   ticketsB: number;
   depositA: number;
   depositB: number;
-  /** Số SĐT bị lệch trong ngày */
-  diffPhones: number;
+  /** Số SĐT lệch số vé trong ngày */
+  ticketDiffPhones: number;
+  /** Số SĐT lệch tiền cọc trong ngày */
+  depositDiffPhones: number;
 }
