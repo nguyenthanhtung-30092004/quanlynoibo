@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import type { TicketCompareResponse } from './ticket-compare.service.js';
-import type { PhoneDiff, TicketDetail } from './ticket-compare.util.js';
+import type { DaySummary, PhoneDiff, TicketDetail } from './ticket-compare.util.js';
 
 /** Bảng màu đồng bộ với file xuất vé */
 const NAVY = 'FF0F2A5C';
@@ -9,34 +9,40 @@ const LINE = 'FFCBD5E1';
 const BAND = 'FFF8FAFC';
 const MUTED = 'FF64748B';
 const GREEN = 'FF059669';
+const PURPLE = 'FF7C3AED';
+const GOLD = 'FFFFE9A8';
+
+const MONEY = '#,##0';
 
 type Names = { a: string; b: string };
 
 /** Mỗi nhóm chênh lệch một sheet: tên sheet, tiêu đề, mô tả, màu nhãn và màu nền nhạt */
 const CATEGORY = {
   mismatched: {
-    sheet: 'Lệch số vé',
-    title: 'Lệch số vé giữa 2 file',
-    describe: (_n: Names) => 'Số điện thoại có ở cả 2 file nhưng số vé khác nhau',
+    sheet: 'Lệch vé hoặc cọc',
+    title: 'Lệch số vé hoặc tiền cọc giữa 2 file',
+    describe: (_n: Names) => 'Có ở cả 2 file nhưng số vé hoặc tiền cọc khác nhau',
     chip: 'FFDC2626',
     tint: 'FFFEF2F2',
   },
   onlyA: {
     sheet: 'Có ở A, thiếu ở B',
     title: 'Có ở file A, thiếu ở file B',
-    describe: (n: Names) => `Số điện thoại có trong file A (${n.a}) nhưng không có trong file B (${n.b})`,
+    describe: (n: Names) => `Có trong file A (${n.a}) nhưng không có trong file B (${n.b})`,
     chip: 'FF2563EB',
     tint: 'FFEFF6FF',
   },
   onlyB: {
     sheet: 'Có ở B, thiếu ở A',
     title: 'Có ở file B, thiếu ở file A',
-    describe: (n: Names) => `Số điện thoại có trong file B (${n.b}) nhưng không có trong file A (${n.a})`,
+    describe: (n: Names) => `Có trong file B (${n.b}) nhưng không có trong file A (${n.a})`,
     chip: 'FFD97706',
     tint: 'FFFFFBEB',
   },
 } as const;
 type Category = keyof typeof CATEGORY;
+
+const BY_DAY_SHEET = 'Theo ngày';
 
 const solid = (argb: string): ExcelJS.Fill => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } });
 const thin = { style: 'thin', color: { argb: LINE } } as const;
@@ -53,11 +59,23 @@ const safeText = (s: string | undefined) => {
   return /^[=+\-@]/.test(v) ? `'${v}` : v;
 };
 
-/** "2 vé · Hà Nội - Sapa · 21:00 04/10/2026 · Mã VX123", mỗi vé một dòng trong ô */
+const money = (n: number) => n.toLocaleString('vi-VN');
+
+/** "2026-10-01" -> "01/10/2026"; rỗng -> "Không rõ ngày" */
+export const vnDay = (day: string | undefined) =>
+  day ? `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}` : 'Không rõ ngày';
+
+/** "2 vé · Hà Nội - Sapa · 21:00 04/10/2026 · Mã VX123 · Cọc 170.000", mỗi vé một dòng trong ô */
 function describeTickets(tickets: TicketDetail[]): string {
   return tickets
     .map((t) =>
-      [`${t.quantity} vé`, t.route, t.departure, t.ticketId ? `Mã ${t.ticketId}` : undefined]
+      [
+        `${t.quantity} vé`,
+        t.route,
+        t.departure,
+        t.ticketId ? `Mã ${t.ticketId}` : undefined,
+        t.deposit ? `Cọc ${money(t.deposit)}` : undefined,
+      ]
         .filter(Boolean)
         .join(' · '),
     )
@@ -108,65 +126,88 @@ function writeTitle(sheet: ExcelJS.Worksheet, cols: number, title: string, subti
   sheet.getRow(2).height = 30;
 }
 
-type Column = {
-  header: string;
-  width: number;
-  center?: boolean;
-  wrap?: boolean;
-  value: (d: PhoneDiff) => string | number;
-};
-
-/** Cột của từng sheet: sheet chỉ có một bên thì bỏ hẳn cột của bên kia (toàn số 0 / trống) */
-function columnsFor(category: Category): Column[] {
-  const cols: Column[] = [
-    { header: 'STT', width: 7, center: true, value: () => 0 },
-    { header: 'SỐ ĐIỆN THOẠI', width: 16, value: (d) => d.phone },
-    { header: 'TÊN KHÁCH', width: 26, value: (d) => safeText(d.customerName) },
-  ];
-  if (category === 'mismatched') {
-    return [
-      ...cols,
-      { header: 'VÉ FILE A', width: 11, center: true, value: (d) => d.countA },
-      { header: 'VÉ FILE B', width: 11, center: true, value: (d) => d.countB },
-      { header: 'CHÊNH LỆCH\n(A - B)', width: 13, center: true, value: (d) => (d.delta > 0 ? `+${d.delta}` : String(d.delta)) },
-      { header: 'CHI TIẾT VÉ FILE A', width: 46, wrap: true, value: (d) => safeText(describeTickets(d.ticketsA)) || '—' },
-      { header: 'CHI TIẾT VÉ FILE B', width: 46, wrap: true, value: (d) => safeText(describeTickets(d.ticketsB)) || '—' },
-    ];
-  }
-  const side = category === 'onlyA' ? 'A' : 'B';
-  const count = (d: PhoneDiff) => (category === 'onlyA' ? d.countA : d.countB);
-  const tickets = (d: PhoneDiff) => (category === 'onlyA' ? d.ticketsA : d.ticketsB);
-  return [
-    ...cols,
-    { header: `SỐ VÉ FILE ${side}`, width: 13, center: true, value: count },
-    { header: `CHI TIẾT VÉ FILE ${side}`, width: 64, wrap: true, value: (d) => safeText(describeTickets(tickets(d))) || '—' },
-  ];
-}
-
-/** Một sheet danh sách SĐT của đúng một nhóm chênh lệch */
-function writeGroupSheet(wb: ExcelJS.Workbook, category: Category, list: PhoneDiff[], names: Names, stamp: string) {
-  const meta = CATEGORY[category];
-  const sheet = wb.addWorksheet(sheetName(meta.sheet, list.length), {
-    ...SHEET_OPTS,
-    properties: { tabColor: { argb: meta.chip } },
-  });
-  const cols = columnsFor(category);
-  const N = cols.length;
-  cols.forEach((c, i) => (sheet.getColumn(i + 1).width = c.width));
-
-  writeTitle(sheet, N, meta.title.toUpperCase(), `${meta.describe(names)}     •     Xuất lúc ${stamp}`, meta.chip);
-
-  const HEADER_ROW = 4;
-  const header = sheet.getRow(HEADER_ROW);
-  cols.forEach((c, i) => {
+/** Dòng tiêu đề bảng (nền navy, chữ trắng) */
+function writeHeader(sheet: ExcelJS.Worksheet, row: number, headers: string[]) {
+  const header = sheet.getRow(row);
+  headers.forEach((h, i) => {
     const cell = header.getCell(i + 1);
-    cell.value = c.header;
+    cell.value = h;
     cell.font = { bold: true, size: 10, color: { argb: WHITE } };
     cell.fill = solid(NAVY);
     cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     cell.border = box;
   });
   header.height = 32;
+}
+
+/** Số chênh lệch có dấu: dương xanh dương (A nhiều hơn), âm đỏ (B nhiều hơn), 0 xám */
+function styleDelta(cell: ExcelJS.Cell, n: number, isMoney: boolean) {
+  cell.value = n;
+  cell.numFmt = isMoney ? `+#,##0;-#,##0;0` : '+0;-0;0';
+  cell.font = {
+    size: 11,
+    bold: n !== 0,
+    color: { argb: n > 0 ? CATEGORY.onlyA.chip : n < 0 ? CATEGORY.mismatched.chip : MUTED },
+  };
+}
+
+type Kind = 'text' | 'count' | 'money' | 'delta' | 'moneyDelta' | 'detail';
+type Column = { header: string; width: number; kind: Kind; value: (d: PhoneDiff) => string | number };
+
+/** Cột của từng sheet: sheet chỉ có một bên thì bỏ hẳn cột của bên kia (toàn số 0 / trống) */
+function columnsFor(category: Category, byDay: boolean): Column[] {
+  const cols: Column[] = [{ header: 'STT', width: 7, kind: 'count', value: () => 0 }];
+  if (byDay) cols.push({ header: 'NGÀY\nKHỞI HÀNH', width: 13, kind: 'text', value: (d) => vnDay(d.day) });
+  cols.push(
+    { header: 'SỐ ĐIỆN THOẠI', width: 16, kind: 'text', value: (d) => d.phone },
+    { header: 'TÊN KHÁCH', width: 24, kind: 'text', value: (d) => safeText(d.customerName) },
+  );
+  if (category === 'mismatched') {
+    return [
+      ...cols,
+      { header: 'VÉ\nFILE A', width: 9, kind: 'count', value: (d) => d.countA },
+      { header: 'VÉ\nFILE B', width: 9, kind: 'count', value: (d) => d.countB },
+      { header: 'CHÊNH VÉ\n(A - B)', width: 11, kind: 'delta', value: (d) => d.delta },
+      { header: 'CỌC\nFILE A', width: 13, kind: 'money', value: (d) => d.depositA },
+      { header: 'CỌC\nFILE B', width: 13, kind: 'money', value: (d) => d.depositB },
+      { header: 'CHÊNH CỌC\n(A - B)', width: 14, kind: 'moneyDelta', value: (d) => d.depositDelta },
+      { header: 'CHI TIẾT VÉ FILE A', width: 42, kind: 'detail', value: (d) => safeText(describeTickets(d.ticketsA)) || '—' },
+      { header: 'CHI TIẾT VÉ FILE B', width: 42, kind: 'detail', value: (d) => safeText(describeTickets(d.ticketsB)) || '—' },
+    ];
+  }
+  const a = category === 'onlyA';
+  const side = a ? 'A' : 'B';
+  return [
+    ...cols,
+    { header: `SỐ VÉ\nFILE ${side}`, width: 11, kind: 'count', value: (d) => (a ? d.countA : d.countB) },
+    { header: `CỌC\nFILE ${side}`, width: 13, kind: 'money', value: (d) => (a ? d.depositA : d.depositB) },
+    { header: `CHI TIẾT VÉ FILE ${side}`, width: 60, kind: 'detail', value: (d) => safeText(describeTickets(a ? d.ticketsA : d.ticketsB)) || '—' },
+  ];
+}
+
+/** Một sheet danh sách SĐT của đúng một nhóm chênh lệch */
+function writeGroupSheet(
+  wb: ExcelJS.Workbook,
+  category: Category,
+  list: PhoneDiff[],
+  names: Names,
+  stamp: string,
+  byDay: boolean,
+) {
+  const meta = CATEGORY[category];
+  const sheet = wb.addWorksheet(sheetName(meta.sheet, list.length), {
+    ...SHEET_OPTS,
+    properties: { tabColor: { argb: meta.chip } },
+  });
+  const cols = columnsFor(category, byDay);
+  const N = cols.length;
+  cols.forEach((c, i) => (sheet.getColumn(i + 1).width = c.width));
+
+  const by = byDay ? 'Theo cặp số điện thoại + ngày khởi hành' : 'Theo số điện thoại';
+  writeTitle(sheet, N, meta.title.toUpperCase(), `${meta.describe(names)}  •  ${by}  •  Xuất lúc ${stamp}`, meta.chip);
+
+  const HEADER_ROW = 4;
+  writeHeader(sheet, HEADER_ROW, cols.map((c) => c.header));
 
   if (list.length === 0) {
     sheet.mergeCells(HEADER_ROW + 1, 1, HEADER_ROW + 1, N);
@@ -182,20 +223,27 @@ function writeGroupSheet(wb: ExcelJS.Workbook, category: Category, list: PhoneDi
     const row = sheet.getRow(HEADER_ROW + 1 + i);
     cols.forEach((c, ci) => {
       const cell = row.getCell(ci + 1);
-      cell.value = ci === 0 ? i + 1 : c.value(d);
       cell.border = box;
       cell.fill = solid(i % 2 === 0 ? WHITE : BAND);
       cell.font = { size: 10 };
-      cell.alignment = { vertical: 'middle', horizontal: c.center ? 'center' : 'left', wrapText: !!c.wrap };
+      const v = ci === 0 ? i + 1 : c.value(d);
+      if (c.kind === 'delta' || c.kind === 'moneyDelta') {
+        styleDelta(cell, v as number, c.kind === 'moneyDelta');
+        if (v !== 0) cell.fill = solid(meta.tint);
+      } else {
+        cell.value = v;
+        if (c.kind === 'money') cell.numFmt = MONEY;
+      }
+      cell.alignment = {
+        vertical: 'middle',
+        horizontal: c.kind === 'text' || c.kind === 'detail' ? 'left' : c.kind === 'count' ? 'center' : 'right',
+        wrapText: c.kind === 'detail',
+      };
     });
     // Số điện thoại luôn là chữ để không mất số 0 đầu
-    row.getCell(2).numFmt = '@';
-    row.getCell(2).font = { size: 10, bold: true };
-    if (category === 'mismatched') {
-      const delta = row.getCell(6);
-      delta.font = { size: 11, bold: true, color: { argb: d.delta > 0 ? CATEGORY.onlyA.chip : CATEGORY.mismatched.chip } };
-      delta.fill = solid(meta.tint);
-    }
+    const phoneCell = row.getCell(byDay ? 3 : 2);
+    phoneCell.numFmt = '@';
+    phoneCell.font = { size: 10, bold: true };
     const lines = Math.max(1, d.ticketsA.length, d.ticketsB.length);
     row.height = Math.max(20, 15 * lines + 4);
   });
@@ -207,10 +255,77 @@ function writeGroupSheet(wb: ExcelJS.Workbook, category: Category, list: PhoneDi
   sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
 }
 
+/** Sheet "Theo ngày": mỗi ngày khởi hành một dòng, so số vé và tiền cọc 2 bên, có dòng TỔNG */
+function writeByDaySheet(wb: ExcelJS.Workbook, days: DaySummary[], names: Names, stamp: string) {
+  const sheet = wb.addWorksheet(sheetName(BY_DAY_SHEET, days.length), {
+    ...SHEET_OPTS,
+    properties: { tabColor: { argb: PURPLE } },
+  });
+  const headers = [
+    'NGÀY\nKHỞI HÀNH',
+    'VÉ\nFILE A',
+    'VÉ\nFILE B',
+    'CHÊNH VÉ\n(A - B)',
+    'CỌC FILE A',
+    'CỌC FILE B',
+    'CHÊNH CỌC\n(A - B)',
+    'SỐ SĐT\nBỊ LỆCH',
+  ];
+  const N = headers.length;
+  [15, 10, 10, 12, 16, 16, 16, 11].forEach((w, i) => (sheet.getColumn(i + 1).width = w));
+  writeTitle(
+    sheet,
+    N,
+    'ĐỐI CHIẾU THEO NGÀY KHỞI HÀNH',
+    `File A: ${safeText(names.a)}  •  File B: ${safeText(names.b)}  •  Xuất lúc ${stamp}`,
+    PURPLE,
+  );
+  const HEADER_ROW = 4;
+  writeHeader(sheet, HEADER_ROW, headers);
+
+  const write = (r: number, cells: Array<string | number>, total: boolean, band: boolean) => {
+    const row = sheet.getRow(r);
+    cells.forEach((v, ci) => {
+      const cell = row.getCell(ci + 1);
+      cell.border = box;
+      cell.fill = solid(total ? GOLD : band ? BAND : WHITE);
+      cell.font = { size: total ? 11 : 10, bold: total || ci === 0 };
+      if (ci === 3 || ci === 6) styleDelta(cell, v as number, ci === 6);
+      else {
+        cell.value = v;
+        if (ci === 4 || ci === 5) cell.numFmt = MONEY;
+      }
+      if (total) cell.font = { ...cell.font, bold: true, size: 11 };
+      cell.alignment = { vertical: 'middle', horizontal: ci === 0 ? 'center' : ci >= 4 && ci <= 6 ? 'right' : 'center' };
+      // Ngày có chênh lệch: số SĐT lệch tô đỏ để dễ thấy
+      if (ci === 7 && !total) cell.font = { size: 10, bold: (v as number) > 0, color: { argb: (v as number) > 0 ? CATEGORY.mismatched.chip : GREEN } };
+    });
+    row.height = total ? 24 : 20;
+  };
+
+  days.forEach((d, i) =>
+    write(
+      HEADER_ROW + 1 + i,
+      [vnDay(d.day), d.ticketsA, d.ticketsB, d.ticketsA - d.ticketsB, d.depositA, d.depositB, d.depositA - d.depositB, d.diffPhones],
+      false,
+      i % 2 === 1,
+    ),
+  );
+  const sum = (f: (d: DaySummary) => number) => days.reduce((n, d) => n + f(d), 0);
+  const tA = sum((d) => d.ticketsA);
+  const tB = sum((d) => d.ticketsB);
+  const cA = sum((d) => d.depositA);
+  const cB = sum((d) => d.depositB);
+  write(HEADER_ROW + 1 + days.length, ['TỔNG', tA, tB, tA - tB, cA, cB, cA - cB, sum((d) => d.diffPhones)], true, false);
+
+  sheet.views = [{ state: 'frozen', ySplit: HEADER_ROW, showGridLines: false }];
+  sheet.pageSetup.printTitlesRow = `${HEADER_ROW}:${HEADER_ROW}`;
+}
+
 /**
- * Báo cáo đối chiếu vé dạng Excel, mỗi nhóm một sheet:
- * "Tổng quan" (tên 2 file, thẻ số liệu, mục lục bấm được), "Lệch số vé",
- * "Có ở A, thiếu ở B", "Có ở B, thiếu ở A" (tên sheet kèm số lượng).
+ * Báo cáo đối chiếu vé dạng Excel, mỗi phần một sheet:
+ * "Tổng quan" (tên 2 file, thẻ số liệu vé + cọc, mục lục bấm được), "Theo ngày" (khi so được theo ngày
+ * khởi hành), "Lệch vé hoặc cọc", "Có ở A, thiếu ở B", "Có ở B, thiếu ở A" (tên sheet kèm số lượng).
  */
 export async function buildCompareWorkbook(
   result: TicketCompareResponse,
@@ -221,6 +336,7 @@ export async function buildCompareWorkbook(
   wb.creator = 'XVIP';
   wb.created = exportedAt;
   const stamp = vnStamp(exportedAt);
+  const byDay = result.comparedByDay;
   const groups: Array<{ category: Category; list: PhoneDiff[] }> = [
     { category: 'mismatched', list: result.mismatched },
     { category: 'onlyA', list: result.onlyInA },
@@ -231,7 +347,13 @@ export async function buildCompareWorkbook(
   const sheet = wb.addWorksheet('Tổng quan', { ...SHEET_OPTS, properties: { tabColor: { argb: NAVY } } });
   const N = 6;
   [24, 18, 18, 18, 18, 18].forEach((w, i) => (sheet.getColumn(i + 1).width = w));
-  writeTitle(sheet, N, 'BÁO CÁO ĐỐI CHIẾU VÉ NHÀ XE', `Xuất lúc ${stamp}`, NAVY);
+  writeTitle(
+    sheet,
+    N,
+    'BÁO CÁO ĐỐI CHIẾU VÉ NHÀ XE',
+    `${byDay ? 'So theo cặp số điện thoại + ngày khởi hành' : 'So theo số điện thoại'}  •  Xuất lúc ${stamp}`,
+    NAVY,
+  );
 
   // Hai file đem so
   const files: Array<[string, string]> = [
@@ -256,69 +378,96 @@ export async function buildCompareWorkbook(
   });
 
   // Thẻ số liệu: nhãn (trên, nền màu) và con số (dưới)
-  const cards: Array<{ label: string; value: number; color: string }> = [
-    { label: 'SĐT khớp', value: result.matchedPhones, color: GREEN },
-    { label: 'Lệch số vé', value: result.mismatched.length, color: CATEGORY.mismatched.chip },
+  const writeCards = (
+    labelRow: number,
+    cards: Array<{ label: string; value: number; color: string; money?: boolean; signed?: boolean }>,
+  ) => {
+    cards.forEach((c, i) => {
+      const label = sheet.getCell(labelRow, i + 1);
+      label.value = c.label.toUpperCase();
+      label.font = { bold: true, size: 9, color: { argb: WHITE } };
+      label.fill = solid(c.color);
+      label.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+      label.border = { top: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
+      const value = sheet.getCell(labelRow + 1, i + 1);
+      value.value = c.value;
+      value.numFmt = c.signed ? '+#,##0;-#,##0;0' : MONEY;
+      value.font = { bold: true, size: c.money ? 15 : 20, color: { argb: c.color } };
+      value.alignment = { horizontal: 'center', vertical: 'middle' };
+      value.border = { bottom: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
+    });
+    sheet.getRow(labelRow).height = 30;
+    sheet.getRow(labelRow + 1).height = 36;
+  };
+  const unit = byDay ? 'cặp SĐT-ngày' : 'SĐT';
+  writeCards(7, [
+    { label: `Khớp hoàn toàn (${unit})`, value: result.matchedPhones, color: GREEN },
+    { label: 'Lệch vé hoặc cọc', value: result.mismatched.length, color: CATEGORY.mismatched.chip },
     { label: 'Có ở A, thiếu ở B', value: result.onlyInA.length, color: CATEGORY.onlyA.chip },
     { label: 'Có ở B, thiếu ở A', value: result.onlyInB.length, color: CATEGORY.onlyB.chip },
     { label: `Tổng vé A (${result.totalPhonesA} SĐT)`, value: result.totalTicketsA, color: NAVY },
     { label: `Tổng vé B (${result.totalPhonesB} SĐT)`, value: result.totalTicketsB, color: NAVY },
-  ];
-  const LABEL_ROW = 7;
-  const VALUE_ROW = 8;
-  cards.forEach((c, i) => {
-    const label = sheet.getCell(LABEL_ROW, i + 1);
-    label.value = c.label.toUpperCase();
-    label.font = { bold: true, size: 9, color: { argb: WHITE } };
-    label.fill = solid(c.color);
-    label.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
-    label.border = { top: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
-    const value = sheet.getCell(VALUE_ROW, i + 1);
-    value.value = c.value;
-    value.numFmt = '#,##0';
-    value.font = { bold: true, size: 20, color: { argb: c.color } };
-    value.alignment = { horizontal: 'center', vertical: 'middle' };
-    value.border = { bottom: { style: 'medium', color: { argb: c.color } }, left: thin, right: thin };
-  });
-  sheet.getRow(LABEL_ROW).height = 30;
-  sheet.getRow(VALUE_ROW).height = 38;
+  ]);
+  const depositDelta = result.totalDepositA - result.totalDepositB;
+  writeCards(10, [
+    { label: 'Tổng cọc file A (đồng)', value: result.totalDepositA, color: PURPLE, money: true },
+    { label: 'Tổng cọc file B (đồng)', value: result.totalDepositB, color: PURPLE, money: true },
+    {
+      label: 'Chênh lệch cọc (A - B)',
+      value: depositDelta,
+      color: depositDelta === 0 ? GREEN : CATEGORY.mismatched.chip,
+      money: true,
+      signed: true,
+    },
+    { label: 'Chênh lệch vé (A - B)', value: result.totalTicketsA - result.totalTicketsB, color: MUTED, signed: true },
+  ]);
 
   const cancelled = result.cancelledCountA + result.cancelledCountB;
-  sheet.mergeCells(9, 1, 9, N);
-  const note = sheet.getCell(9, 1);
+  const NOTE_ROW = 13;
+  sheet.mergeCells(NOTE_ROW, 1, NOTE_ROW, N);
+  const note = sheet.getCell(NOTE_ROW, 1);
   note.value =
-    'Chênh lệch = vé file A - vé file B.' +
+    'Chênh lệch = file A - file B. Tiền cọc tính theo đồng (file ghi nghìn đồng đã được quy đổi).' +
     (cancelled > 0 ? `  Đã bỏ qua vé hủy: ${result.cancelledCountA} ở file A, ${result.cancelledCountB} ở file B.` : '');
   note.font = { size: 10, color: { argb: MUTED } };
   note.alignment = { vertical: 'middle', wrapText: true };
-  sheet.getRow(9).height = 22;
+  sheet.getRow(NOTE_ROW).height = 30;
 
   // Mục lục: bấm tên sheet để nhảy sang sheet chi tiết
-  const TOC_ROW = 11;
+  const TOC_ROW = 15;
   sheet.mergeCells(TOC_ROW, 1, TOC_ROW, N);
   const toc = sheet.getCell(TOC_ROW, 1);
   toc.value = 'CÁC SHEET CHI TIẾT (bấm tên sheet để mở)';
   toc.font = { bold: true, size: 11, color: { argb: NAVY } };
   toc.border = { bottom: { style: 'medium', color: { argb: NAVY } } };
   sheet.getRow(TOC_ROW).height = 22;
-  groups.forEach(({ category, list }, i) => {
-    const meta = CATEGORY[category];
+  const links: Array<{ name: string; color: string; describe: string }> = [
+    ...(byDay
+      ? [{ name: sheetName(BY_DAY_SHEET, result.byDay.length), color: PURPLE, describe: 'Mỗi ngày khởi hành: số vé, tiền cọc hai bên và số SĐT bị lệch' }]
+      : []),
+    ...groups.map(({ category, list }) => ({
+      name: sheetName(CATEGORY[category].sheet, list.length),
+      color: CATEGORY[category].chip,
+      describe: CATEGORY[category].describe(names),
+    })),
+  ];
+  links.forEach((l, i) => {
     const r = TOC_ROW + 1 + i;
-    const name = sheetName(meta.sheet, list.length);
     const link = sheet.getCell(r, 1);
-    link.value = { text: name, hyperlink: `#'${name}'!A1` };
-    link.font = { bold: true, underline: true, color: { argb: meta.chip } };
+    link.value = { text: l.name, hyperlink: `#'${l.name}'!A1` };
+    link.font = { bold: true, underline: true, color: { argb: l.color } };
     link.alignment = { vertical: 'middle' };
     sheet.mergeCells(r, 2, r, N);
     const desc = sheet.getCell(r, 2);
-    desc.value = meta.describe(names);
+    desc.value = l.describe;
     desc.font = { size: 10, color: { argb: MUTED } };
     desc.alignment = { vertical: 'middle', wrapText: true };
     sheet.getRow(r).height = 30;
   });
 
-  // ---- Mỗi nhóm một sheet
-  for (const { category, list } of groups) writeGroupSheet(wb, category, list, names, stamp);
+  // ---- Các sheet chi tiết
+  if (byDay) writeByDaySheet(wb, result.byDay, names, stamp);
+  for (const { category, list } of groups) writeGroupSheet(wb, category, list, names, stamp, byDay);
 
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

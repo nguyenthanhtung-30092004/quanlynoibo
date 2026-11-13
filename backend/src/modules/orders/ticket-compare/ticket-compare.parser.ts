@@ -13,22 +13,39 @@ export interface TicketCompareRow {
   departure?: string;
   /** Mã vé nếu file có (vd file nhà xe xuất), để tra lại đúng dòng trong file gốc */
   ticketId?: string;
+  /** Ngày khởi hành YYYY-MM-DD, dùng để so theo từng ngày; không đọc được thì bỏ trống */
+  day?: string;
+  /** Tiền cọc / tiền đã thu của dòng, đơn vị đồng (đã quy đổi nếu file ghi theo nghìn đồng) */
+  deposit?: number;
 }
 
-type FieldKey = 'phone' | 'quantity' | 'status' | 'customer' | 'route' | 'date' | 'time' | 'trip' | 'ticketId';
+type FieldKey =
+  | 'phone'
+  | 'quantity'
+  | 'status'
+  | 'customer'
+  | 'route'
+  | 'date'
+  | 'time'
+  | 'trip'
+  | 'ticketId'
+  | 'deposit';
 
 /** Tên cột (đã bỏ dấu, bỏ khoảng trắng, chữ thường) mà mỗi trường chấp nhận */
 const HEADER_ALIASES: Record<FieldKey, string[]> = {
   phone: ['sodienthoai', 'sdt', 'dienthoai'],
-  quantity: ['soluong', 'soghe', 'soluongghe', 'soluongve'],
+  quantity: ['soluong', 'soghe', 'soluongghe', 'soluongve', 'tongsove'],
   status: ['trangthaive', 'trangthai'],
   customer: ['tenkhach', 'tenkhachhang', 'khachhang', 'khach', 'tennguoidi'],
   route: ['tuyendi', 'tuyenduong', 'tuyen'],
-  date: ['ngaykhoihanh', 'ngaydi'],
+  // "Ngày" trơn là ngày khởi hành ở file đối chiếu công nợ của nhà xe
+  date: ['ngaykhoihanh', 'ngaydi', 'ngay'],
   time: ['giodi', 'gioxe', 'gio'],
   // "Chuyến" (file nhà xe tự xuất): ngày giờ khởi hành gộp chung 1 cột, dạng chữ sẵn
   trip: ['chuyen'],
   ticketId: ['mave'],
+  // File nội bộ ghi "ĐÃ CỌC"; file công nợ nhà xe ghi "Đã thu tiền" (tiền XVIP đã thu của khách)
+  deposit: ['dacoc', 'tiencoc', 'sotiencoc', 'coc', 'dathutien'],
 };
 
 /** "2026-10-04" -> "04/10/2026" để hiển thị quen mắt; giữ nguyên nếu không parse được */
@@ -45,6 +62,46 @@ function buildDeparture(dateCell: ExcelJS.CellValue, timeCell: ExcelJS.CellValue
     return [date.value ? toVnDate(date.value) : null, time.value].filter(Boolean).join(' ') || undefined;
   }
   return tripText || undefined;
+}
+
+/** Ngày khởi hành YYYY-MM-DD: từ cột ngày, không có thì lấy từ cột "Chuyến" (vd "22-10-2026 15:30") */
+function buildDay(dateCell: ExcelJS.CellValue, tripText: string): string | undefined {
+  const date = parseDate(dateCell);
+  if (date.value) return date.value;
+  const m = /(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})/.exec(tripText);
+  if (!m) return undefined;
+  return parseDate(`${m[1]}/${m[2]}/${m[3]}`).value;
+}
+
+/**
+ * Tiền cọc của một ô đúng như số ghi trong file ("250k" = 250000); chưa quy đổi đơn vị.
+ * Đơn vị (đồng hay nghìn đồng) được quyết cho cả file một lần, xem `depositScale`.
+ */
+export function parseDeposit(v: ExcelJS.CellValue): number {
+  const raw = rawValue(v);
+  if (raw === null || raw === undefined || raw === '') return 0;
+  let n: number;
+  if (typeof raw === 'number') {
+    n = raw;
+  } else {
+    const text = cellText(raw).toLowerCase().replace(/\s/g, '');
+    const k = /^(\d+(?:[.,]\d+)?)k$/.exec(text);
+    n = k ? Number(k[1].replace(',', '.')) * 1000 : Number(text.replace(/[.,]/g, '').replace(/[^\d-]/g, ''));
+  }
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round(n);
+}
+
+/** Khoản cọc thật nào cũng từ 20.000đ trở lên, và không có khoản nào tới 20 triệu */
+const THOUSANDS_BELOW = 20_000;
+
+/**
+ * File nội bộ ghi tiền theo nghìn đồng (170 = 170.000đ), file nhà xe ghi đồng (170000). Xét cả file:
+ * mọi khoản cọc đều nhỏ hơn 20.000 thì file đang ghi nghìn đồng, nhân 1.000 để về đồng.
+ */
+export function depositScale(deposits: number[]): number {
+  const nonZero = deposits.filter((d) => d > 0);
+  return nonZero.length > 0 && Math.max(...nonZero) < THOUSANDS_BELOW ? 1000 : 1;
 }
 
 const HEADER_SEARCH_ROWS = 15;
@@ -92,8 +149,11 @@ function parseQuantity(v: ExcelJS.CellValue): number {
  */
 export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: TicketCompareRow[]; cancelledCount: number }> {
   const result = { rows: [] as TicketCompareRow[], cancelledCount: 0 };
+  // Đọc mọi sheet có cột số điện thoại (vd file công nợ nhà xe: sheet "Vé khách" + "Vé Hàng");
+  // sheet không có (bảng pivot, sheet tổng hợp) thì bỏ qua
   let columns = new Map<FieldKey, number>();
   let dataStartRow = 0;
+  let foundHeader = false;
   let sawSheet = false;
 
   const processRow = (row: ExcelJS.Row) => {
@@ -103,6 +163,9 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
     };
     const phone = parsePhone(get('phone'));
     if (!phone) return; // dòng trống, dòng TỔNG, dòng hoa hồng cuối bảng...
+    // Dòng tổng tiền cuối bảng có số nằm lọt vào cột SĐT (vd 11092500): toàn chữ số mà không phải
+    // số điện thoại (bắt đầu bằng 0, 10-11 số) thì bỏ. Ô có chữ khác (2 số, ghi chú) vẫn giữ như cũ
+    if (/^\d+$/.test(phone) && !/^0\d{9,10}$/.test(phone)) return;
 
     const statusText = cellText(rawValue(get('status')));
     if (statusText && isCancelledStatus(statusText)) {
@@ -117,10 +180,15 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
       route: cellText(rawValue(get('route'))) || undefined,
       departure: buildDeparture(get('date'), get('time'), cellText(rawValue(get('trip')))),
       ticketId: cellText(rawValue(get('ticketId'))) || undefined,
+      day: buildDay(get('date'), cellText(rawValue(get('trip')))),
+      deposit: parseDeposit(get('deposit')),
     });
   };
 
   const consumeSheet = async (source: AsyncIterable<ExcelJS.Row> | Iterable<ExcelJS.Row>) => {
+    // Mỗi sheet tự tìm dòng tiêu đề của nó
+    columns = new Map<FieldKey, number>();
+    dataStartRow = 0;
     const head = new Map<number, ExcelJS.Row>();
     let scanned = 0;
 
@@ -133,6 +201,7 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
         }
         const header = findHeader(head);
         if (!header) return;
+        foundHeader = true;
         dataStartRow = header.headerRow;
         columns = header.columns;
         for (const [n, r] of head) if (n > dataStartRow) processRow(r);
@@ -144,6 +213,7 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
     if (!dataStartRow) {
       const header = findHeader(head);
       if (header) {
+        foundHeader = true;
         dataStartRow = header.headerRow;
         columns = header.columns;
         for (const [n, r] of head) if (n > dataStartRow) processRow(r);
@@ -163,14 +233,12 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
     for await (const sheet of reader) {
       sawSheet = true;
       await consumeSheet(sheet as unknown as AsyncIterable<ExcelJS.Row>);
-      break;
     }
   } catch (err) {
     if (err instanceof Error && err.message === TOO_MANY_ROWS_MESSAGE) throw err;
     result.rows.length = 0;
     result.cancelledCount = 0;
-    dataStartRow = 0;
-    columns = new Map<FieldKey, number>();
+    foundHeader = false;
     sawSheet = false;
     const workbook = new ExcelJS.Workbook();
     try {
@@ -178,8 +246,7 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
     } catch {
       throw new Error('Không đọc được file. Hãy dùng file Excel .xlsx.');
     }
-    const sheet = workbook.worksheets[0];
-    if (sheet) {
+    for (const sheet of workbook.worksheets) {
       sawSheet = true;
       const loaded: ExcelJS.Row[] = [];
       sheet.eachRow({ includeEmpty: false }, (row) => loaded.push(row));
@@ -188,11 +255,13 @@ export async function parseTicketWorkbook(buffer: Buffer): Promise<{ rows: Ticke
   }
 
   if (!sawSheet) throw new Error('File Excel không có trang tính nào.');
-  if (!dataStartRow) {
+  if (!foundHeader) {
     throw new Error('Không tìm thấy cột "Số điện thoại" trong file. Hãy kiểm tra lại file Excel.');
   }
   if (result.rows.length === 0 && result.cancelledCount === 0) {
     throw new Error('Không có dòng dữ liệu nào trong file.');
   }
+  const scale = depositScale(result.rows.map((r) => r.deposit ?? 0));
+  if (scale !== 1) for (const r of result.rows) r.deposit = (r.deposit ?? 0) * scale;
   return result;
 }

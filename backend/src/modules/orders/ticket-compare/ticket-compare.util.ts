@@ -6,10 +6,14 @@ export interface TicketDetail {
   route?: string;
   departure?: string;
   ticketId?: string;
+  /** Tiền cọc / đã thu của dòng vé này (đồng); 0 nếu không có */
+  deposit?: number;
 }
 
 export interface PhoneDiff {
   phone: string;
+  /** Ngày khởi hành YYYY-MM-DD khi so theo ngày; không có khi một trong hai file thiếu cột ngày */
+  day?: string;
   customerName?: string;
   /** Tổng số vé của số điện thoại này trong file A (0 nếu không có) */
   countA: number;
@@ -17,10 +21,28 @@ export interface PhoneDiff {
   countB: number;
   /** countA - countB: dương là file A nhiều hơn, âm là file B nhiều hơn */
   delta: number;
+  /** Tổng tiền cọc / đã thu ở file A (đồng) */
+  depositA: number;
+  /** Tổng tiền cọc / đã thu ở file B (đồng) */
+  depositB: number;
+  /** depositA - depositB */
+  depositDelta: number;
   /** Từng vé của SĐT này trong file A (rỗng nếu SĐT không có ở file A) */
   ticketsA: TicketDetail[];
   /** Từng vé của SĐT này trong file B (rỗng nếu SĐT không có ở file B) */
   ticketsB: TicketDetail[];
+}
+
+/** Tổng hợp một ngày khởi hành: số vé, tiền cọc hai bên và số SĐT bị lệch trong ngày */
+export interface DaySummary {
+  /** YYYY-MM-DD; chuỗi rỗng = dòng không đọc được ngày */
+  day: string;
+  ticketsA: number;
+  ticketsB: number;
+  depositA: number;
+  depositB: number;
+  /** Số SĐT lệch (chỉ có 1 bên, lệch vé hoặc lệch cọc) trong ngày */
+  diffPhones: number;
 }
 
 export interface TicketCompareResult {
@@ -28,37 +50,55 @@ export interface TicketCompareResult {
   totalPhonesB: number;
   totalTicketsA: number;
   totalTicketsB: number;
-  /** Số điện thoại khớp hoàn toàn (có ở cả 2 file, số vé bằng nhau) */
+  totalDepositA: number;
+  totalDepositB: number;
+  /** true khi cả 2 file có ngày khởi hành: so theo cặp SĐT + ngày; false thì chỉ so theo SĐT */
+  comparedByDay: boolean;
+  /** Số cặp SĐT (+ ngày) khớp hoàn toàn: có ở cả 2 file, số vé và tiền cọc bằng nhau */
   matchedPhones: number;
-  /** Số điện thoại chỉ có ở file A, sắp theo SĐT */
+  /** Chỉ có ở file A, sắp theo ngày rồi SĐT */
   onlyInA: PhoneDiff[];
-  /** Số điện thoại chỉ có ở file B, sắp theo SĐT */
+  /** Chỉ có ở file B, sắp theo ngày rồi SĐT */
   onlyInB: PhoneDiff[];
-  /** Số điện thoại có ở cả 2 file nhưng lệch số vé, sắp theo SĐT */
+  /** Có ở cả 2 file nhưng lệch số vé hoặc lệch tiền cọc, sắp theo ngày rồi SĐT */
   mismatched: PhoneDiff[];
+  /** Tổng hợp theo từng ngày khởi hành (rỗng khi không so theo ngày), sắp theo ngày */
+  byDay: DaySummary[];
 }
 
 interface Grouped {
+  phone: string;
+  day?: string;
   quantity: number;
+  deposit: number;
   customerName?: string;
   rows: TicketCompareRow[];
 }
 
 /**
- * Gộp danh sách vé theo số điện thoại: cộng dồn số lượng vé của cùng một SĐT, đồng thời giữ lại
- * từng dòng vé gốc để sau này hiển thị chi tiết "vé nào" khi SĐT đó bị lệch.
- * Một lượt duyệt O(n), dùng Map nên không cần sắp xếp trước.
+ * Gộp danh sách vé theo khóa (SĐT, hoặc SĐT + ngày khởi hành): cộng dồn số vé và tiền cọc, đồng thời giữ lại
+ * từng dòng vé gốc để hiển thị chi tiết "vé nào" khi bị lệch. Một lượt duyệt O(n) bằng Map, không cần sắp xếp.
  */
-function groupByPhone(rows: TicketCompareRow[]): Map<string, Grouped> {
+function groupRows(rows: TicketCompareRow[], byDay: boolean): Map<string, Grouped> {
   const map = new Map<string, Grouped>();
   for (const row of rows) {
-    const existing = map.get(row.phone);
+    const day = byDay ? (row.day ?? '') : undefined;
+    const key = byDay ? `${row.phone}|${day}` : row.phone;
+    const existing = map.get(key);
     if (existing) {
       existing.quantity += row.quantity;
+      existing.deposit += row.deposit ?? 0;
       existing.customerName ??= row.customerName;
       existing.rows.push(row);
     } else {
-      map.set(row.phone, { quantity: row.quantity, customerName: row.customerName, rows: [row] });
+      map.set(key, {
+        phone: row.phone,
+        day,
+        quantity: row.quantity,
+        deposit: row.deposit ?? 0,
+        customerName: row.customerName,
+        rows: [row],
+      });
     }
   }
   return map;
@@ -69,78 +109,97 @@ const toDetail = (row: TicketCompareRow): TicketDetail => ({
   route: row.route,
   departure: row.departure,
   ticketId: row.ticketId,
+  deposit: row.deposit ?? 0,
 });
 
-const byPhone = (a: PhoneDiff, b: PhoneDiff) => a.phone.localeCompare(b.phone);
+const byDayThenPhone = (a: PhoneDiff, b: PhoneDiff) =>
+  (a.day ?? '').localeCompare(b.day ?? '') || a.phone.localeCompare(b.phone);
+
+function diffOf(a: Grouped | undefined, b: Grouped | undefined): PhoneDiff {
+  const g = (a ?? b)!;
+  const countA = a?.quantity ?? 0;
+  const countB = b?.quantity ?? 0;
+  const depositA = a?.deposit ?? 0;
+  const depositB = b?.deposit ?? 0;
+  return {
+    phone: g.phone,
+    ...(g.day !== undefined ? { day: g.day } : {}),
+    customerName: a?.customerName ?? b?.customerName,
+    countA,
+    countB,
+    delta: countA - countB,
+    depositA,
+    depositB,
+    depositDelta: depositA - depositB,
+    ticketsA: a?.rows.map(toDetail) ?? [],
+    ticketsB: b?.rows.map(toDetail) ?? [],
+  };
+}
 
 /**
- * So sánh 2 file vé theo số điện thoại: SĐT nào chỉ có ở 1 file, và SĐT nào có ở cả 2 file
- * nhưng số vé khác nhau - kèm chi tiết từng vé (tuyến, ngày giờ, mã vé nếu có) để biết đúng
- * vé nào, không chỉ con số. Không cần sắp xếp danh sách vé gốc trước khi so - xem ghi chú ở
- * `groupByPhone`: nhóm bằng Map (tra cứu O(1)) rẻ hơn sort (O(n log n)) mà cho đúng kết quả
- * cần (tổng số vé theo từng SĐT), vì thứ tự các vé trong file không có ý nghĩa gì ở đây.
+ * So sánh 2 file vé. Khi cả 2 file đều có ngày khởi hành thì so theo cặp SĐT + ngày (cùng một khách đi
+ * nhiều ngày không bị bù trừ lẫn nhau), không thì so theo SĐT. Mỗi cặp: chỉ có ở 1 file, hoặc có ở cả 2
+ * nhưng lệch số vé / lệch tiền cọc. Kèm chi tiết từng vé và bảng tổng hợp theo ngày khởi hành.
  */
 export function compareTicketCounts(rowsA: TicketCompareRow[], rowsB: TicketCompareRow[]): TicketCompareResult {
-  const mapA = groupByPhone(rowsA);
-  const mapB = groupByPhone(rowsB);
+  const comparedByDay = rowsA.some((r) => r.day) && rowsB.some((r) => r.day);
+  const mapA = groupRows(rowsA, comparedByDay);
+  const mapB = groupRows(rowsB, comparedByDay);
 
   const onlyInA: PhoneDiff[] = [];
   const onlyInB: PhoneDiff[] = [];
   const mismatched: PhoneDiff[] = [];
   let matchedPhones = 0;
-  let totalTicketsA = 0;
-  let totalTicketsB = 0;
 
-  for (const [phone, a] of mapA) {
-    totalTicketsA += a.quantity;
-    const b = mapB.get(phone);
-    if (!b) {
-      onlyInA.push({
-        phone,
-        customerName: a.customerName,
-        countA: a.quantity,
-        countB: 0,
-        delta: a.quantity,
-        ticketsA: a.rows.map(toDetail),
-        ticketsB: [],
-      });
-    } else if (a.quantity !== b.quantity) {
-      mismatched.push({
-        phone,
-        customerName: a.customerName ?? b.customerName,
-        countA: a.quantity,
-        countB: b.quantity,
-        delta: a.quantity - b.quantity,
-        ticketsA: a.rows.map(toDetail),
-        ticketsB: b.rows.map(toDetail),
-      });
-    } else {
-      matchedPhones++;
-    }
+  for (const [key, a] of mapA) {
+    const b = mapB.get(key);
+    if (!b) onlyInA.push(diffOf(a, undefined));
+    else if (a.quantity !== b.quantity || a.deposit !== b.deposit) mismatched.push(diffOf(a, b));
+    else matchedPhones++;
   }
-  for (const [phone, b] of mapB) {
-    totalTicketsB += b.quantity;
-    if (!mapA.has(phone)) {
-      onlyInB.push({
-        phone,
-        customerName: b.customerName,
-        countA: 0,
-        countB: b.quantity,
-        delta: -b.quantity,
-        ticketsA: [],
-        ticketsB: b.rows.map(toDetail),
-      });
+  for (const [key, b] of mapB) {
+    if (!mapA.has(key)) onlyInB.push(diffOf(undefined, b));
+  }
+
+  const sum = (rows: TicketCompareRow[], f: (r: TicketCompareRow) => number) => rows.reduce((n, r) => n + f(r), 0);
+
+  // Tổng hợp theo ngày khởi hành
+  const days = new Map<string, DaySummary>();
+  if (comparedByDay) {
+    const at = (day: string) => {
+      let d = days.get(day);
+      if (!d) {
+        d = { day, ticketsA: 0, ticketsB: 0, depositA: 0, depositB: 0, diffPhones: 0 };
+        days.set(day, d);
+      }
+      return d;
+    };
+    for (const r of rowsA) {
+      const d = at(r.day ?? '');
+      d.ticketsA += r.quantity;
+      d.depositA += r.deposit ?? 0;
     }
+    for (const r of rowsB) {
+      const d = at(r.day ?? '');
+      d.ticketsB += r.quantity;
+      d.depositB += r.deposit ?? 0;
+    }
+    for (const diff of [...onlyInA, ...onlyInB, ...mismatched]) at(diff.day ?? '').diffPhones++;
   }
 
   return {
-    totalPhonesA: mapA.size,
-    totalPhonesB: mapB.size,
-    totalTicketsA,
-    totalTicketsB,
+    totalPhonesA: new Set(rowsA.map((r) => r.phone)).size,
+    totalPhonesB: new Set(rowsB.map((r) => r.phone)).size,
+    totalTicketsA: sum(rowsA, (r) => r.quantity),
+    totalTicketsB: sum(rowsB, (r) => r.quantity),
+    totalDepositA: sum(rowsA, (r) => r.deposit ?? 0),
+    totalDepositB: sum(rowsB, (r) => r.deposit ?? 0),
+    comparedByDay,
     matchedPhones,
-    onlyInA: onlyInA.sort(byPhone),
-    onlyInB: onlyInB.sort(byPhone),
-    mismatched: mismatched.sort(byPhone),
+    onlyInA: onlyInA.sort(byDayThenPhone),
+    onlyInB: onlyInB.sort(byDayThenPhone),
+    mismatched: mismatched.sort(byDayThenPhone),
+    // Dòng không đọc được ngày ("") xếp cuối
+    byDay: [...days.values()].sort((x, y) => (x.day || '9999').localeCompare(y.day || '9999')),
   };
 }

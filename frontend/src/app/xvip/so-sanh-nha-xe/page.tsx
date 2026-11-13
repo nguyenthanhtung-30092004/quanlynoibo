@@ -4,6 +4,8 @@ import { useId, useMemo, useState } from 'react';
 import {
   ArrowsClockwise,
   ArrowsLeftRight,
+  CalendarBlank,
+  Coins,
   CaretDown,
   CaretRight,
   CheckCircle,
@@ -23,7 +25,7 @@ import {
   X,
 } from '@phosphor-icons/react';
 import { ticketCompareApi } from '@/features/ticket-compare/api';
-import type { TicketCompareResult, TicketDetail } from '@/features/ticket-compare/types';
+import type { DaySummary, TicketCompareResult, TicketDetail } from '@/features/ticket-compare/types';
 import { useToast } from '@/features/xvip/toast';
 import { PageTitle } from '@/features/xvip/ui';
 
@@ -31,6 +33,21 @@ type TabKey = 'all' | 'onlyA' | 'onlyB' | 'mismatched';
 
 function formatNumber(num: number): string {
   return new Intl.NumberFormat('vi-VN').format(num);
+}
+
+/** 170000 -> "170.000đ" */
+function formatMoney(n: number): string {
+  return `${formatNumber(n)}đ`;
+}
+
+/** Số có dấu: +2, -1, 0 */
+function signed(n: number, unit = ''): string {
+  return `${n > 0 ? '+' : ''}${formatNumber(n)}${unit}`;
+}
+
+/** "2026-10-01" -> "01/10/2026" */
+function vnDay(day: string | undefined): string {
+  return day ? `${day.slice(8, 10)}/${day.slice(5, 7)}/${day.slice(0, 4)}` : 'Không rõ ngày';
 }
 
 function formatPhoneDisplay(phone: string): string {
@@ -243,6 +260,12 @@ function TicketDetailCard({ ticket, origin }: { ticket: TicketDetail; origin: 'A
             <span>#{ticket.ticketId}</span>
           </span>
         )}
+        {!!ticket.deposit && (
+          <span className="inline-flex items-center gap-1 font-bold text-violet-600 dark:text-violet-300">
+            <Coins className="size-3 shrink-0" weight="fill" />
+            <span>Cọc {formatMoney(ticket.deposit)}</span>
+          </span>
+        )}
       </div>
     </div>
   );
@@ -255,6 +278,10 @@ interface UnifiedDiffItem {
   countA: number;
   countB: number;
   delta: number;
+  day?: string;
+  depositA: number;
+  depositB: number;
+  depositDelta: number;
   ticketsA: TicketDetail[];
   ticketsB: TicketDetail[];
   category: 'onlyA' | 'onlyB' | 'mismatched';
@@ -285,7 +312,7 @@ function DiffItemRow({
       class: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800',
     },
     mismatched: {
-      text: 'Lệch số vé',
+      text: item.delta !== 0 && item.depositDelta !== 0 ? 'Lệch vé và cọc' : item.delta !== 0 ? 'Lệch số vé' : 'Lệch tiền cọc',
       class: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800',
     },
   }[item.category];
@@ -312,6 +339,12 @@ function DiffItemRow({
               {formatPhoneDisplay(item.phone)}
             </span>
           </div>
+          {item.day !== undefined && (
+            <div className="ml-7 mt-0.5 inline-flex items-center gap-1 text-[11px] font-semibold text-violet-700 dark:text-violet-300">
+              <CalendarBlank className="size-3" weight="bold" />
+              {vnDay(item.day)}
+            </div>
+          )}
         </td>
 
         <td className="px-4 py-3.5">
@@ -358,21 +391,40 @@ function DiffItemRow({
         </td>
 
         <td className="px-4 py-3.5 text-right whitespace-nowrap">
-          <span
-            className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-black ${
-              item.delta > 0
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
-                : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
-            }`}
-          >
-            {item.delta > 0 ? `+${item.delta}` : item.delta} vé
-          </span>
+          {item.delta !== 0 ? (
+            <span
+              className={`inline-flex items-center gap-0.5 rounded-full px-2.5 py-0.5 text-xs font-black ${
+                item.delta > 0
+                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300'
+                  : 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
+              }`}
+            >
+              {signed(item.delta)} vé
+            </span>
+          ) : (
+            <span className="text-xs font-semibold text-slate-400">0 vé</span>
+          )}
+        </td>
+
+        <td className="px-4 py-3.5 text-right whitespace-nowrap">
+          <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
+            {formatNumber(item.depositA)} / {formatNumber(item.depositB)}
+          </div>
+          {item.depositDelta !== 0 && (
+            <div
+              className={`mt-0.5 text-xs font-black ${
+                item.depositDelta > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+              }`}
+            >
+              {signed(item.depositDelta, 'đ')}
+            </div>
+          )}
         </td>
       </tr>
 
       {isExpanded && (
         <tr className="border-b border-slate-200/80 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/50">
-          <td colSpan={6} className="px-4 py-3.5 sm:px-6">
+          <td colSpan={7} className="px-4 py-3.5 sm:px-6">
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-xl border border-blue-200/60 bg-blue-50/30 p-3.5 dark:border-blue-900/40 dark:bg-blue-950/20">
                 <div className="mb-2.5 flex items-center justify-between">
@@ -427,6 +479,129 @@ function DiffItemRow({
   );
 }
 
+/** Bảng so sánh theo ngày khởi hành: số vé, tiền cọc hai bên; bấm một ngày để lọc danh sách chênh lệch */
+function DaySummaryTable({
+  days,
+  nameA,
+  nameB,
+  selectedDay,
+  onSelect,
+}: {
+  days: DaySummary[];
+  nameA: string;
+  nameB: string;
+  selectedDay: string | null;
+  onSelect: (day: string | null) => void;
+}) {
+  const sum = (f: (d: DaySummary) => number) => days.reduce((n, d) => n + f(d), 0);
+  const total = {
+    ticketsA: sum((d) => d.ticketsA),
+    ticketsB: sum((d) => d.ticketsB),
+    depositA: sum((d) => d.depositA),
+    depositB: sum((d) => d.depositB),
+    diffPhones: sum((d) => d.diffPhones),
+  };
+  const Delta = ({ n, unit }: { n: number; unit: string }) =>
+    n === 0 ? (
+      <span className="text-slate-300 dark:text-slate-600">0</span>
+    ) : (
+      <span className={`font-black ${n > 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'}`}>
+        {signed(n, unit)}
+      </span>
+    );
+  const TH = 'px-3 py-2.5 text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700';
+
+  return (
+    <div className="card-3d-xvip overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200/80 bg-violet-50/60 px-4 py-3 dark:border-slate-800 dark:bg-violet-950/20">
+        <div className="flex items-center gap-2">
+          <CalendarBlank className="size-5 text-violet-600 dark:text-violet-300" weight="bold" />
+          <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">So sánh theo ngày khởi hành</h3>
+        </div>
+        {selectedDay !== null ? (
+          <button
+            type="button"
+            onClick={() => onSelect(null)}
+            className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-2.5 py-1 text-xs font-bold text-white"
+          >
+            Đang lọc ngày {vnDay(selectedDay)}
+            <X className="size-3.5" weight="bold" />
+          </button>
+        ) : (
+          <span className="text-xs text-slate-500 dark:text-slate-400">Bấm vào một ngày để xem các SĐT lệch của ngày đó</span>
+        )}
+      </div>
+      <div className="max-h-[420px] overflow-auto">
+        <table className="w-full min-w-[720px] border-collapse text-sm">
+          <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs dark:bg-slate-800/95">
+            <tr>
+              <th className={`${TH} text-left`}>Ngày</th>
+              <th className={`${TH} text-center`} title={nameA}>Vé A</th>
+              <th className={`${TH} text-center`} title={nameB}>Vé B</th>
+              <th className={`${TH} text-center`}>Chênh vé</th>
+              <th className={`${TH} text-right`} title={nameA}>Cọc A</th>
+              <th className={`${TH} text-right`} title={nameB}>Cọc B</th>
+              <th className={`${TH} text-right`}>Chênh cọc</th>
+              <th className={`${TH} text-center`}>SĐT lệch</th>
+            </tr>
+          </thead>
+          <tbody>
+            {days.map((d) => {
+              const active = selectedDay === d.day;
+              return (
+                <tr
+                  key={d.day || 'none'}
+                  onClick={() => onSelect(active ? null : d.day)}
+                  className={`cursor-pointer border-b border-slate-100 transition-colors dark:border-slate-800/80 ${
+                    active ? 'bg-violet-100/70 dark:bg-violet-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                  }`}
+                >
+                  <td className="px-3 py-2 font-bold text-slate-800 dark:text-slate-100">{vnDay(d.day)}</td>
+                  <td className="px-3 py-2 text-center tnum">{formatNumber(d.ticketsA)}</td>
+                  <td className="px-3 py-2 text-center tnum">{formatNumber(d.ticketsB)}</td>
+                  <td className="px-3 py-2 text-center tnum">
+                    <Delta n={d.ticketsA - d.ticketsB} unit="" />
+                  </td>
+                  <td className="px-3 py-2 text-right tnum">{formatNumber(d.depositA)}</td>
+                  <td className="px-3 py-2 text-right tnum">{formatNumber(d.depositB)}</td>
+                  <td className="px-3 py-2 text-right tnum">
+                    <Delta n={d.depositA - d.depositB} unit="đ" />
+                  </td>
+                  <td className="px-3 py-2 text-center">
+                    {d.diffPhones > 0 ? (
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-black text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
+                        {d.diffPhones}
+                      </span>
+                    ) : (
+                      <CheckCircle className="mx-auto size-4 text-emerald-500" weight="fill" />
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+          <tfoot className="sticky bottom-0 bg-amber-50 font-black dark:bg-amber-950/40">
+            <tr>
+              <td className="px-3 py-2.5 text-slate-900 dark:text-white">TỔNG</td>
+              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.ticketsA)}</td>
+              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.ticketsB)}</td>
+              <td className="px-3 py-2.5 text-center tnum">
+                <Delta n={total.ticketsA - total.ticketsB} unit="" />
+              </td>
+              <td className="px-3 py-2.5 text-right tnum">{formatNumber(total.depositA)}</td>
+              <td className="px-3 py-2.5 text-right tnum">{formatNumber(total.depositB)}</td>
+              <td className="px-3 py-2.5 text-right tnum">
+                <Delta n={total.depositA - total.depositB} unit="đ" />
+              </td>
+              <td className="px-3 py-2.5 text-center tnum">{formatNumber(total.diffPhones)}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 export default function TicketComparePage() {
   const [fileA, setFileA] = useState<File | null>(null);
   const [fileB, setFileB] = useState<File | null>(null);
@@ -435,6 +610,8 @@ export default function TicketComparePage() {
 
   const [activeTab, setActiveTab] = useState<TabKey>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  // Ngày khởi hành đang lọc (bấm từ bảng theo ngày); null = mọi ngày
+  const [dayFilter, setDayFilter] = useState<string | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<Set<string>>(new Set());
 
   const showToast = useToast();
@@ -452,6 +629,7 @@ export default function TicketComparePage() {
       const data = await ticketCompareApi.compare(fileA, fileB);
       setResult(data);
       setActiveTab('all');
+      setDayFilter(null);
       setExpandedKeys(new Set());
       showToast('Đối chiếu dữ liệu thành công!', 'success');
     } catch (err) {
@@ -468,7 +646,7 @@ export default function TicketComparePage() {
     result.onlyInA.forEach((r) => {
       list.push({
         ...r,
-        key: `onlyA-${r.phone}`,
+        key: `onlyA-${r.phone}-${r.day ?? ''}`,
         category: 'onlyA',
       });
     });
@@ -476,7 +654,7 @@ export default function TicketComparePage() {
     result.onlyInB.forEach((r) => {
       list.push({
         ...r,
-        key: `onlyB-${r.phone}`,
+        key: `onlyB-${r.phone}-${r.day ?? ''}`,
         category: 'onlyB',
       });
     });
@@ -484,7 +662,7 @@ export default function TicketComparePage() {
     result.mismatched.forEach((r) => {
       list.push({
         ...r,
-        key: `mismatch-${r.phone}`,
+        key: `mismatch-${r.phone}-${r.day ?? ''}`,
         category: 'mismatched',
       });
     });
@@ -503,17 +681,20 @@ export default function TicketComparePage() {
       list = list.filter((item) => item.category === 'mismatched');
     }
 
+    if (dayFilter !== null) list = list.filter((item) => (item.day ?? '') === dayFilter);
+
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       list = list.filter(
         (item) =>
           item.phone.toLowerCase().includes(q) ||
-          (item.customerName && item.customerName.toLowerCase().includes(q)),
+          (item.customerName && item.customerName.toLowerCase().includes(q)) ||
+          (item.day !== undefined && vnDay(item.day).includes(q)),
       );
     }
 
     return list;
-  }, [allItems, activeTab, searchQuery]);
+  }, [allItems, activeTab, searchQuery, dayFilter]);
 
   const toggleExpand = (key: string) => {
     setExpandedKeys((prev) => {
@@ -583,7 +764,7 @@ export default function TicketComparePage() {
           <div>
             <h2 className="text-base font-bold text-slate-900 dark:text-white">Chọn 2 nguồn dữ liệu đối soát</h2>
             <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
-              Hệ thống gom nhóm theo số điện thoại để tìm số chỉ có ở một bên hoặc bị lệch số vé.
+              Hệ thống gom theo số điện thoại và ngày khởi hành để tìm vé chỉ có ở một bên, lệch số vé hoặc lệch tiền cọc.
             </p>
           </div>
           {(fileA || fileB) && (
@@ -714,13 +895,67 @@ export default function TicketComparePage() {
               icon={WarningCircle}
             />
             <StatBox
-              title="Lệch số lượng vé"
+              title="Lệch vé hoặc cọc"
               value={result.mismatched.length}
-              subtext="Cùng SĐT nhưng khác số vé"
+              subtext="Có ở cả 2 bên nhưng khác số vé / tiền cọc"
               tone="amber"
               icon={Warning}
             />
           </div>
+
+          {/* Tiền cọc hai bên */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 dark:border-violet-900/50 dark:bg-violet-950/20">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <Coins className="size-4 text-violet-600" weight="fill" />
+                Tổng cọc {nameA}
+              </div>
+              <div className="mt-1.5 text-xl font-black text-slate-900 dark:text-white tnum">{formatMoney(result.totalDepositA)}</div>
+            </div>
+            <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 dark:border-violet-900/50 dark:bg-violet-950/20">
+              <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                <Coins className="size-4 text-violet-600" weight="fill" />
+                Tổng cọc {nameB}
+              </div>
+              <div className="mt-1.5 text-xl font-black text-slate-900 dark:text-white tnum">{formatMoney(result.totalDepositB)}</div>
+            </div>
+            {(() => {
+              const d = result.totalDepositA - result.totalDepositB;
+              return (
+                <div
+                  className={`rounded-xl border p-4 ${
+                    d === 0
+                      ? 'border-emerald-200 bg-emerald-50/70 dark:border-emerald-900/50 dark:bg-emerald-950/20'
+                      : 'border-rose-200 bg-rose-50/70 dark:border-rose-900/50 dark:bg-rose-950/20'
+                  }`}
+                >
+                  <div className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Chênh lệch cọc (A - B)</div>
+                  <div
+                    className={`mt-1.5 text-xl font-black tnum ${
+                      d === 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+                    }`}
+                  >
+                    {d === 0 ? 'Khớp 0đ' : signed(d, 'đ')}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
+          {result.comparedByDay ? (
+            <DaySummaryTable
+              days={result.byDay}
+              nameA={nameA}
+              nameB={nameB}
+              selectedDay={dayFilter}
+              onSelect={setDayFilter}
+            />
+          ) : (
+            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-xs text-slate-600 dark:border-slate-800 dark:bg-slate-900/40 dark:text-slate-300">
+              <Info className="size-4 shrink-0" weight="fill" />
+              <span>Một trong hai file không có cột ngày khởi hành nên chỉ so theo số điện thoại.</span>
+            </div>
+          )}
 
           {(result.cancelledCountA > 0 || result.cancelledCountB > 0) && (
             <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50/60 px-4 py-2.5 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
@@ -793,7 +1028,7 @@ export default function TicketComparePage() {
                         : 'bg-white text-amber-700 hover:bg-amber-50 border border-amber-200 dark:bg-slate-800 dark:text-amber-300 dark:border-amber-900'
                     }`}
                   >
-                    <span>Lệch số vé</span>
+                    <span>Lệch vé / cọc</span>
                     <span className="rounded-full bg-amber-100 px-1.5 py-0.2 text-[10px] text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
                       {result.mismatched.length}
                     </span>
@@ -806,7 +1041,7 @@ export default function TicketComparePage() {
                     <MagnifyingGlass className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
                     <input
                       type="text"
-                      placeholder="Tìm theo SĐT hoặc tên..."
+                      placeholder="Tìm theo SĐT, tên hoặc ngày..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       className="w-full rounded-lg border border-slate-300 bg-white py-1.5 pl-9 pr-3 text-xs font-medium text-slate-800 placeholder-slate-400 focus:border-blue-600 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
@@ -867,7 +1102,7 @@ export default function TicketComparePage() {
                   <thead className="sticky top-0 z-10 bg-slate-100/95 backdrop-blur-xs dark:bg-slate-800/95">
                     <tr>
                       <th className="px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
-                        Số điện thoại
+                        {result.comparedByDay ? 'SĐT · Ngày KH' : 'Số điện thoại'}
                       </th>
                       <th className="px-4 py-3 text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
                         Tên khách hàng
@@ -882,7 +1117,10 @@ export default function TicketComparePage() {
                         {nameB}
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
-                        Chênh lệch
+                        Chênh vé
+                      </th>
+                      <th className="px-4 py-3 text-right text-xs font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 border-b border-slate-200 dark:border-slate-700">
+                        Cọc A / B
                       </th>
                     </tr>
                   </thead>

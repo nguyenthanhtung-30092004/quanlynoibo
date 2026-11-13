@@ -1,6 +1,6 @@
 import ExcelJS from 'exceljs';
 import { describe, expect, it } from 'vitest';
-import { parseTicketWorkbook } from './ticket-compare.parser.js';
+import { depositScale, parseDeposit, parseTicketWorkbook } from './ticket-compare.parser.js';
 
 async function workbookBuffer(rows: unknown[][]): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
@@ -18,7 +18,7 @@ describe('parseTicketWorkbook', () => {
     ]);
     const { rows, cancelledCount } = await parseTicketWorkbook(buffer);
     expect(cancelledCount).toBe(0);
-    expect(rows).toEqual([
+    expect(rows).toMatchObject([
       {
         phone: '0355790076',
         quantity: 1,
@@ -46,7 +46,7 @@ describe('parseTicketWorkbook', () => {
     ]);
     const { rows } = await parseTicketWorkbook(buffer);
     // SĐT dạng số bị mất số 0 đầu (968152988) phải được bù lại thành 0968152988
-    expect(rows).toEqual([
+    expect(rows).toMatchObject([
       { phone: '0968152988', quantity: 1, customerName: 'thanh', route: 'Hà Nội - Thái Bình' },
       { phone: '0375948661', quantity: 4, customerName: 'c thu nhài', route: 'Thái Bình - Hà Nội' },
     ]);
@@ -59,7 +59,7 @@ describe('parseTicketWorkbook', () => {
       ['0902222222', 1, 'Đã hủy'],
     ]);
     const { rows, cancelledCount } = await parseTicketWorkbook(buffer);
-    expect(rows.map((r) => r.phone)).toEqual(['0901111111']);
+    expect(rows.map((r) => r.phone)).toMatchObject(['0901111111']);
     expect(cancelledCount).toBe(1);
   });
 
@@ -108,5 +108,74 @@ describe('parseTicketWorkbook', () => {
       ['A', 'Hà Nội - Thái Bình'],
     ]);
     await expect(parseTicketWorkbook(buffer)).rejects.toThrow(/Số điện thoại/);
+  });
+});
+
+describe('file đối chiếu công nợ nhà xe (nhiều sheet, cột Ngày / SDT / Đã thu tiền)', () => {
+  it('bỏ qua sheet không có cột SĐT, đọc gộp các sheet có SĐT; lấy ngày và tiền đã thu', async () => {
+    const wb = new ExcelJS.Workbook();
+    const pivot = wb.addWorksheet('Sheet1');
+    pivot.addRow(['Row Labels', 'Sum of Đã thu tiền']);
+    pivot.addRow(['01/10/2026', 270000]);
+    const header = ['Ngày', 'Giờ đi', 'Xe', 'Khách hàng', 'SDT', 'Tuyến', 'Tổng số vé', 'Tổng số vé', 'Thành tiền', 'Phụ thu', 'Thành tiền', 'Đã thu tiền'];
+    const khach = wb.addWorksheet('Vé khách');
+    khach.addRow(['BẢNG CHI TIẾT ĐỐI CHIẾU CÔNG NỢ']);
+    khach.addRow(header);
+    khach.addRow(['01/10/2026', '05:00', '15H', 'Lan', '0869406881', 'Hải Phòng - Hà Nội', 1, 0, 260000, 0, 260000, 0]);
+    khach.addRow(['Số còn lại thanh toán', '', '', '', '', '', '', '', 11092500]);
+    // Dòng tổng tiền có số lọt vào cột SĐT: không phải số điện thoại nên bị bỏ
+    khach.addRow(['Số còn lại thanh toán TM', '', '', '', 11092500]);
+    const hang = wb.addWorksheet('Vé Hàng');
+    hang.addRow(header);
+    hang.addRow(['07/10/2026', '11:00', '29G', 'GỬI GIẤY TỜ', '0382218267', 'Hà Nội - Hải Phòng', 1, 1, 170000, 0, 170000, 170000]);
+    const { rows } = await parseTicketWorkbook(Buffer.from(await wb.xlsx.writeBuffer()));
+    expect(rows).toMatchObject([
+      { phone: '0869406881', day: '2026-10-01', quantity: 1, deposit: 0 },
+      { phone: '0382218267', day: '2026-10-07', quantity: 1, deposit: 170000 },
+    ]);
+  });
+
+  it('file nội bộ: lấy NGÀY KHỞI HÀNH và ĐÃ CỌC (nghìn đồng quy ra đồng)', async () => {
+    const buffer = await workbookBuffer([
+      ['NGÀY VÀO SỐ', 'TÊN KHÁCH', ' SỐ ĐiỆN THOẠI', 'NGÀY KHỞI HÀNH ', 'SỐ GHế ', 'ĐÃ CỌC '],
+      [new Date(Date.UTC(2026, 8, 30)), 'huệ', 934337344, new Date(Date.UTC(2026, 9, 1)), 2, 260],
+    ]);
+    const { rows } = await parseTicketWorkbook(buffer);
+    expect(rows).toMatchObject([{ phone: '0934337344', day: '2026-10-01', quantity: 2, deposit: 260000 }]);
+  });
+
+  it('cột "Chuyến" gộp ngày giờ cũng lấy được ngày khởi hành', async () => {
+    const buffer = await workbookBuffer([
+      ['Số điện thoại', 'Chuyến'],
+      ['0355790076', '22-10-2026 15:30'],
+    ]);
+    expect((await parseTicketWorkbook(buffer)).rows[0].day).toBe('2026-10-22');
+  });
+});
+
+describe('parseDeposit và đơn vị tiền', () => {
+  it('đọc đúng số trong ô: số, chữ có dấu chấm, chữ có "k"', () => {
+    expect(parseDeposit(170)).toBe(170);
+    expect(parseDeposit(170000)).toBe(170000);
+    expect(parseDeposit('170.000')).toBe(170000);
+    expect(parseDeposit('250k')).toBe(250000);
+    expect(parseDeposit(null)).toBe(0);
+    expect(parseDeposit(0)).toBe(0);
+    expect(parseDeposit('abc')).toBe(0);
+  });
+
+  it('cả file đều nhỏ hơn 20.000 -> nghìn đồng (kể cả 1000 = 1 triệu); có số lớn -> đồng', () => {
+    expect(depositScale([170, 260, 1000, 0])).toBe(1000);
+    expect(depositScale([170000, 1000000])).toBe(1);
+    expect(depositScale([0, 0])).toBe(1);
+  });
+
+  it('file nội bộ cọc 1000 (nghìn đồng) đọc ra 1.000.000đ', async () => {
+    const buffer = await workbookBuffer([
+      ['SỐ ĐIỆN THOẠI', 'NGÀY KHỞI HÀNH', 'ĐÃ CỌC'],
+      ['0986588288', '31/10/2026', 1000],
+      ['0912345678', '31/10/2026', 170],
+    ]);
+    expect((await parseTicketWorkbook(buffer)).rows.map((r) => r.deposit)).toEqual([1000000, 170000]);
   });
 });
