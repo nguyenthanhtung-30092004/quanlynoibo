@@ -24,6 +24,14 @@ import type { Order, OrderFilters } from '../types';
 const TH_CELL = TH;
 const TD_CELL = TD;
 
+/** Gõ toàn số (có thể kèm dấu cách, chấm, +) thì là tìm theo số điện thoại */
+function notFoundText(search: string): string {
+  const isPhone = /^[\d\s.+-]+$/.test(search);
+  return isPhone
+    ? `Không tìm thấy số điện thoại "${search}".`
+    : `Không tìm thấy đơn nào khớp "${search}".`;
+}
+
 interface OrdersTableViewProps {
   ordersList: Order[];
   totalOrders: number;
@@ -53,6 +61,8 @@ export function OrdersTableView({
   onSelectOrder,
   onOpenCreate,
 }: OrdersTableViewProps) {
+  // Đang tìm kiếm mà không ra đơn nào thì báo không tìm thấy, không báo "chưa có đơn nào"
+  const searchText = filters.search.trim();
   const colProps = {
     local: localFilters,
     filters,
@@ -97,14 +107,20 @@ export function OrdersTableView({
                 >
                   <div className="flex flex-col items-center justify-center gap-3">
                     <TicketIcon size={36} className="text-slate-400" />
-                    <span>Chưa có đơn vé nào trong hệ thống.</span>
-                    <button
-                      type="button"
-                      onClick={onOpenCreate}
-                      className="btn-3d btn-3d-blue px-4 py-2 text-xs"
-                    >
-                      + Tạo đơn vé đầu tiên
-                    </button>
+                    {searchText ? (
+                      <span>{notFoundText(searchText)}</span>
+                    ) : (
+                      <>
+                        <span>Chưa có đơn vé nào trong hệ thống.</span>
+                        <button
+                          type="button"
+                          onClick={onOpenCreate}
+                          className="btn-3d btn-3d-blue px-4 py-2 text-xs"
+                        >
+                          + Tạo đơn vé đầu tiên
+                        </button>
+                      </>
+                    )}
                   </div>
                 </td>
               </tr>
