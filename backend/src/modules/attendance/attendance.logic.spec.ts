@@ -100,6 +100,18 @@ describe('resolveShift', () => {
     expect(resolveShift(hm(5, 5), hm(14, 30)).label).toBe('5h - 13h30');
     expect(resolveShift(hm(6, 5), hm(14, 30)).label).toBe('6h - 15h30');
   });
+
+  it('giờ ra cách hai ca gần ngang nhau (chênh ≤ 10 phút) thì nhìn giờ vào: vào 8h26 ra 18h01 là ca 8h', () => {
+    // 18h01 cách ca 8h (hết 17h30) 31 phút, cách ca 9h (hết 18h30) 29 phút
+    expect(resolveShift(hm(8, 26), hm(18, 1)).label).toBe('8h - 17h30');
+    // cùng giờ ra nhưng vào sát 9h thì vẫn là ca 9h
+    expect(resolveShift(hm(8, 55), hm(18, 1)).label).toBe('9h - 18h30');
+  });
+
+  it('giờ ra chênh rõ giữa hai ca (> 10 phút) thì vẫn theo giờ ra', () => {
+    // 18h10 cách ca 9h 20 phút, cách ca 8h 40 phút
+    expect(resolveShift(hm(8, 26), hm(18, 10)).label).toBe('9h - 18h30');
+  });
 });
 
 describe('evaluateDay', () => {
@@ -117,6 +129,12 @@ describe('evaluateDay', () => {
 
   it('ngày đã qua chỉ có một lượt: thiếu lượt ra, không tính công', () => {
     expect(day('05:30', '05:30', 1, false)).toMatchObject({ status: 'missing_out', cong: 0 });
+  });
+
+  it('vào 8h26 ra 18h01: ca 8h, đủ 1 công, vào muộn 26 phút (không bị đoán thành ca 9h mất nửa công)', () => {
+    const r = day('08:26', '18:01', 2);
+    expect(r).toMatchObject({ status: 'done', cong: 1, lateMinutes: 26, overtimeHours: 0 });
+    expect(r.shift?.label).toBe('8h - 17h30');
   });
 
   it('vào 5h30 ra 13h30: ca 5h, vào muộn 30 phút nên chưa đủ ca, nửa công', () => {

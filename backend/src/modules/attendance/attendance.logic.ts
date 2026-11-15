@@ -72,21 +72,32 @@ export const SHIFTS: readonly Shift[] = [
 ];
 
 /**
+ * Giờ ra cách giờ kết thúc của hai ca chênh nhau không quá bấy nhiêu phút thì coi là "ngang nhau"
+ * (vd ra 18h01 cách ca 8h 31 phút, cách ca 9h 29 phút), lúc đó nhìn giờ vào để chọn.
+ */
+const END_GAP_TIE_MINUTES = 10;
+
+/**
  * Đoán nhân viên làm ca nào từ giờ quẹt vào và giờ quẹt ra.
  * Giờ ra quyết định: chọn ca có giờ kết thúc gần giờ ra nhất (vào 5h05 ra 13h30 là ca 5h, vào muộn;
- * vào 5h05 ra 15h30 là ca 6h, vào sớm). Bằng nhau thì chọn ca có giờ bắt đầu gần giờ vào hơn.
+ * vào 5h05 ra 15h30 là ca 6h, vào sớm).
+ * Riêng khi giờ ra cách giờ kết thúc của hai ca gần như ngang nhau (chênh không quá END_GAP_TIE_MINUTES)
+ * thì giờ ra không phân biệt được, chọn ca có giờ bắt đầu gần giờ vào hơn: vào 8h26 ra 18h01 là ca 8h chứ không phải ca 9h.
  */
 export function resolveShift(inMinute: number, outMinute: number): Shift {
+  const endGap = (s: Shift) => Math.abs(s.endMinute - outMinute);
+  const bestEndGap = Math.min(...SHIFTS.map(endGap));
+
   let best = SHIFTS[0];
-  let bestEnd = Infinity;
-  let bestStart = Infinity;
+  let bestStartGap = Infinity;
+  let bestOwnEndGap = Infinity;
   for (const s of SHIFTS) {
-    const endGap = Math.abs(s.endMinute - outMinute);
+    if (endGap(s) > bestEndGap + END_GAP_TIE_MINUTES) continue;
     const startGap = Math.abs(s.startMinute - inMinute);
-    if (endGap < bestEnd || (endGap === bestEnd && startGap < bestStart)) {
+    if (startGap < bestStartGap || (startGap === bestStartGap && endGap(s) < bestOwnEndGap)) {
       best = s;
-      bestEnd = endGap;
-      bestStart = startGap;
+      bestStartGap = startGap;
+      bestOwnEndGap = endGap(s);
     }
   }
   return best;
