@@ -35,8 +35,14 @@ const timeText = (iso: string | null) =>
 
 const hoursText = (h: number) => `${String(h).replace('.', ',')} giờ`;
 
-/** Số cột của hàng ô tóm tắt theo số ô đang hiện (4 ô cố định, thêm bảo hiểm / ứng lương khi có); class viết đủ để Tailwind nhận ra */
-const STAT_COLS: Record<number, string> = { 4: 'lg:grid-cols-4', 5: 'lg:grid-cols-5', 6: 'lg:grid-cols-6' };
+/** Số cột của hàng ô tóm tắt theo số ô đang hiện (4 ô cố định, thêm các khoản khi có); class viết đủ để Tailwind nhận ra */
+const STAT_COLS: Record<number, string> = {
+  4: 'lg:grid-cols-4',
+  5: 'lg:grid-cols-5',
+  6: 'lg:grid-cols-6',
+  7: 'lg:grid-cols-4',
+  8: 'lg:grid-cols-4',
+};
 
 interface PayrollDetailModalProps {
   staff: PayrollStaff;
@@ -148,7 +154,17 @@ export function PayrollDetailModal({
         </label>
       </div>
 
-      <div className={`mb-4 grid grid-cols-2 gap-2.5 ${STAT_COLS[4 + Number(result.insurance > 0) + Number(result.advance > 0)]}`}>
+      <div
+        className={`mb-4 grid grid-cols-2 gap-2.5 ${
+          STAT_COLS[
+            4 +
+              Number(result.insurance > 0) +
+              Number(result.advance > 0) +
+              Number(result.managerAllowance > 0) +
+              Number(result.deductionTotal > 0)
+          ]
+        }`}
+      >
         <Stat label="Công thực tế" value={`${result.workDays} / ${result.standardDays}`} note="công" />
         <Stat
           label="Thưởng ngày"
@@ -171,6 +187,23 @@ export function PayrollDetailModal({
         {/* Ứng lương bằng 0 (chưa ứng) thì bỏ hẳn ô này */}
         {result.advance > 0 && (
           <Stat label="Ứng lương" value={`−${money(result.advance)}đ`} note="đã ứng trong tháng" tone="red" />
+        )}
+        {result.managerAllowance > 0 && (
+          <Stat
+            label="Trưởng phòng"
+            value={`+${money(result.managerAllowance)}đ`}
+            note="phụ cấp tháng này"
+            tone="teal"
+          />
+        )}
+        {/* Mỗi khoản trừ kèm lý do nằm ở ghi chú của ô */}
+        {result.deductionTotal > 0 && (
+          <Stat
+            label="Trừ do lỗi"
+            value={`−${money(result.deductionTotal)}đ`}
+            note={result.deductions.map((d) => d.reason || 'chưa ghi lý do').join('; ')}
+            tone="red"
+          />
         )}
         {/* Bảo hiểm bằng 0 thì bỏ hẳn ô này */}
         {result.insurance > 0 && (

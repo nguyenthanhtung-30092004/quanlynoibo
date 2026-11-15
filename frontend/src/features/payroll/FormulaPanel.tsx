@@ -25,6 +25,7 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
   insuranceDefault: 567_000,
+  managerAllowance: 1_000_000,
 };
 
 const vnd = (n: number) => `${money(Math.round(n))}đ`;
@@ -442,6 +443,33 @@ export function FormulaPanel({
                   ariaLabel="Bảo hiểm mặc định mỗi tháng"
                   value={config.insuranceDefault}
                   onChange={(insuranceDefault) => set({ insuranceDefault })}
+                />
+              </Field>
+            </div>
+          </Rule>
+
+          {/* 10. Phụ cấp trưởng phòng */}
+          <Rule
+            no={10}
+            title="Phụ cấp trưởng phòng"
+            desc="Tháng nào một nhân viên làm trưởng phòng thì tick ô Trưởng phòng của người đó trong bảng lương, tháng đó được cộng thêm khoản này (cố định, không chia theo công). Tháng sau đổi người thì tháng đã lưu không bị đổi theo. Để 0 là không cộng."
+            example={
+              config.managerAllowance > 0 ? (
+                <>
+                  Trưởng phòng được <b>+{vnd(config.managerAllowance)}</b> vào tổng lương tháng đó.
+                </>
+              ) : (
+                <>Đang để 0đ nên chưa cộng phụ cấp trưởng phòng.</>
+              )
+            }
+          >
+            <div className="max-w-xs">
+              <Field label="Phụ cấp trưởng phòng mỗi tháng" unit="đ / tháng">
+                <MoneyInput
+                  className="!h-10"
+                  ariaLabel="Phụ cấp trưởng phòng mỗi tháng"
+                  value={config.managerAllowance}
+                  onChange={(managerAllowance) => set({ managerAllowance })}
                 />
               </Field>
             </div>

@@ -27,6 +27,15 @@ export interface PayrollConfig {
   overtimePerHour: number;
   /** Bảo hiểm trừ vào lương mỗi tháng: mức mặc định cho nhân viên chưa có số riêng của tháng đó */
   insuranceDefault: number;
+  /** Phụ cấp cộng thêm vào lương tháng của người làm trưởng phòng */
+  managerAllowance: number;
+}
+
+/** Một khoản trừ lương do mắc lỗi; lý do có thể để trống */
+export interface PayrollDeduction {
+  /** Số tiền bị trừ, luôn dương */
+  amount: number;
+  reason: string;
 }
 
 export interface PayrollEntry {
@@ -41,6 +50,10 @@ export interface PayrollEntry {
   insurance: number | null;
   /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ có ở từng tháng, không có mức mặc định */
   advance: number;
+  /** Tháng này người đó làm trưởng phòng: được cộng `config.managerAllowance` */
+  isManager: boolean;
+  /** Các khoản trừ do mắc lỗi trong tháng, trừ vào tổng lương */
+  deductions: PayrollDeduction[];
 }
 
 export interface PayrollDay {

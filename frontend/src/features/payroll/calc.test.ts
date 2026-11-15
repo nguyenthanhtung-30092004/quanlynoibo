@@ -19,6 +19,7 @@ const config: PayrollConfig = {
   overtimePerHour: 0,
   // 0 để các phép tính khác không bị lẫn khoản bảo hiểm; phần bảo hiểm có bộ test riêng bên dưới
   insuranceDefault: 0,
+  managerAllowance: 1_000_000,
 };
 
 const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
@@ -28,6 +29,8 @@ const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
   note: '',
   insurance: null,
   advance: 0,
+  isManager: false,
+  deductions: [],
   ...over,
 });
 
@@ -47,6 +50,58 @@ describe('dayBonus', () => {
     expect(dayBonus(2_499_999, config.dailyBonuses)).toBe(50_000);
     expect(dayBonus(2_500_000, config.dailyBonuses)).toBe(100_000);
     expect(dayBonus(9_000_000, config.dailyBonuses)).toBe(100_000);
+  });
+});
+
+describe('phụ cấp trưởng phòng', () => {
+  it('trưởng phòng được cộng thêm phụ cấp vào tổng lương', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ isManager: true }) });
+    expect(r.managerAllowance).toBe(1_000_000);
+    expect(r.total).toBe(4_200_000 + 1_000_000);
+  });
+
+  it('không phải trưởng phòng thì không được cộng', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry() });
+    expect(r.managerAllowance).toBe(0);
+    expect(r.total).toBe(4_200_000);
+  });
+
+  it('phụ cấp cố định, không chia theo công', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ isManager: true, workDays: 13.5 }) });
+    expect(r.managerAllowance).toBe(1_000_000);
+  });
+});
+
+describe('khoản trừ do lỗi', () => {
+  it('trừ tổng các khoản vào tổng lương và giữ lý do từng khoản', () => {
+    const deductions = [
+      { amount: 100_000, reason: 'Sai giờ xe' },
+      { amount: 50_000, reason: '' },
+    ];
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ deductions }) });
+    expect(r.deductionTotal).toBe(150_000);
+    expect(r.deductions).toEqual(deductions);
+    expect(r.total).toBe(4_200_000 - 150_000);
+  });
+
+  it('khoản số 0 hoặc âm bị bỏ, không biến thành cộng tiền', () => {
+    const deductions = [
+      { amount: 0, reason: 'chưa nhập' },
+      { amount: -20_000, reason: 'nhập nhầm' },
+    ];
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ deductions }) });
+    expect(r.deductions).toEqual([]);
+    expect(r.total).toBe(4_200_000);
+  });
+
+  it('trưởng phòng bị trừ lỗi thì cộng phụ cấp rồi trừ khoản lỗi', () => {
+    const r = computePayroll({
+      config,
+      daysInMonth: 31,
+      daily: {},
+      entry: entry({ isManager: true, deductions: [{ amount: 200_000, reason: 'Làm mất vé' }] }),
+    });
+    expect(r.total).toBe(4_200_000 + 1_000_000 - 200_000);
   });
 });
 

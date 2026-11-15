@@ -37,6 +37,15 @@ export interface PayrollConfig {
    * (xem `PayrollService.save`), nên đổi mức mặc định sau này không làm đổi các tháng đã lưu.
    */
   insuranceDefault: number;
+  /** Phụ cấp cộng thêm vào lương tháng của người được đánh dấu là trưởng phòng */
+  managerAllowance: number;
+}
+
+/** Một khoản trừ lương do mắc lỗi, kèm lý do (Admin có thể để trống lý do) */
+export interface PayrollDeduction {
+  /** Số tiền bị trừ, luôn dương */
+  amount: number;
+  reason: string;
 }
 
 /** Phần nhập tay của từng nhân viên trong một tháng */
@@ -52,7 +61,14 @@ export interface PayrollEntry {
   insurance: number | null;
   /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ nhập cho từng tháng, không có mức mặc định */
   advance: number;
+  /** Tháng này người đó làm trưởng phòng: được cộng `config.managerAllowance` */
+  isManager: boolean;
+  /** Các khoản trừ do mắc lỗi trong tháng, trừ vào tổng lương */
+  deductions: PayrollDeduction[];
 }
+
+/** Một người một tháng không có quá chừng này khoản trừ (chặn dữ liệu rác) */
+const MAX_DEDUCTIONS = 30;
 
 export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   levels: [
@@ -72,6 +88,7 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
   insuranceDefault: 567_000,
+  managerAllowance: 1_000_000,
 };
 
 export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
@@ -81,6 +98,8 @@ export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
   note: '',
   insurance: null,
   advance: 0,
+  isManager: false,
+  deductions: [],
 };
 
 const MAX_MONEY = 100_000_000_000;
@@ -144,6 +163,7 @@ export function sanitizeConfig(input: unknown): PayrollConfig {
     latePenaltyPerMinute: num(raw.latePenaltyPerMinute, def.latePenaltyPerMinute, 0, 10_000_000),
     overtimePerHour: num(raw.overtimePerHour, def.overtimePerHour, 0, 10_000_000),
     insuranceDefault: num(raw.insuranceDefault, def.insuranceDefault),
+    managerAllowance: num(raw.managerAllowance, def.managerAllowance),
   };
 }
 
@@ -168,5 +188,19 @@ export function sanitizeEntry(input: unknown, levelCount: number): PayrollEntry 
         ? null
         : num(raw.insurance, 0),
     advance: num(raw.advance, 0),
+    isManager: raw.isManager === true,
+    deductions: sanitizeDeductions(raw.deductions),
   };
+}
+
+/** Giữ các khoản trừ có số tiền dương; lý do có thể để trống */
+function sanitizeDeductions(input: unknown): PayrollDeduction[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .slice(0, MAX_DEDUCTIONS)
+    .map((d) => {
+      const o = obj(d);
+      return { amount: num(o.amount, 0), reason: text(o.reason, '', 200) };
+    })
+    .filter((d) => d.amount > 0);
 }

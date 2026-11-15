@@ -1,5 +1,5 @@
 import type { AttendanceDayCell } from '@/features/attendance/types';
-import type { PayrollConfig, PayrollDay, PayrollEntry } from './types';
+import type { PayrollConfig, PayrollDay, PayrollDeduction, PayrollEntry } from './types';
 
 export interface DayBonus {
   /** YYYY-MM-DD */
@@ -37,6 +37,12 @@ export interface PayrollResult {
   insurance: number;
   /** Tiền ứng lương đã trả trước trong tháng (số dương, đã trừ khỏi tổng lương) */
   advance: number;
+  /** Phụ cấp trưởng phòng (0 nếu tháng này không làm trưởng phòng) */
+  managerAllowance: number;
+  /** Các khoản trừ do lỗi kèm lý do (số dương, đã trừ khỏi tổng lương) */
+  deductions: PayrollDeduction[];
+  /** Tổng các khoản trừ do lỗi */
+  deductionTotal: number;
   adjustment: number;
   total: number;
 }
@@ -137,15 +143,23 @@ export function computePayroll(input: {
 
   const advance = Math.max(0, entry.advance);
 
+  const managerAllowance = entry.isManager ? Math.max(0, config.managerAllowance) : 0;
+
+  // Khoản trừ do lỗi luôn là số dương; số âm hoặc 0 bị bỏ để không thành cộng tiền
+  const deductions = entry.deductions.filter((d) => d.amount > 0);
+  const deductionTotal = deductions.reduce((sum, d) => sum + d.amount, 0);
+
   const total =
     baseSalary +
     dailyBonus +
     monthlyBonus +
     overBonus -
     latePenalty +
-    overtimePay -
+    overtimePay +
+    managerAllowance -
     insurance -
-    advance +
+    advance -
+    deductionTotal +
     entry.adjustment;
 
   return {
@@ -165,6 +179,9 @@ export function computePayroll(input: {
     overtimePay,
     insurance,
     advance,
+    managerAllowance,
+    deductions,
+    deductionTotal,
     adjustment: entry.adjustment,
     total,
   };

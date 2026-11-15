@@ -152,6 +152,13 @@ export default function MyPayrollPage() {
               value={result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
               tone={result.latePenalty > 0 ? 'minus' : undefined}
             />
+            {result.managerAllowance > 0 && (
+              <Line label="Phụ cấp trưởng phòng" value={`+${vnd(result.managerAllowance)}`} tone="plus" />
+            )}
+            {/* Mỗi khoản trừ do lỗi một dòng, kèm lý do để nhân viên biết vì sao bị trừ */}
+            {result.deductions.map((d, i) => (
+              <Line key={i} label="Trừ do lỗi" note={d.reason || undefined} value={`−${vnd(d.amount)}`} tone="minus" />
+            ))}
             {/* Bảo hiểm bằng 0 (Admin đã bỏ cho người này) thì không hiện dòng này */}
             {result.insurance > 0 && <Line label="Bảo hiểm" value={`−${vnd(result.insurance)}`} tone="minus" />}
             {/* Chưa ứng lương thì không hiện dòng này */}
