@@ -67,6 +67,14 @@ export function isReminderDue(date: string, time: string, now: Date = new Date()
   return left > 0 && left <= REMINDER_LEAD_MS;
 }
 
+/**
+ * Vé đặt khi còn từ 1,5 tiếng trở xuống là xe chạy thì khách chỉ nhận tin xác nhận,
+ * không nhắc thêm nữa (vì lúc đặt đã sát giờ rồi). Tính theo lúc tạo vé.
+ */
+export function isBookedWithinReminderWindow(date: string, time: string, createdAt: Date): boolean {
+  return departureInstant(date, time).getTime() - createdAt.getTime() <= REMINDER_LEAD_MS;
+}
+
 export function isOrderCreationLocked(now: Date = new Date()): boolean {
   const minute = getBusinessMinuteOfDay(now);
   return minute >= ORDER_CLOSE_MINUTE || minute < ORDER_OPEN_MINUTE;

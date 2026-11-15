@@ -49,6 +49,7 @@ function order(id: number, over: Record<string, unknown> = {}) {
     departureTime: dep.time,
     pickupPoint: null,
     dropoffPoint: null,
+    createdAt: at('05:00'), // đặt từ sớm (còn 3 tiếng) nên vẫn được nhắc
     ...over,
   };
 }
@@ -91,6 +92,23 @@ describe('OrdersReminderService.runOnce', () => {
       departureDate: '03/11/2026',
       bookingCode: 'XV1',
     });
+  });
+
+  it('vé đặt khi còn ≤ 1,5 tiếng thì không nhắc, chỉ ghi chú lý do', async () => {
+    const send = vi.fn().mockResolvedValue({ dryRun: false });
+    const { service, update } = build(
+      [
+        order(1, { createdAt: at('06:30') }), // đúng 1,5 tiếng
+        order(2, { phone: '0977777777', createdAt: at('07:05') }), // còn 55 phút
+        order(3, { phone: '0966666666', createdAt: at('06:29') }), // còn 91 phút, vẫn nhắc
+      ],
+      send,
+    );
+    expect(await service.runOnce(at('07:10'))).toBe(1);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(send.mock.calls[0][1].phone).toBe('0966666666');
+    expect(update).toHaveBeenCalledWith(1, { reminderError: expect.stringContaining('Đặt sát giờ') });
+    expect(update).toHaveBeenCalledWith(2, { reminderError: expect.stringContaining('Đặt sát giờ') });
   });
 
   it('một người có hai vé cùng chuyến chỉ nhận một tin', async () => {

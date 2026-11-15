@@ -5,7 +5,12 @@ import { GOODS_VEHICLE_TYPE, Order } from '../entities/order.entity.js';
 import { MessageChannel, PaymentRequiredException, toLocalPhone } from '../messaging/message.types.js';
 import { MessagingService } from '../messaging/messaging.service.js';
 import { buildBookingSms } from '../sms/sms-template.js';
-import { getBusinessDate, isReminderDue, startOfNextBusinessDay } from '../order-time-lock.js';
+import {
+  getBusinessDate,
+  isBookedWithinReminderWindow,
+  isReminderDue,
+  startOfNextBusinessDay,
+} from '../order-time-lock.js';
 
 /** Quét mỗi 30 giây nên khách nhận tin lệch tối đa 30 giây so với mốc 1,5 tiếng trước giờ đi */
 const CHECK_INTERVAL_MS = 30_000;
@@ -15,6 +20,9 @@ const WARN_EVERY_MS = 10 * 60 * 1000;
 
 /** Zalo -124: access token hết hạn là lỗi chung, không phải lỗi của riêng khách */
 const SYSTEM_ERROR_CODE = -124;
+
+/** Ghi vào vé đặt sát giờ để nhìn là biết vì sao không có tin nhắc */
+const LATE_BOOKING_NOTE = 'Đặt sát giờ (còn dưới 1,5 tiếng), chỉ gửi xác nhận, không nhắc';
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : 'lỗi không xác định';
@@ -32,6 +40,7 @@ export function isCustomerSpecificFailure(err: unknown): boolean {
 
 /**
  * Nhắc khách qua Zalo trước giờ khởi hành 1,5 tiếng, theo giờ đi trong vé (cùng SĐT của vé đó).
+ * Vé được tạo khi còn ≤ 1,5 tiếng là xe chạy thì không nhắc (khách chỉ nhận tin xác nhận).
  * Mỗi vé chỉ nhắc một lần (cột reminderSentAt). Không dùng thư viện lên lịch: một vòng lặp nhẹ là đủ,
  * giống tự chấm ra ở chấm công, và khởi động lại máy chủ vẫn nhắc bù được các chuyến còn trong khung 1,5 tiếng.
  *
@@ -108,6 +117,11 @@ export class OrdersReminderService implements OnModuleInit, OnModuleDestroy {
         { reminderSentAt: now },
       );
       if (!claim.affected) continue;
+
+      if (isBookedWithinReminderWindow(order.departureDate, order.departureTime, order.createdAt)) {
+        await this.orderRepository.update(order.id, { reminderError: LATE_BOOKING_NOTE });
+        continue;
+      }
 
       const key = [toLocalPhone(order.phone), order.routeId, order.departureDate, order.departureTime].join('|');
       if (seen.has(key)) {
