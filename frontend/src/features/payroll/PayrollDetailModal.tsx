@@ -160,7 +160,7 @@ export function PayrollDetailModal({
             4 +
               Number(result.insurance > 0) +
               Number(result.advance > 0) +
-              Number(result.managerAllowance > 0) +
+              Number(result.allowanceTotal > 0) +
               Number(result.deductionTotal > 0)
           ]
         }`}
@@ -188,11 +188,11 @@ export function PayrollDetailModal({
         {result.advance > 0 && (
           <Stat label="Ứng lương" value={`−${money(result.advance)}đ`} note="đã ứng trong tháng" tone="red" />
         )}
-        {result.managerAllowance > 0 && (
+        {result.allowanceTotal > 0 && (
           <Stat
-            label="Trưởng phòng"
-            value={`+${money(result.managerAllowance)}đ`}
-            note="phụ cấp tháng này"
+            label="Phụ cấp"
+            value={`+${money(result.allowanceTotal)}đ`}
+            note={result.allowances.map((a) => a.label).join(', ')}
             tone="teal"
           />
         )}

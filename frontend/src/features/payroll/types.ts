@@ -1,3 +1,11 @@
+/** Các loại phụ cấp cộng cố định theo tháng; khóa phải trùng `ALLOWANCE_KEYS` ở backend (payroll.config.ts) */
+export const ALLOWANCES = [
+  { key: 'manager', label: 'Trưởng phòng' },
+  { key: 'training', label: 'Đào tạo nhân viên' },
+  { key: 'posting', label: 'Đăng bài' },
+] as const;
+export type AllowanceKey = (typeof ALLOWANCES)[number]['key'];
+
 export interface PayrollLevel {
   label: string;
   note: string;
@@ -27,8 +35,8 @@ export interface PayrollConfig {
   overtimePerHour: number;
   /** Bảo hiểm trừ vào lương mỗi tháng: mức mặc định cho nhân viên chưa có số riêng của tháng đó */
   insuranceDefault: number;
-  /** Phụ cấp cộng thêm vào lương tháng của người làm trưởng phòng */
-  managerAllowance: number;
+  /** Mức phụ cấp (đồng/tháng) của từng loại: ai được tick loại nào thì tháng đó được cộng mức này */
+  allowances: Record<AllowanceKey, number>;
 }
 
 /** Một khoản trừ lương do mắc lỗi; lý do có thể để trống */
@@ -50,8 +58,8 @@ export interface PayrollEntry {
   insurance: number | null;
   /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ có ở từng tháng, không có mức mặc định */
   advance: number;
-  /** Tháng này người đó làm trưởng phòng: được cộng `config.managerAllowance` */
-  isManager: boolean;
+  /** Các loại phụ cấp người đó được hưởng tháng này (mỗi loại cộng mức trong `config.allowances`) */
+  allowances: AllowanceKey[];
   /** Các khoản trừ do mắc lỗi trong tháng, trừ vào tổng lương */
   deductions: PayrollDeduction[];
 }

@@ -1,3 +1,11 @@
+/**
+ * Các loại phụ cấp cộng thêm cố định theo tháng (không chia theo công):
+ * trưởng phòng, đào tạo nhân viên, đăng bài. Thêm loại mới chỉ cần thêm khóa vào đây
+ * (và nhãn bên giao diện, `ALLOWANCES` ở frontend/src/features/payroll/types.ts).
+ */
+export const ALLOWANCE_KEYS = ['manager', 'training', 'posting'] as const;
+export type AllowanceKey = (typeof ALLOWANCE_KEYS)[number];
+
 /** Một bậc lương cứng (theo thâm niên) */
 export interface PayrollLevel {
   label: string;
@@ -37,8 +45,8 @@ export interface PayrollConfig {
    * (xem `PayrollService.save`), nên đổi mức mặc định sau này không làm đổi các tháng đã lưu.
    */
   insuranceDefault: number;
-  /** Phụ cấp cộng thêm vào lương tháng của người được đánh dấu là trưởng phòng */
-  managerAllowance: number;
+  /** Mức phụ cấp (đồng/tháng) của từng loại: người nào được tick loại nào thì tháng đó được cộng mức này */
+  allowances: Record<AllowanceKey, number>;
 }
 
 /** Một khoản trừ lương do mắc lỗi, kèm lý do (Admin có thể để trống lý do) */
@@ -61,8 +69,8 @@ export interface PayrollEntry {
   insurance: number | null;
   /** Tiền đã ứng trước trong tháng, trừ vào tổng lương; chỉ nhập cho từng tháng, không có mức mặc định */
   advance: number;
-  /** Tháng này người đó làm trưởng phòng: được cộng `config.managerAllowance` */
-  isManager: boolean;
+  /** Các loại phụ cấp người đó được hưởng trong tháng này (mỗi loại cộng mức trong `config.allowances`) */
+  allowances: AllowanceKey[];
   /** Các khoản trừ do mắc lỗi trong tháng, trừ vào tổng lương */
   deductions: PayrollDeduction[];
 }
@@ -88,7 +96,7 @@ export const DEFAULT_PAYROLL_CONFIG: PayrollConfig = {
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
   insuranceDefault: 567_000,
-  managerAllowance: 1_000_000,
+  allowances: { manager: 1_000_000, training: 1_000_000, posting: 1_000_000 },
 };
 
 export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
@@ -98,7 +106,7 @@ export const EMPTY_PAYROLL_ENTRY: PayrollEntry = {
   note: '',
   insurance: null,
   advance: 0,
-  isManager: false,
+  allowances: [],
   deductions: [],
 };
 
@@ -163,8 +171,30 @@ export function sanitizeConfig(input: unknown): PayrollConfig {
     latePenaltyPerMinute: num(raw.latePenaltyPerMinute, def.latePenaltyPerMinute, 0, 10_000_000),
     overtimePerHour: num(raw.overtimePerHour, def.overtimePerHour, 0, 10_000_000),
     insuranceDefault: num(raw.insuranceDefault, def.insuranceDefault),
-    managerAllowance: num(raw.managerAllowance, def.managerAllowance),
+    allowances: sanitizeAllowanceAmounts(raw.allowances, raw.managerAllowance),
   };
+}
+
+/**
+ * Mức phụ cấp từng loại; thiếu thì lấy mặc định.
+ * `legacyManager` là trường `managerAllowance` của bản lưu trước khi có nhiều loại phụ cấp.
+ */
+function sanitizeAllowanceAmounts(input: unknown, legacyManager: unknown): Record<AllowanceKey, number> {
+  const raw = obj(input);
+  const defaults = DEFAULT_PAYROLL_CONFIG.allowances;
+  return Object.fromEntries(
+    ALLOWANCE_KEYS.map((key) => {
+      const fallback = key === 'manager' ? num(legacyManager, defaults.manager) : defaults[key];
+      return [key, num(raw[key], fallback)];
+    }),
+  ) as Record<AllowanceKey, number>;
+}
+
+/** Danh sách loại phụ cấp được tick: chỉ giữ khóa hợp lệ, bỏ trùng; `legacyManager` là cờ `isManager` bản cũ */
+function sanitizeAllowanceKeys(input: unknown, legacyManager: unknown): AllowanceKey[] {
+  const picked = new Set(Array.isArray(input) ? input : []);
+  if (legacyManager === true) picked.add('manager');
+  return ALLOWANCE_KEYS.filter((key) => picked.has(key));
 }
 
 /** Chuẩn hóa dữ liệu nhập tay của một nhân viên */
@@ -188,7 +218,7 @@ export function sanitizeEntry(input: unknown, levelCount: number): PayrollEntry 
         ? null
         : num(raw.insurance, 0),
     advance: num(raw.advance, 0),
-    isManager: raw.isManager === true,
+    allowances: sanitizeAllowanceKeys(raw.allowances, raw.isManager),
     deductions: sanitizeDeductions(raw.deductions),
   };
 }

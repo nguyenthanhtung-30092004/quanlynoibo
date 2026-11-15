@@ -5,7 +5,7 @@ import { ArrowCounterClockwise, Plus, Trash } from '@phosphor-icons/react';
 import { money } from '@/features/xvip/data';
 import { MoneyInput } from './MoneyInput';
 import { dayBonus, standardDays } from './calc';
-import type { PayrollConfig } from './types';
+import { ALLOWANCES, type PayrollConfig } from './types';
 
 export const DEFAULT_CONFIG: PayrollConfig = {
   levels: [
@@ -25,7 +25,7 @@ export const DEFAULT_CONFIG: PayrollConfig = {
   latePenaltyPerMinute: 25_000,
   overtimePerHour: 25_000,
   insuranceDefault: 567_000,
-  managerAllowance: 1_000_000,
+  allowances: { manager: 1_000_000, training: 1_000_000, posting: 1_000_000 },
 };
 
 const vnd = (n: number) => `${money(Math.round(n))}đ`;
@@ -448,30 +448,29 @@ export function FormulaPanel({
             </div>
           </Rule>
 
-          {/* 10. Phụ cấp trưởng phòng */}
+          {/* 10. Phụ cấp: trưởng phòng, đào tạo nhân viên, đăng bài */}
           <Rule
             no={10}
-            title="Phụ cấp trưởng phòng"
-            desc="Tháng nào một nhân viên làm trưởng phòng thì tick ô Trưởng phòng của người đó trong bảng lương, tháng đó được cộng thêm khoản này (cố định, không chia theo công). Tháng sau đổi người thì tháng đã lưu không bị đổi theo. Để 0 là không cộng."
+            title="Phụ cấp trưởng phòng, đào tạo, đăng bài"
+            desc="Tháng nào nhân viên làm việc nào thì bấm vào nhãn tương ứng ở cột Bậc của bảng lương, tháng đó được cộng thêm khoản phụ cấp (cố định, không chia theo công). Một người được bấm nhiều nhãn. Tháng sau đổi người thì tháng đã lưu không bị đổi theo. Để 0 là không cộng."
             example={
-              config.managerAllowance > 0 ? (
-                <>
-                  Trưởng phòng được <b>+{vnd(config.managerAllowance)}</b> vào tổng lương tháng đó.
-                </>
-              ) : (
-                <>Đang để 0đ nên chưa cộng phụ cấp trưởng phòng.</>
-              )
+              <>
+                {ALLOWANCES.map((a) => `${a.label}: +${vnd(config.allowances[a.key])}`).join(' · ')}. Người làm cả hai việc thì
+                cộng cả hai khoản.
+              </>
             }
           >
-            <div className="max-w-xs">
-              <Field label="Phụ cấp trưởng phòng mỗi tháng" unit="đ / tháng">
-                <MoneyInput
-                  className="!h-10"
-                  ariaLabel="Phụ cấp trưởng phòng mỗi tháng"
-                  value={config.managerAllowance}
-                  onChange={(managerAllowance) => set({ managerAllowance })}
-                />
-              </Field>
+            <div className="grid max-w-3xl gap-3 sm:grid-cols-3">
+              {ALLOWANCES.map((a) => (
+                <Field key={a.key} label={a.label} unit="đ / tháng">
+                  <MoneyInput
+                    className="!h-10"
+                    ariaLabel={`Phụ cấp ${a.label} mỗi tháng`}
+                    value={config.allowances[a.key]}
+                    onChange={(amount) => set({ allowances: { ...config.allowances, [a.key]: amount } })}
+                  />
+                </Field>
+              ))}
             </div>
           </Rule>
         </div>

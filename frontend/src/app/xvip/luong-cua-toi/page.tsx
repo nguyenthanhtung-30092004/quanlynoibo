@@ -152,9 +152,9 @@ export default function MyPayrollPage() {
               value={result.latePenalty > 0 ? `−${vnd(result.latePenalty)}` : vnd(0)}
               tone={result.latePenalty > 0 ? 'minus' : undefined}
             />
-            {result.managerAllowance > 0 && (
-              <Line label="Phụ cấp trưởng phòng" value={`+${vnd(result.managerAllowance)}`} tone="plus" />
-            )}
+            {result.allowances.map((a) => (
+              <Line key={a.key} label={`Phụ cấp ${a.label.toLowerCase()}`} value={`+${vnd(a.amount)}`} tone="plus" />
+            ))}
             {/* Mỗi khoản trừ do lỗi một dòng, kèm lý do để nhân viên biết vì sao bị trừ */}
             {result.deductions.map((d, i) => (
               <Line key={i} label="Trừ do lỗi" note={d.reason || undefined} value={`−${vnd(d.amount)}`} tone="minus" />

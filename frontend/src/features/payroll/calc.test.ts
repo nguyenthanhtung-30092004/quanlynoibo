@@ -19,7 +19,7 @@ const config: PayrollConfig = {
   overtimePerHour: 0,
   // 0 để các phép tính khác không bị lẫn khoản bảo hiểm; phần bảo hiểm có bộ test riêng bên dưới
   insuranceDefault: 0,
-  managerAllowance: 1_000_000,
+  allowances: { manager: 1_000_000, training: 500_000, posting: 300_000 },
 };
 
 const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
@@ -29,7 +29,7 @@ const entry = (over: Partial<PayrollEntry> = {}): PayrollEntry => ({
   note: '',
   insurance: null,
   advance: 0,
-  isManager: false,
+  allowances: [],
   deductions: [],
   ...over,
 });
@@ -53,22 +53,46 @@ describe('dayBonus', () => {
   });
 });
 
-describe('phụ cấp trưởng phòng', () => {
-  it('trưởng phòng được cộng thêm phụ cấp vào tổng lương', () => {
-    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ isManager: true }) });
-    expect(r.managerAllowance).toBe(1_000_000);
+describe('phụ cấp (trưởng phòng, đào tạo, đăng bài)', () => {
+  it('được tick loại nào thì cộng mức của loại đó vào tổng lương', () => {
+    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ allowances: ['manager'] }) });
+    expect(r.allowances).toEqual([{ key: 'manager', label: 'Trưởng phòng', amount: 1_000_000 }]);
+    expect(r.allowanceTotal).toBe(1_000_000);
     expect(r.total).toBe(4_200_000 + 1_000_000);
   });
 
-  it('không phải trưởng phòng thì không được cộng', () => {
+  it('tick nhiều loại thì cộng dồn', () => {
+    const r = computePayroll({
+      config,
+      daysInMonth: 31,
+      daily: {},
+      entry: entry({ allowances: ['posting', 'training'] }),
+    });
+    expect(r.allowanceTotal).toBe(500_000 + 300_000);
+    expect(r.total).toBe(4_200_000 + 800_000);
+  });
+
+  it('không tick thì không được cộng', () => {
     const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry() });
-    expect(r.managerAllowance).toBe(0);
+    expect(r.allowances).toEqual([]);
+    expect(r.allowanceTotal).toBe(0);
     expect(r.total).toBe(4_200_000);
   });
 
+  it('mức đặt 0 thì không hiện dòng phụ cấp', () => {
+    const zero = { ...config, allowances: { ...config.allowances, training: 0 } };
+    const r = computePayroll({ config: zero, daysInMonth: 31, daily: {}, entry: entry({ allowances: ['training'] }) });
+    expect(r.allowances).toEqual([]);
+  });
+
   it('phụ cấp cố định, không chia theo công', () => {
-    const r = computePayroll({ config, daysInMonth: 31, daily: {}, entry: entry({ isManager: true, workDays: 13.5 }) });
-    expect(r.managerAllowance).toBe(1_000_000);
+    const r = computePayroll({
+      config,
+      daysInMonth: 31,
+      daily: {},
+      entry: entry({ allowances: ['manager'], workDays: 13.5 }),
+    });
+    expect(r.allowanceTotal).toBe(1_000_000);
   });
 });
 
@@ -99,7 +123,7 @@ describe('khoản trừ do lỗi', () => {
       config,
       daysInMonth: 31,
       daily: {},
-      entry: entry({ isManager: true, deductions: [{ amount: 200_000, reason: 'Làm mất vé' }] }),
+      entry: entry({ allowances: ['manager'], deductions: [{ amount: 200_000, reason: 'Làm mất vé' }] }),
     });
     expect(r.total).toBe(4_200_000 + 1_000_000 - 200_000);
   });

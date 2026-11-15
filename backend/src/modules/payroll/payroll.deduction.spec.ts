@@ -1,15 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PAYROLL_CONFIG, sanitizeConfig, sanitizeEntry } from './payroll.config.js';
 
-describe('sanitizeEntry: trưởng phòng', () => {
-  it('dữ liệu lưu từ trước (chưa có trường này) coi là không phải trưởng phòng', () => {
-    expect(sanitizeEntry({}, 4).isManager).toBe(false);
+describe('sanitizeEntry: phụ cấp', () => {
+  it('dữ liệu lưu từ trước (chưa có trường này) coi là không có phụ cấp nào', () => {
+    expect(sanitizeEntry({}, 4).allowances).toEqual([]);
   });
 
-  it('chỉ true thật sự mới là trưởng phòng, chuỗi hay số không tính', () => {
-    expect(sanitizeEntry({ isManager: true }, 4).isManager).toBe(true);
-    expect(sanitizeEntry({ isManager: 'true' }, 4).isManager).toBe(false);
-    expect(sanitizeEntry({ isManager: 1 }, 4).isManager).toBe(false);
+  it('chỉ giữ khóa hợp lệ, bỏ trùng và xếp theo thứ tự cố định', () => {
+    const { allowances } = sanitizeEntry({ allowances: ['posting', 'manager', 'posting', 'abc', 5] }, 4);
+    expect(allowances).toEqual(['manager', 'posting']);
+  });
+
+  it('cờ isManager của bản lưu cũ vẫn được hiểu là trưởng phòng', () => {
+    expect(sanitizeEntry({ isManager: true }, 4).allowances).toEqual(['manager']);
+    expect(sanitizeEntry({ isManager: 'true' }, 4).allowances).toEqual([]);
   });
 });
 
@@ -46,13 +50,21 @@ describe('sanitizeEntry: khoản trừ do lỗi', () => {
   });
 });
 
-describe('sanitizeConfig: phụ cấp trưởng phòng', () => {
-  it('công thức đã lưu từ trước lấy mức mặc định 1 triệu', () => {
-    expect(sanitizeConfig({}).managerAllowance).toBe(DEFAULT_PAYROLL_CONFIG.managerAllowance);
-    expect(DEFAULT_PAYROLL_CONFIG.managerAllowance).toBe(1_000_000);
+describe('sanitizeConfig: mức phụ cấp', () => {
+  it('công thức đã lưu từ trước lấy mức mặc định 1 triệu cho cả 3 loại', () => {
+    expect(sanitizeConfig({}).allowances).toEqual(DEFAULT_PAYROLL_CONFIG.allowances);
+    expect(DEFAULT_PAYROLL_CONFIG.allowances).toEqual({ manager: 1_000_000, training: 1_000_000, posting: 1_000_000 });
   });
 
-  it('giữ số Admin nhập', () => {
-    expect(sanitizeConfig({ managerAllowance: 1_500_000 }).managerAllowance).toBe(1_500_000);
+  it('giữ số Admin nhập cho từng loại, loại thiếu lấy mặc định', () => {
+    expect(sanitizeConfig({ allowances: { training: 500_000 } }).allowances).toEqual({
+      manager: 1_000_000,
+      training: 500_000,
+      posting: 1_000_000,
+    });
+  });
+
+  it('mức trưởng phòng của bản lưu cũ (managerAllowance) vẫn được giữ', () => {
+    expect(sanitizeConfig({ managerAllowance: 1_500_000 }).allowances.manager).toBe(1_500_000);
   });
 });

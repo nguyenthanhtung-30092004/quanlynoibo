@@ -19,7 +19,13 @@ import { PayrollDetailModal } from '@/features/payroll/PayrollDetailModal';
 import { MoneyInput } from '@/features/payroll/MoneyInput';
 import { useAttendanceMonth } from '@/features/attendance/hooks';
 import { usePayroll, useSavePayroll } from '@/features/payroll/hooks';
-import type { PayrollConfig, PayrollData, PayrollEntry } from '@/features/payroll/types';
+import {
+  ALLOWANCES,
+  type AllowanceKey,
+  type PayrollConfig,
+  type PayrollData,
+  type PayrollEntry,
+} from '@/features/payroll/types';
 import { money } from '@/features/xvip/data';
 import { ScrollTable } from '@/features/xvip/ScrollTable';
 import { matchesAllWords } from '@/features/xvip/search-rank';
@@ -34,30 +40,41 @@ const entriesOf = (data: PayrollData): Entries =>
 
 const vnd = (n: number) => `${n < 0 ? '-' : ''}${money(Math.abs(n))}đ`;
 
-/** Ô tick "Trưởng phòng": tháng này người đó được cộng phụ cấp trưởng phòng */
-function ManagerCheck({
-  checked,
+/**
+ * Một hàng nút nhỏ bật/tắt các phụ cấp (trưởng phòng, đào tạo, đăng bài) của người này trong tháng.
+ * Nút sáng màu = đang được cộng phụ cấp; xuống dòng được nên vừa cả cột hẹp lẫn màn hình điện thoại.
+ */
+function AllowanceChips({
+  selected,
   name,
-  allowance,
   onChange,
 }: {
-  checked: boolean;
+  selected: AllowanceKey[];
   name: string;
-  allowance: number;
-  onChange: (checked: boolean) => void;
+  onChange: (selected: AllowanceKey[]) => void;
 }) {
   return (
-    <label className="mt-1.5 flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300">
-      <input
-        type="checkbox"
-        className="size-4"
-        aria-label={`Trưởng phòng: ${name}`}
-        checked={checked}
-        onChange={(e) => onChange(e.target.checked)}
-      />
-      Trưởng phòng
-      {checked && allowance > 0 && <span className="text-teal-700 dark:text-teal-400">+{money(allowance)}</span>}
-    </label>
+    <div className="mt-1.5 flex flex-wrap gap-1" role="group" aria-label={`Phụ cấp của ${name}`}>
+      {ALLOWANCES.map(({ key, label }) => {
+        const on = selected.includes(key);
+        return (
+          <button
+            key={key}
+            type="button"
+            aria-pressed={on}
+            aria-label={`${label}: ${name}`}
+            onClick={() => onChange(on ? selected.filter((k) => k !== key) : [...selected, key])}
+            className={`rounded-full border px-2.5 py-1 text-[11px] font-bold leading-none transition-colors ${
+              on
+                ? 'border-teal-600 bg-teal-600 text-white'
+                : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-400'
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
 
@@ -224,7 +241,7 @@ export default function PayrollPage() {
       insurance: rows.reduce((sum, r) => sum + r.result.insurance, 0),
       advance: rows.reduce((sum, r) => sum + r.result.advance, 0),
       deductionTotal: rows.reduce((sum, r) => sum + r.result.deductionTotal, 0),
-      managerAllowance: rows.reduce((sum, r) => sum + r.result.managerAllowance, 0),
+      allowanceTotal: rows.reduce((sum, r) => sum + r.result.allowanceTotal, 0),
       adjustment: rows.reduce((sum, r) => sum + r.result.adjustment, 0),
       total: rows.reduce((sum, r) => sum + r.result.total, 0),
     }),
@@ -451,12 +468,16 @@ export default function PayrollPage() {
                             </option>
                           ))}
                         </select>
-                        <ManagerCheck
-                          checked={entry.isManager}
+                        <AllowanceChips
+                          selected={entry.allowances}
                           name={staff.fullName}
-                          allowance={config.managerAllowance}
-                          onChange={(isManager) => patchEntry(staff.id, { isManager })}
+                          onChange={(allowances) => patchEntry(staff.id, { allowances })}
                         />
+                        {result.allowanceTotal > 0 && (
+                          <span className="mt-1 block text-[11px] font-bold text-teal-700 dark:text-teal-400">
+                            +{money(result.allowanceTotal)} phụ cấp
+                          </span>
+                        )}
                       </td>
                       <td className={`${TD} text-right`}>
                         <span className="tnum text-base font-black text-slate-900 dark:text-white">
@@ -742,11 +763,11 @@ export default function PayrollPage() {
                           <span className="text-red-600 dark:text-red-400">−{vnd(result.advance)}</span>
                         </Line>
                       )}
-                      {result.managerAllowance > 0 && (
-                        <Line label="Phụ cấp trưởng phòng">
-                          <span className="text-teal-700 dark:text-teal-400">+{vnd(result.managerAllowance)}</span>
+                      {result.allowances.map((a) => (
+                        <Line key={a.key} label={`Phụ cấp ${a.label.toLowerCase()}`}>
+                          <span className="text-teal-700 dark:text-teal-400">+{vnd(a.amount)}</span>
                         </Line>
-                      )}
+                      ))}
                       {result.deductions.map((d, i) => (
                         <Line key={i} label="Trừ do lỗi" note={d.reason || 'Chưa ghi lý do'}>
                           <span className="text-red-600 dark:text-red-400">−{vnd(d.amount)}</span>
@@ -795,20 +816,17 @@ export default function PayrollPage() {
                           onChange={(advance) => patchEntry(staff.id, { advance })}
                         />
                       </label>
-                      <div className="min-w-0">
-                        <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          Chức vụ
+                      <div className="col-span-2 min-w-0">
+                        <span className="block text-xs font-semibold text-slate-500 dark:text-slate-400">
+                          Phụ cấp tháng này
                         </span>
-                        <div className="flex h-11 items-center">
-                          <ManagerCheck
-                            checked={entry.isManager}
-                            name={staff.fullName}
-                            allowance={config.managerAllowance}
-                            onChange={(isManager) => patchEntry(staff.id, { isManager })}
-                          />
-                        </div>
+                        <AllowanceChips
+                          selected={entry.allowances}
+                          name={staff.fullName}
+                          onChange={(allowances) => patchEntry(staff.id, { allowances })}
+                        />
                       </div>
-                      <div className="min-w-0">
+                      <div className="col-span-2 min-w-0">
                         <span className="mb-1 block text-xs font-semibold text-slate-500 dark:text-slate-400">
                           Trừ do lỗi
                         </span>
@@ -870,9 +888,9 @@ export default function PayrollPage() {
                       {totals.advance > 0 ? `−${vnd(totals.advance)}` : vnd(0)}
                     </span>
                   </Line>
-                  <Line label="Phụ cấp trưởng phòng">
+                  <Line label="Phụ cấp">
                     <span className="text-teal-700 dark:text-teal-400">
-                      {totals.managerAllowance > 0 ? `+${vnd(totals.managerAllowance)}` : vnd(0)}
+                      {totals.allowanceTotal > 0 ? `+${vnd(totals.allowanceTotal)}` : vnd(0)}
                     </span>
                   </Line>
                   <Line label="Trừ do lỗi">
@@ -936,7 +954,7 @@ export default function PayrollPage() {
             <>
               <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
                 <div className="font-black text-emerald-900 dark:text-emerald-200">
-                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) + Phụ cấp trưởng phòng (10) − Bảo hiểm (9) − Ứng lương (nhập từng tháng) − Trừ do lỗi (nhập từng tháng)
+                  Tổng lương = Lương cứng (1·2·3) + Thưởng ngày (4) + Thưởng tháng (5) + Thưởng vượt mốc (6) − Trừ vào muộn (7) + Tiền tăng ca (8) + Phụ cấp trưởng phòng / đào tạo / đăng bài (10) − Bảo hiểm (9) − Ứng lương (nhập từng tháng) − Trừ do lỗi (nhập từng tháng)
                 </div>
                 <p className="mt-1 text-xs text-emerald-800/80 dark:text-emerald-300/80">
                   &ldquo;Doanh số&rdquo; ở đây chính là hoa hồng được tổng hợp theo ngày vào sổ (ngày tạo vé), không tính theo ngày khách khởi hành. Công thức dùng chung cho mọi tháng; sửa số nào, bảng lương
@@ -955,7 +973,9 @@ export default function PayrollPage() {
               {config.latePenaltyPerMinute > 0 && ` Vào muộn trừ ${money(config.latePenaltyPerMinute)}đ mỗi phút.`}
               {config.overtimePerHour > 0 && ` Tăng ca ${money(config.overtimePerHour)}đ mỗi giờ.`}
               {config.insuranceDefault > 0 && ` Bảo hiểm mặc định ${money(config.insuranceDefault)}đ mỗi tháng.`}
-              {config.managerAllowance > 0 && ` Trưởng phòng +${money(config.managerAllowance)}đ mỗi tháng.`}
+              {` Phụ cấp mỗi tháng: ${ALLOWANCES.filter((a) => config.allowances[a.key] > 0)
+                .map((a) => `${a.label} +${money(config.allowances[a.key])}đ`)
+                .join(', ')}.`}
             </p>
           )
         ) : (
