@@ -187,14 +187,17 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="flex h-full flex-col bg-white dark:bg-gradient-to-b dark:from-[#091528] dark:via-xv-navy dark:to-[#060e1a] text-slate-800 dark:text-xv-text shadow-[2px_0_16px_rgba(0,0,0,0.04)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.3)] border-r border-slate-200 dark:border-[#1a2d4f] transition-colors duration-200">
-      {/* 3D Gold Logo XVIP - Sáng rõ, nổi bật và sang trọng */}
+      {/* Logo XVIP (ảnh gốc của công ty, nền trong suốt) */}
       <div className="px-5 pb-5 pt-6 text-center border-b border-slate-200/80 dark:border-[#14284B]/60">
         <Link href="/xvip" className="group inline-block">
-          <div className="inline-block rounded-2xl bg-gradient-to-b from-slate-900 to-[#102347] dark:from-[#14284B] dark:to-[#0b172d] px-5 py-2.5 shadow-[inset_0_1px_1px_rgba(255,255,255,0.2),0_4px_0_#07101f,0_8px_16px_rgba(0,0,0,0.25)] border border-[#223d70]/50 transition-transform group-hover:scale-105 active:scale-95">
-            <div className="text-3xl font-black italic tracking-wider text-transparent bg-clip-text bg-gradient-to-b from-amber-300 via-amber-400 to-amber-500 drop-shadow-[0_2px_0_#78350f]">
-              XVIP
-            </div>
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/xvip-logo.png"
+            alt="XVIP - Nơi gửi trọn niềm tin"
+            width={600}
+            height={327}
+            className="mx-auto h-auto w-44 drop-shadow-[0_2px_3px_rgba(0,0,0,0.15)] transition-transform group-hover:scale-105 active:scale-95"
+          />
           <div className="mt-2.5 text-[11px] font-black uppercase leading-tight tracking-widest text-slate-700 dark:text-slate-300 drop-shadow-sm">
             Điều hành &amp; Quản lý vé
           </div>
