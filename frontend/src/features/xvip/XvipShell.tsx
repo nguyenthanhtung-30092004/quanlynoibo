@@ -191,14 +191,14 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="px-5 pb-5 pt-6 text-center border-b border-slate-200/80 dark:border-[#14284B]/60">
         <Link href="/xvip" className="group inline-block">
           {/* Logo vàng chìm trên nền trắng: giao diện sáng đặt trong thẻ navy cho nổi; giao diện tối thẻ hòa vào nền */}
-          <div className="rounded-2xl border border-[#223d70]/60 bg-gradient-to-b from-[#14284B] to-[#0b172d] px-4 py-3 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_0_#07101f,0_8px_18px_rgba(15,42,92,0.25)] transition-transform group-hover:scale-[1.03] active:scale-95 dark:border-transparent dark:bg-none dark:p-0 dark:shadow-none">
+          <div className="rounded-2xl border border-[#223d70]/60 bg-gradient-to-b from-[#14284B] to-[#0b172d] px-3 py-2 shadow-[inset_0_1px_1px_rgba(255,255,255,0.15),0_4px_0_#07101f,0_8px_18px_rgba(15,42,92,0.25)] transition-transform group-hover:scale-[1.03] active:scale-95 dark:border-transparent dark:bg-none dark:p-0 dark:shadow-none">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/xvip-logo.png"
               alt="XVIP - Nơi gửi trọn niềm tin"
               width={600}
               height={327}
-              className="mx-auto h-auto w-40 dark:w-44"
+              className="mx-auto h-auto w-28 dark:w-32"
             />
           </div>
           <div className="mt-2.5 text-[11px] font-black uppercase leading-tight tracking-widest text-slate-700 dark:text-slate-300 drop-shadow-sm">
