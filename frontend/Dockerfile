@@ -12,7 +12,8 @@ COPY --chown=node:node --from=build /app/package*.json ./
 RUN npm ci --omit=dev && chown -R node:node /app
 COPY --chown=node:node --from=build /app/.next ./.next
 COPY --chown=node:node --from=build /app/next.config.mjs ./
-RUN mkdir -p public
+# Ảnh tĩnh (logo, robots.txt) phục vụ ở đường dẫn gốc, vd /xvip-logo.png
+COPY --chown=node:node --from=build /app/public ./public
 USER node
 EXPOSE 3000
 CMD ["npm", "start"]
