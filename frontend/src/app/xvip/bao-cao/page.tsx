@@ -385,20 +385,24 @@ export default function StaffReportPage() {
 
   // Bảng xếp hạng: Admin xem số liệu đầy đủ theo bộ lọc; nhân viên xem thứ hạng của mọi người
   // nhưng chỉ có số đơn và vé (số liệu thẻ KPI phía trên vẫn là của riêng mình)
+  // Thứ tự đi theo nút vinh danh đang chọn (vé / đơn / doanh số); bằng nhau thì xét vé rồi đơn.
+  // Nhân viên không có số doanh số của người khác nên tab doanh số vẫn xếp theo vé.
   const sortedStaff = useMemo(() => {
-    if (!isAdmin) {
-      return (kpiData?.ranking ?? []).map((r) => ({
-        id: r.staffId,
-        name: r.fullName,
-        orders: r.total,
-        tickets: r.seats,
-        revenue: 0,
-        commission: 0,
-        deposit: 0,
-      }));
-    }
-    return [...filteredStaff].sort((a, b) => b.tickets - a.tickets);
-  }, [isAdmin, kpiData, filteredStaff]);
+    const list = isAdmin
+      ? [...filteredStaff]
+      : (kpiData?.ranking ?? []).map((r) => ({
+          id: r.staffId,
+          name: r.fullName,
+          orders: r.total,
+          tickets: r.seats,
+          revenue: 0,
+          commission: 0,
+          deposit: 0,
+        }));
+    const key = (s: (typeof list)[number]) =>
+      honorMetric === 'orders' ? s.orders : honorMetric === 'commission' && isAdmin ? s.commission : s.tickets;
+    return list.sort((a, b) => key(b) - key(a) || b.tickets - a.tickets || b.orders - a.orders);
+  }, [isAdmin, kpiData, filteredStaff, honorMetric]);
 
   // Vinh danh toàn hệ thống: server trả cho cả nhân viên, không phụ thuộc phần số liệu cá nhân
   const podium = kpiData?.leaderboards?.[honorMetric] ?? (honorMetric === 'seats' ? (kpiData?.leaderboard ?? []) : []);
