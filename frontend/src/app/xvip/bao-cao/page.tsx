@@ -71,9 +71,9 @@ const VALUE_LIST_FILTER_KEYS = [
 
 /** Ba tiêu chí vinh danh */
 const HONOR_METRICS: ReadonlyArray<{ value: StaffMetric; label: string }> = [
+  { value: 'commission', label: 'Theo doanh số' },
   { value: 'seats', label: 'Theo vé' },
   { value: 'orders', label: 'Theo đơn' },
-  { value: 'commission', label: 'Theo doanh số' },
 ];
 
 function FilterChip({
@@ -187,8 +187,8 @@ export default function StaffReportPage() {
   // Bảng vé chi tiết bên dưới: cùng bộ lọc với báo cáo (thời gian, nhân viên, tuyến, đối tác)
   // Bấm thẻ "Đã cọc xvip" thì bảng đơn chỉ còn các đơn khách đã cọc
   const [depositOnly, setDepositOnly] = useState(false);
-  // Vinh danh theo vé, theo đơn hoặc theo doanh số
-  const [honorMetric, setHonorMetric] = useState<StaffMetric>('seats');
+  // Vinh danh theo doanh số (mặc định), theo vé hoặc theo đơn
+  const [honorMetric, setHonorMetric] = useState<StaffMetric>('commission');
   const orderListRef = useRef<HTMLDivElement>(null);
   const toggleDepositOnly = () => {
     const next = !depositOnly;
