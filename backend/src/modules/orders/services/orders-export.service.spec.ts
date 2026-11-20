@@ -260,7 +260,7 @@ describe('xuất Excel: tiền và tách dòng', () => {
     expect(row.getCell(col('HOA HỒNG')).value).toBe(15);
   });
 
-  it('vé chỉ ghi đầu/giữa/cuối (số ghế trống) vẫn được tính vé, tổng vé khớp dashboard', async () => {
+  it('vé chỉ ghi đầu/giữa/cuối: cột SỐ GHẾ để trống (không cộng dồn), nhưng Tổng vé ở tổng kết vẫn khớp dashboard', async () => {
     const zoneOnly = { ...base, id: 9, code: 'XV9', seatFront: 2, seatMiddle: 1, seatBack: 1 };
     const withSeats = { ...base, id: 10, code: 'XV10', seatCount: 3 };
     const sheet = await exportRows([zoneOnly, withSeats]);
@@ -269,14 +269,15 @@ describe('xuất Excel: tiền và tách dòng', () => {
       for (let c = 1; c <= header.cellCount; c++) if (header.getCell(c).value === name) return c;
       throw new Error(`Không thấy cột ${name}`);
     };
-    expect(sheet.getRow(5).getCell(col('SỐ GHẾ')).value).toBe(4);
+    expect(sheet.getRow(5).getCell(col('SỐ GHẾ')).value).toBe('');
+    expect(sheet.getRow(5).getCell(col('ĐẦU')).value).toBe(2);
     const total = sheet.getRow(7).getCell(col('SỐ GHẾ')).value as { result: number };
-    expect(total.result).toBe(4 + 3);
+    expect(total.result).toBe(3);
     let panel: ExcelJS.CellValue = null;
     sheet.eachRow((row) => {
       if (row.getCell(1).value === 'Tổng vé (vé hợp lệ)') panel = row.getCell(5).value ?? row.getCell(6).value;
     });
-    expect(panel).toMatchObject({ result: 7 });
+    expect(panel).toBe(4 + 3);
   });
 
   it('17.000 đ được ghi là 17 (giá trị thật trong ô), số lẻ nghìn giữ nguyên', async () => {

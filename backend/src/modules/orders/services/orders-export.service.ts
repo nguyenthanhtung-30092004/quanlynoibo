@@ -184,8 +184,7 @@ export class OrdersExportService {
       { header: 'ĐẦU', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatFront || '' },
       { header: 'GIỮA', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatMiddle || '' },
       { header: 'CUỐI', width: 10, align: 'center', sum: true, value: (o) => seats(o).seatBack || '' },
-      // Số vé tính giống dashboard: có số ghế thì lấy số ghế, nhà xe chỉ ghi đầu/giữa/cuối thì lấy tổng ba vị trí
-      { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => ticketsOf(o) || '' },
+      { header: 'SỐ GHẾ', width: 11, align: 'center', sum: true, value: (o) => o.seatCount || '' },
       { header: 'GIÁ NHẬP', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.costPrice), value: (o, i) => toThousands(rows[i].unit?.cost ?? o.costPrice) },
       { header: 'GIÁ BÁN', width: 16, align: 'right', money: true, sum: true, unitCol: true, sumValue: (o) => toThousands(o.sellPrice), value: (o, i) => toThousands(rows[i].unit?.sell ?? o.sellPrice) },
       // Dòng nào không có cọc thì để trống (không ghi 0): đơn cabin chỉ dòng được điền cọc mới có số
@@ -339,7 +338,8 @@ export class OrdersExportService {
       { label: 'Tổng số đơn', value: hasRows ? (hasSplitRows ? orders.length : { formula: `COUNTA(${statusRange})`, result: orders.length }) : 0 },
       { label: 'Đơn hợp lệ', value: hasRows ? (hasSplitRows ? activeCount : { formula: `COUNTIF(${statusRange},"Hợp lệ")`, result: activeCount }) : 0, color: GREEN },
       { label: 'Đơn đã hủy', value: hasRows ? (hasSplitRows ? cancelledCount : { formula: `COUNTIF(${statusRange},"ĐÃ HỦY")`, result: cancelledCount }) : 0, color: RED },
-      { label: 'Tổng vé (vé hợp lệ)', value: hasRows ? { formula: totalCell('SỐ GHẾ'), result: sumOf((o) => ticketsOf(o)) } : 0 },
+      // Tổng vé tính giống dashboard: số ghế, vé chỉ ghi đầu/giữa/cuối thì lấy tổng ba vị trí (cột SỐ GHẾ vẫn để trống)
+      { label: 'Tổng vé (vé hợp lệ)', value: hasRows ? sumOf((o) => ticketsOf(o)) : 0 },
       { label: 'Tổng giá bán (nghìn đồng, vé hợp lệ)', value: hasRows ? { formula: totalCell('GIÁ BÁN'), result: toThousands(sumOf((o) => o.sellPrice)) } : 0, fmt: thousandsFmt(toThousands(sumOf((o) => o.sellPrice))) },
       { label: 'Tổng hoa hồng (nghìn đồng, vé hợp lệ)', value: hasRows ? { formula: totalCell('HOA HỒNG'), result: toThousands(sumOf((o) => o.commission)) } : 0, fmt: thousandsFmt(toThousands(sumOf((o) => o.commission))) },
     ];
